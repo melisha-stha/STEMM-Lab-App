@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { saveTeamData } from '../hooks/storage';
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -8,7 +9,7 @@ export default function OnboardingScreen() {
   const [member1, setMember1] = useState('');
   const [grade, setGrade] = useState('');
 
-  const handleCreateTeam = () => {
+  const handleCreateTeam = async () => {
     // Basic Validation 
     if (!teamName || !member1 || !grade) {
       Alert.alert("Error", "Please fill in Team Name, at least one Member, and Grade.");
@@ -17,7 +18,9 @@ export default function OnboardingScreen() {
     // this is where we'll call Firebase/AsyncStorage logic
     console.log("Team Created:", { teamName, member1, grade });
     
-    // Navigate to the Tabs/Home (Task A2.4)
+    await saveTeamData(teamName, [member1], grade);
+
+    // Navigate to the Tabs/Home
     router.replace('/(tabs)');
   };
 
