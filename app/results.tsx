@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
+import { getTeamData, saveParachuteResults } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 function formatTime(ms: number) {
@@ -40,22 +41,45 @@ export default function ResultsScreen() {
   const success = useThemeColor({}, 'success');
 
   const attempts = useMemo(() => parseAttempts(params.attempts), [params.attempts]);
-  const best = useMemo(() => (attempts.length ? Math.min(...attempts) : null), [attempts]);
+  const best = useMemo(() => (attempts.length ? Math.max(...attempts) : null), [attempts]);
 
   const [reflection, setReflection] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = () => {
-    // Placeholder until we persist results per activity.
-    Alert.alert('Saved', 'Reflection submitted. (Next: save this to history.)');
+  const handleSubmit = async () => {
+    if (!attempts.length) {
+      Alert.alert('No attempts', 'Please record at least one attempt before submitting.');
+      return;
+    }
+    if (!reflection.trim()) {
+      Alert.alert('Add a reflection', 'Write a short note about what design worked best.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const team = await getTeamData();
+      await saveParachuteResults({
+        activity: 'parachute',
+        createdAt: Date.now(),
+        attempts,
+        bestAttempt: best,
+        comment: reflection.trim(),
+        teamName: team?.name ?? '—',
+        teamId: team?.id ?? null,
+        grade: team?.grade ?? '—',
+      });
+      router.replace('/leaderboard');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: text }]}>Results</Text>
-        <Text style={[styles.subtitle, { color: mutedText }]}>
-          Review your attempts, identify the best result, and reflect on improvements.
-        </Text>
+        <Text style={[styles.title, { color: text }]}>Parachute Results</Text>
+        <Text style={[styles.subtitle, { color: mutedText }]}>Review your attempts and submit your results.</Text>
       </View>
 
       <SectionCard>
@@ -66,32 +90,28 @@ export default function ResultsScreen() {
             No attempts were provided. Go back and record a trial first.
           </Text>
         ) : (
-          <View style={[styles.attemptsGrid, { borderTopColor: border }]}>
+          <View style={[styles.attemptsList, { borderTopColor: border }]}>
             {attempts.map((ms, idx) => {
               const isBest = best != null && ms === best;
               return (
                 <View
                   key={`${idx}-${ms}`}
                   style={[
-                    styles.attemptCard,
+                    styles.attemptRowCard,
                     {
                       backgroundColor: card,
                       borderColor: isBest ? success : border,
                     },
-                    isBest ? styles.bestCard : null,
                   ]}>
-                  <View style={styles.attemptTopRow}>
+                  <View style={styles.attemptRowLeft}>
                     <Text style={[styles.attemptLabel, { color: mutedText }]}>Attempt {idx + 1}</Text>
-                    {isBest ? (
-                      <View style={[styles.badge, { backgroundColor: success }]}>
-                        <Text style={[styles.badgeText, { color: '#071018' }]}>Best</Text>
-                      </View>
-                    ) : null}
+                    <Text style={[styles.attemptValue, { color: text }]}>{formatTime(ms)}s</Text>
                   </View>
-                  <Text style={[styles.attemptValue, { color: text }]}>{formatTime(ms)}s</Text>
-                  <Text style={[styles.attemptHint, { color: mutedText }]}>
-                    {isBest ? 'Fastest time' : 'Recorded trial'}
-                  </Text>
+                  {isBest ? (
+                    <View style={[styles.badge, { backgroundColor: success }]}>
+                      <Text style={[styles.badgeText, { color: '#071018' }]}>Best</Text>
+                    </View>
+                  ) : null}
                 </View>
               );
             })}
@@ -102,11 +122,11 @@ export default function ResultsScreen() {
       <SectionCard>
         <Text style={[styles.sectionTitle, { color: text }]}>Reflection</Text>
         <Text style={[styles.help, { color: mutedText }]}>
-          What did you change between attempts? What worked best, and why?
+          What design worked best?
         </Text>
         <Input
           label="Comment"
-          placeholder="e.g., We increased canopy size and reduced string tangles..."
+          placeholder="What design worked best?"
           value={reflection}
           onChangeText={setReflection}
           multiline
@@ -116,14 +136,13 @@ export default function ResultsScreen() {
       </SectionCard>
 
       <View style={styles.actions}>
-        <PrimaryButton label="Submit reflection" onPress={handleSubmit} disabled={reflection.trim().length === 0} />
-        <PrimaryButton label="Back to Home" variant="secondary" onPress={() => router.replace('/(tabs)')} />
         <PrimaryButton
-          label="Back to Parachute"
-          variant="secondary"
-          onPress={() => router.back()}
-          style={{ borderColor: primary }}
+          label={isSubmitting ? 'Submitting…' : 'Submit Results'}
+          onPress={handleSubmit}
+          disabled={isSubmitting || attempts.length === 0 || reflection.trim().length === 0}
         />
+        <PrimaryButton label="View leaderboard" variant="secondary" onPress={() => router.push('/leaderboard')} />
+        <PrimaryButton label="Back to dashboard" variant="secondary" onPress={() => router.replace('/(tabs)')} />
       </View>
     </ScrollView>
   );
@@ -140,36 +159,27 @@ const styles = StyleSheet.create({
   sectionTitle: { ...Typography.section, marginBottom: Spacing.sm },
   placeholder: { ...Typography.body, fontSize: 13, lineHeight: 19 },
 
-  attemptsGrid: {
+  attemptsList: {
     borderTopWidth: 1,
     paddingTop: Spacing.sm,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: Spacing.sm,
   },
-  attemptCard: {
-    width: '48%',
+  attemptRowCard: {
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-  },
-  bestCard: {
-    transform: [{ scale: 1.01 }],
-  },
-  attemptTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
   },
+  attemptRowLeft: { gap: 6 },
   attemptLabel: { ...Typography.small, fontWeight: '700' },
   attemptValue: {
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '900',
     fontVariant: ['tabular-nums'],
     letterSpacing: 0.2,
   },
-  attemptHint: { marginTop: Spacing.xs, ...Typography.small },
   badge: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,

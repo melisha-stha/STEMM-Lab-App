@@ -38,10 +38,12 @@ export default function ParachuteScreen() {
       const next = [...attempts, time];
       setAttempts(next);
       setTime(0);
-      router.push({
-        pathname: '/results',
-        params: { attempts: JSON.stringify(next) },
-      });
+      if (next.length >= 3) {
+        router.push({
+          pathname: '/results',
+          params: { attempts: JSON.stringify(next) },
+        });
+      }
       return;
     }
 
@@ -73,6 +75,14 @@ export default function ParachuteScreen() {
     setIsActive(false);
     setTime(0);
     setAttempts([]);
+  };
+
+  const finishAndViewResults = () => {
+    if (!attempts.length) return;
+    router.push({
+      pathname: '/results',
+      params: { attempts: JSON.stringify(attempts) },
+    });
   };
 
   return (
@@ -119,6 +129,13 @@ export default function ParachuteScreen() {
             onPress={resetAll}
             disabled={time === 0 && attempts.length === 0}
           />
+          <PrimaryButton
+            label="Finish"
+            variant="secondary"
+            onPress={finishAndViewResults}
+            disabled={attempts.length === 0 || isActive}
+            style={{ borderColor: primary }}
+          />
         </View>
 
         <View style={styles.helperRow}>
@@ -126,7 +143,7 @@ export default function ParachuteScreen() {
             Attempts recorded: {attempts.length}/3
           </Text>
           <Text style={[styles.helper, { color: primary }]}>
-            Best: {attempts.length ? `${formatTime(Math.min(...attempts))}s` : '—'}
+            Best: {attempts.length ? `${formatTime(Math.max(...attempts))}s` : '—'}
           </Text>
         </View>
       </View>

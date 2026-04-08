@@ -35,3 +35,27 @@ export const clearTeamData = async () => {
     console.error('Failed to clear team data', e);
   }
 };
+
+const PARACHUTE_RESULTS_KEY = '@parachute_results';
+
+export const saveParachuteResults = async (payload) => {
+  try {
+    const existing = await AsyncStorage.getItem(PARACHUTE_RESULTS_KEY);
+    const history = existing ? JSON.parse(existing) : [];
+    const next = Array.isArray(history) ? [payload, ...history] : [payload];
+    await AsyncStorage.setItem(PARACHUTE_RESULTS_KEY, JSON.stringify(next));
+    console.log('Success: Parachute results saved.');
+  } catch (e) {
+    console.error('Failed to save parachute results', e);
+  }
+};
+
+export const getParachuteResults = async () => {
+  try {
+    const existing = await AsyncStorage.getItem(PARACHUTE_RESULTS_KEY);
+    return existing ? JSON.parse(existing) : [];
+  } catch (e) {
+    console.error('Failed to load parachute results', e);
+    return [];
+  }
+};

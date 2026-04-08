@@ -7,7 +7,7 @@ import { InfoRow } from '@/components/ui/info-row';
 import { SectionCard } from '@/components/ui/section-card';
 import { Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { getTeamData } from '../../hooks/storage';
+import { getParachuteResults, getTeamData } from '../../hooks/storage';
 
 interface TeamData {
   name: string;
@@ -19,6 +19,7 @@ interface TeamData {
 export default function HomeScreen() {
   const router = useRouter();
   const [team, setTeam] = useState<TeamData | null>(null);
+  const [recent, setRecent] = useState<any[]>([]);
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
   const mutedText = useThemeColor({}, 'mutedText');
@@ -29,7 +30,12 @@ export default function HomeScreen() {
       const data = await getTeamData();
       setTeam(data);
     };
+    const loadRecent = async () => {
+      const data = await getParachuteResults();
+      setRecent(Array.isArray(data) ? data.slice(0, 3) : []);
+    };
     loadTeam();
+    loadRecent();
   }, []);
 
   return (
@@ -97,6 +103,37 @@ export default function HomeScreen() {
           onPress={() => router.push('/parachute')}
         />
       </SectionCard>
+
+      <SectionCard>
+        <Text style={[styles.cardHeader, { color: text }]}>Recent Results</Text>
+        {recent.length === 0 ? (
+          <Text style={[styles.paragraph, { color: mutedText }]}>
+            No submissions yet. Complete Parachute Drop and submit results to see them here.
+          </Text>
+        ) : (
+          <View style={[styles.recentWrap, { borderTopColor: border }]}>
+            {recent.map((r, idx) => (
+              <View key={`${r.createdAt ?? idx}`} style={styles.recentRow}>
+                <Text style={[styles.recentTeam, { color: text }]} numberOfLines={1}>
+                  {r.teamName ?? 'Team'}
+                </Text>
+                <Text style={[styles.recentScore, { color: mutedText }]}>
+                  Best: {typeof r.bestAttempt === 'number' ? `${(r.bestAttempt / 1000).toFixed(2)}s` : '—'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+        <View style={{ marginTop: Spacing.sm }}>
+          <ActivityCard
+            title="View Leaderboard"
+            tag="Rankings"
+            description="See how teams compare on Parachute Drop."
+            cta="Open leaderboard"
+            onPress={() => router.push('/leaderboard')}
+          />
+        </View>
+      </SectionCard>
     </ScrollView>
   );
 }
@@ -117,6 +154,11 @@ const styles = StyleSheet.create({
   cardNote: { marginTop: Spacing.sm, ...Typography.small },
 
   paragraph: { ...Typography.body },
+
+  recentWrap: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.xs },
+  recentRow: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.sm },
+  recentTeam: { ...Typography.body, fontSize: 13, flex: 1 },
+  recentScore: { ...Typography.small },
 
   step: {
     paddingVertical: Spacing.sm,
