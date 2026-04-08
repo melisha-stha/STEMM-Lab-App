@@ -23,11 +23,30 @@ export default function ParachuteScreen() {
   const primary = useThemeColor({}, 'primary');
   const card = useThemeColor({}, 'card');
   
-  // Function to record the current time (Task B3.2)
-  const recordAttempt = () => {
+  const startAttempt = () => {
+    // Every attempt starts fresh from 0.00
+    setTime(0);
+    setIsActive(true);
+  };
+
+  const stopAttempt = () => {
+    // Stop timer first (interval clears via effect)
+    setIsActive(false);
+
+    // Save attempt (max 3), then reset visible timer for the next attempt
     if (time > 0 && attempts.length < 3) {
-      setAttempts([...attempts, time]);
+      const next = [...attempts, time];
+      setAttempts(next);
+      setTime(0);
+      router.push({
+        pathname: '/results',
+        params: { attempts: JSON.stringify(next) },
+      });
+      return;
     }
+
+    // Even if we don't save (e.g. time=0 or already at limit), reset the visible timer
+    setTime(0);
   };
 
   // Timer "Engine" 
@@ -88,9 +107,10 @@ export default function ParachuteScreen() {
           <PrimaryButton
             label={isActive ? 'Stop & record' : 'Start timer'}
             variant={isActive ? 'danger' : 'primary'}
+            disabled={!isActive && attempts.length >= 3}
             onPress={() => {
-              if (isActive) recordAttempt();
-              setIsActive(!isActive);
+              if (isActive) stopAttempt();
+              else startAttempt();
             }}
           />
           <PrimaryButton
