@@ -1,6 +1,12 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+
+import { AttemptRow } from '@/components/ui/attempt-row';
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { SectionCard } from '@/components/ui/section-card';
+import { Radius, Spacing, Typography } from '@/constants/design';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function ParachuteScreen() {
   const router = useRouter();
@@ -9,6 +15,13 @@ export default function ParachuteScreen() {
   const [time, setTime] = useState(0); 
   const [attempts, setAttempts] = useState<number[]>([]); 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const background = useThemeColor({}, 'background');
+  const text = useThemeColor({}, 'text');
+  const mutedText = useThemeColor({}, 'mutedText');
+  const border = useThemeColor({}, 'border');
+  const primary = useThemeColor({}, 'primary');
+  const card = useThemeColor({}, 'card');
   
   // Function to record the current time (Task B3.2)
   const recordAttempt = () => {
@@ -44,83 +57,124 @@ export default function ParachuteScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Parachute Drop Challenge</Text> 
-      
-      <View style={styles.instructionBox}>
-        <Text style={styles.subtitle}>Instructions:</Text>
-        <Text>1. Drop the toy from a set height.</Text>
-        <Text>2. Stop the timer when it hits the ground.</Text>
-        <Text>3. Record up to 3 attempts to compare results.</Text> 
+    <ScrollView
+      style={[styles.page, { backgroundColor: background }]}
+      contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: text }]}>Parachute Drop</Text>
+        <Text style={[styles.subtitle, { color: mutedText }]}>
+          Run 1–3 trials. Compare results. Improve your design.
+        </Text>
       </View>
 
-      <View style={styles.timerContainer}>
-        <Text style={styles.timerText}>{formatTime(time)}s</Text>
-        
-        <View style={styles.buttonRow}>
-          <Button 
-            title={isActive ? "Stop & Record" : "Start Timer"} 
+      <SectionCard>
+        <Text style={[styles.sectionTitle, { color: text }]}>Instructions</Text>
+        <View style={[styles.bullets, { borderTopColor: border }]}>
+          <Text style={[styles.bullet, { color: mutedText }]}>• Use a consistent drop height.</Text>
+          <Text style={[styles.bullet, { color: mutedText }]}>
+            • Start the timer as you release the toy.
+          </Text>
+          <Text style={[styles.bullet, { color: mutedText }]}>
+            • Stop when it hits the ground, then record the attempt.
+          </Text>
+        </View>
+      </SectionCard>
+
+      <View style={[styles.timerPanel, { borderColor: border, backgroundColor: card }]}>
+        <Text style={[styles.timerLabel, { color: mutedText }]}>Timer</Text>
+        <Text style={[styles.timerValue, { color: text }]}>{formatTime(time)}s</Text>
+
+        <View style={styles.timerButtons}>
+          <PrimaryButton
+            label={isActive ? 'Stop & record' : 'Start timer'}
+            variant={isActive ? 'danger' : 'primary'}
             onPress={() => {
-              if (isActive) {
-                recordAttempt(); 
-              }
+              if (isActive) recordAttempt();
               setIsActive(!isActive);
-            }} 
-            color={isActive ? "#FF3B30" : "#4CD964"}
+            }}
+          />
+          <PrimaryButton
+            label="Reset"
+            variant="secondary"
+            onPress={resetAll}
+            disabled={time === 0 && attempts.length === 0}
           />
         </View>
-        
-        <TouchableOpacity onPress={resetAll} style={styles.resetButton}>
-          <Text style={styles.resetText}>Reset All Attempts</Text>
-        </TouchableOpacity>
+
+        <View style={styles.helperRow}>
+          <Text style={[styles.helper, { color: mutedText }]}>
+            Attempts recorded: {attempts.length}/3
+          </Text>
+          <Text style={[styles.helper, { color: primary }]}>
+            Best: {attempts.length ? `${formatTime(Math.min(...attempts))}s` : '—'}
+          </Text>
+        </View>
       </View>
 
-      <View style={styles.resultsBox}>
-        <Text style={styles.subtitle}>Recent Attempts:</Text>
+      <SectionCard>
+        <Text style={[styles.sectionTitle, { color: text }]}>Results</Text>
         {attempts.length === 0 ? (
-          <Text style={styles.placeholder}>No drops recorded yet.</Text>
+          <Text style={[styles.placeholder, { color: mutedText }]}>
+            No drops recorded yet. Run a trial and tap “Stop & record”.
+          </Text>
         ) : (
-          attempts.map((val, i) => (
-            <View key={i} style={styles.resultItem}>
-              <Text style={styles.resultText}>Attempt {i + 1}:</Text>
-              <Text style={styles.resultValue}>{formatTime(val)}s</Text>
-            </View>
-          ))
+          <View style={[styles.attemptsWrap, { borderTopColor: border }]}>
+            {attempts.map((val, i) => (
+              <AttemptRow
+                key={i}
+                index={i + 1}
+                value={`${formatTime(val)}s`}
+                isLast={i === attempts.length - 1}
+              />
+            ))}
+          </View>
         )}
-      </View>
+      </SectionCard>
 
-      <Button title="Back to Dashboard" onPress={() => router.back()} />
-      <View style={{ height: 40 }} /> 
+      <PrimaryButton label="Back to dashboard" variant="secondary" onPress={() => router.back()} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
-  title: { fontSize: 26, fontWeight: 'bold', marginBottom: 15, color: '#1C1C1E' },
-  subtitle: { fontWeight: 'bold', fontSize: 18, marginBottom: 8, color: '#3A3A3C' },
-  instructionBox: { padding: 15, backgroundColor: '#F2F2F7', borderRadius: 12, marginBottom: 25 },
-  timerContainer: { 
-    alignItems: 'center', 
-    marginVertical: 20, 
-    padding: 30, 
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  page: { flex: 1 },
+  content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
+
+  header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
+  title: { ...Typography.hero, fontSize: 26 },
+  subtitle: { marginTop: Spacing.xs, ...Typography.body },
+
+  sectionTitle: { ...Typography.section, marginBottom: Spacing.sm },
+  bullets: {
+    borderTopWidth: 1,
+    paddingTop: Spacing.sm,
+    gap: 6,
   },
-  timerText: { fontSize: 64, fontWeight: '700', marginBottom: 25, fontFamily: 'monospace', color: '#1C1C1E' },
-  buttonRow: { width: '100%', marginBottom: 10 },
-  resetButton: { marginTop: 10, padding: 10 },
-  resetText: { color: '#007AFF', fontWeight: '600' },
-  resultsBox: { marginBottom: 40, padding: 15, backgroundColor: '#F2F2F7', borderRadius: 12 },
-  resultItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#D1D1D6' },
-  resultText: { fontSize: 18, color: '#3A3A3C' },
-  resultValue: { fontSize: 18, fontWeight: 'bold', color: '#007AFF' },
-  placeholder: { color: '#8E8E93', fontStyle: 'italic' }
+  bullet: { ...Typography.body, fontSize: 13, lineHeight: 19 },
+
+  timerPanel: {
+    borderWidth: 1,
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+  },
+  timerLabel: { ...Typography.small, textTransform: 'uppercase', letterSpacing: 1.2 },
+  timerValue: {
+    marginTop: Spacing.sm,
+    fontSize: 64,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    fontVariant: ['tabular-nums'],
+  },
+  timerButtons: { marginTop: Spacing.md, gap: Spacing.sm },
+
+  helperRow: {
+    marginTop: Spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  helper: { ...Typography.small },
+
+  attemptsWrap: { borderTopWidth: 1, paddingTop: Spacing.xs },
+  placeholder: { ...Typography.body, fontSize: 13, lineHeight: 19 },
 });
