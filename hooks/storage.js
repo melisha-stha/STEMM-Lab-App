@@ -26,3 +26,12 @@ export const getTeamData = async () => {
     console.error("Failed to load team data", e);
   }
 };
+
+export const clearTeamData = async () => {
+  try {
+    await AsyncStorage.removeItem('@team_info');
+    console.log('Success: Team data cleared.');
+  } catch (e) {
+    console.error('Failed to clear team data', e);
+  }
+};
