@@ -15,15 +15,19 @@ function formatTime(ms: number) {
   return `${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
 }
 
-function parseAttempts(raw: unknown): number[] {
+function parseAttempts(raw: unknown): { time: number; videoUri?: string }[] {
   if (typeof raw !== 'string' || raw.trim().length === 0) return [];
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((n) => (typeof n === 'number' ? n : Number(n)))
-      .filter((n) => Number.isFinite(n) && n > 0);
-  } catch {
+    
+    // We map the parsed data to ensure it fits our object structure
+    return parsed.map((item) => ({
+      time: typeof item === 'number' ? item : (item.time || 0),
+      videoUri: item.videoUri || undefined,
+    }));
+  } catch (e) {
+    console.error("Error parsing attempts:", e);
     return [];
   }
 }
@@ -91,11 +95,11 @@ export default function ResultsScreen() {
           </Text>
         ) : (
           <View style={[styles.attemptsList, { borderTopColor: border }]}>
-            {attempts.map((ms, idx) => {
-              const isBest = best != null && ms === best;
+           {attempts.map((item, idx) => { 
+              const isBest = best != null && item.time === best; 
               return (
                 <View
-                  key={`${idx}-${ms}`}
+                  key={`${idx}-${item.time}`} 
                   style={[
                     styles.attemptRowCard,
                     {
@@ -105,7 +109,7 @@ export default function ResultsScreen() {
                   ]}>
                   <View style={styles.attemptRowLeft}>
                     <Text style={[styles.attemptLabel, { color: mutedText }]}>Attempt {idx + 1}</Text>
-                    <Text style={[styles.attemptValue, { color: text }]}>{formatTime(ms)}s</Text>
+                    <Text style={[styles.attemptValue, { color: text }]}>{formatTime(item.time)}s</Text> 
                   </View>
                   {isBest ? (
                     <View style={[styles.badge, { backgroundColor: success }]}>

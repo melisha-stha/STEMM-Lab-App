@@ -14,7 +14,7 @@ export default function ParachuteScreen() {
   const [isActive, setIsActive] = useState(false);
   const [time, setTime] = useState(0); 
   const [attempts, setAttempts] = useState<number[]>([]); 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<any>(null);
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
