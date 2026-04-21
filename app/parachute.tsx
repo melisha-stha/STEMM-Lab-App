@@ -75,36 +75,41 @@ export default function ParachuteScreen() {
     setAttempts([]);
   };
 
-  // SCRUM-109: Updated Finish function with Cloud Sync
   const finishAndViewResults = async () => {
-    if (!attempts.length) return;
-
-    const user = auth.currentUser;
-    if (!user) {
-      Alert.alert("Error", "You must be logged in to save results.");
+    if (!attempts || attempts.length === 0) {
+      Alert.alert("No Data", "Please record at least one drop before finishing.");
       return;
     }
 
-    setIsSyncing(true);
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert("Not Logged In", "Please log in to save your results to the cloud.");
+      return;
+    }
+
+    setIsSyncing(true); 
+
     try {
-      // 1. Grab local team data
       const teamData = await getTeamData();
       
-      // 2. Upload to Firestore
-      await uploadParachuteResult(user.uid, teamData, attempts);
+      const sanitizedAttempts = attempts.map(a => ({
+        time: a.time || 0,
+        videoUri: a.videoUri || ""
+      }));
+
+      await uploadParachuteResult(user.uid, teamData, sanitizedAttempts);
 
       Alert.alert("Success", "Results synced to the cloud!");
 
-      // 3. Navigate to results page
       router.push({
         pathname: '/results',
         params: { attempts: JSON.stringify(attempts) },
       });
     } catch (error) {
-      console.error(error);
-      Alert.alert("Sync Failed", "Data saved locally, but cloud sync failed.");
+      console.error("Upload Error:", error);
+      Alert.alert("Sync Failed", "There was an error saving to the cloud. Check your connection.");
     } finally {
-      setIsSyncing(false);
+      setIsSyncing(false); // Stop loading spinner
     }
   };
 

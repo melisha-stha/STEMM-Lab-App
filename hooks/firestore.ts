@@ -1,17 +1,26 @@
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import {
+    addDoc,
+    collection,
+    limit,
+    onSnapshot,
+    orderBy,
+    query,
+    serverTimestamp
+} from "firebase/firestore";
 import { db } from './firebaseConfig';
 
 export const uploadParachuteResult = async (userId: string, teamData: any, attempts: any[]) => {
   try {
-    // collection(db, "name") tells Firebase where to put the data
+    const finalTeamName = teamData?.name || "Anonymous Team";
+    const finalGrade = teamData?.grade || "N/A";
+
     const docRef = await addDoc(collection(db, "parachute_results"), {
-      userId: userId,                // Links result to the specific user account
-      teamName: teamData.name,       // Team Name from Onboarding
-      grade: teamData.grade,         // Grade level
-      attempts: attempts,            // The array of times you recorded
-      // Calculate the best time automatically before uploading
-      bestTime: Math.min(...attempts.map(a => a.time)), 
-      createdAt: serverTimestamp(),  // Uses Google's server clock for fairness
+      userId: userId,
+      teamName: finalTeamName, 
+      grade: finalGrade,       
+      attempts: attempts,
+      bestTime: Math.max(...attempts.map(a => a.time)), 
+      createdAt: serverTimestamp(),
     });
 
     console.log("Document written with ID: ", docRef.id);
@@ -20,4 +29,21 @@ export const uploadParachuteResult = async (userId: string, teamData: any, attem
     console.error("Error syncing data to Firestore: ", error);
     throw error;
   }
+};
+
+export const subscribeToLeaderboard = (callback: (data: any[]) => void) => {
+  const q = query(
+    collection(db, "parachute_results"), 
+    orderBy("bestTime", "desc"), 
+    limit(10)
+  );
+
+  // Return the listener so the component can stop listening when it unmounts
+  return onSnapshot(q, (snapshot) => {
+    const results = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    callback(results);
+  });
 };
