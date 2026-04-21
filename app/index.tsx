@@ -134,7 +134,11 @@ export default function OnboardingScreen() {
                 label="Member 1"
                 placeholder="First name"
                 value={members[0]}
-                onChangeText={(v) => setMembers((prev) => [v, ...prev.slice(1)])}
+                onChangeText={(v) => {
+                  const newMembers = [...members];
+                  newMembers[0] = v;
+                  setMembers(newMembers);
+                }}                
                 returnKeyType="next"
               />
 
