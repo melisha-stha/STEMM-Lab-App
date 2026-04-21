@@ -7,13 +7,14 @@ import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function ParachuteScreen() {
   const router = useRouter();
   
   const [isActive, setIsActive] = useState(false);
   const [time, setTime] = useState(0); 
-  const [attempts, setAttempts] = useState<number[]>([]); 
+  const [attempts, setAttempts] = useState<{ time: number; videoUri?: string }[]>([]);  
   const timerRef = useRef<any>(null);
 
   const background = useThemeColor({}, 'background');
@@ -29,26 +30,30 @@ export default function ParachuteScreen() {
     setIsActive(true);
   };
 
-  const stopAttempt = () => {
-    // Stop timer first (interval clears via effect)
+  const stopAttempt = async () => {
     setIsActive(false);
 
-    // Save attempt (max 3), then reset visible timer for the next attempt
+    // Ask to record video (SCRUM-46)
+    const videoLink = await recordVideo();
+
     if (time > 0 && attempts.length < 3) {
-      const next = [...attempts, time];
+      // Save the time AND the video link together (SCRUM-48)
+      const newAttempt = { time: time, videoUri: videoLink || undefined };
+      const next = [...attempts, newAttempt];
+      
       setAttempts(next);
       setTime(0);
+
+      // If finished 3 attempts, go to results
       if (next.length >= 3) {
         router.push({
           pathname: '/results',
           params: { attempts: JSON.stringify(next) },
         });
       }
-      return;
+    } else {
+      setTime(0);
     }
-
-    // Even if we don't save (e.g. time=0 or already at limit), reset the visible timer
-    setTime(0);
   };
 
   // Timer "Engine" 
@@ -84,6 +89,28 @@ export default function ParachuteScreen() {
       params: { attempts: JSON.stringify(attempts) },
     });
   };
+
+  const recordVideo = async () => {
+  // Request permission just in case
+  const { status } = await ImagePicker.requestCameraPermissionsAsync();
+  
+  if (status !== 'granted') {
+    alert('Sorry, we need camera permissions to make this work!');
+    return null;
+  }
+
+  // Launch the camera for video recording
+  let result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ['videos'],
+    allowsEditing: true,
+    quality: 1,
+  });
+
+  if (!result.canceled) {
+    return result.assets[0].uri; // This is the "link" to your video
+  }
+  return null;
+};
 
   return (
     <ScrollView
@@ -143,8 +170,8 @@ export default function ParachuteScreen() {
             Attempts recorded: {attempts.length}/3
           </Text>
           <Text style={[styles.helper, { color: primary }]}>
-            Best: {attempts.length ? `${formatTime(Math.max(...attempts))}s` : '—'}
-          </Text>
+            Best: {attempts.length ? `${formatTime(Math.max(...attempts.map(a => a.time)))}s` : '—'}  
+          </Text>      
         </View>
       </View>
 
@@ -160,7 +187,7 @@ export default function ParachuteScreen() {
               <AttemptRow
                 key={i}
                 index={i + 1}
-                value={`${formatTime(val)}s`}
+                value={`${formatTime(val.time)}s`}
                 isLast={i === attempts.length - 1}
               />
             ))}

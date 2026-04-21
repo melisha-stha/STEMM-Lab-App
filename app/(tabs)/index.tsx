@@ -1,6 +1,8 @@
 import { useRouter } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { auth } from '../../hooks/firebaseConfig';
 
 import { ActivityCard } from '@/components/ui/activity-card';
 import { InfoRow } from '@/components/ui/info-row';
@@ -26,6 +28,11 @@ export default function HomeScreen() {
   const border = useThemeColor({}, 'border');
 
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.replace('/login');
+      }
+    });
     const loadTeam = async () => {
       const data = await getTeamData();
       setTeam(data);
