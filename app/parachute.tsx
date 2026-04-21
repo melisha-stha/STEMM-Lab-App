@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AttemptRow } from '@/components/ui/attempt-row';
 import { PrimaryButton } from '@/components/ui/primary-button';
@@ -8,11 +8,15 @@ import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import * as ImagePicker from 'expo-image-picker';
+import { auth } from '../hooks/firebaseConfig';
+import { uploadParachuteResult } from '../hooks/firestore';
+import { getTeamData } from '../hooks/storage';
 
 export default function ParachuteScreen() {
   const router = useRouter();
   
   const [isActive, setIsActive] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false); // Loading state for Cloud Sync
   const [time, setTime] = useState(0); 
   const [attempts, setAttempts] = useState<{ time: number; videoUri?: string }[]>([]);  
   const timerRef = useRef<any>(null);
@@ -25,7 +29,6 @@ export default function ParachuteScreen() {
   const card = useThemeColor({}, 'card');
   
   const startAttempt = () => {
-    // Every attempt starts fresh from 0.00
     setTime(0);
     setIsActive(true);
   };
@@ -33,24 +36,16 @@ export default function ParachuteScreen() {
   const stopAttempt = async () => {
     setIsActive(false);
 
-    // Ask to record video (SCRUM-46)
+    // SCRUM-46: Video recording
     const videoLink = await recordVideo();
 
     if (time > 0 && attempts.length < 3) {
-      // Save the time AND the video link together (SCRUM-48)
       const newAttempt = { time: time, videoUri: videoLink || undefined };
       const next = [...attempts, newAttempt];
-      
       setAttempts(next);
       setTime(0);
 
-      // If finished 3 attempts, go to results
-      if (next.length >= 3) {
-        router.push({
-          pathname: '/results',
-          params: { attempts: JSON.stringify(next) },
-        });
-      }
+      // Auto-finish logic removed here to allow user to click "Finish" manually for sync
     } else {
       setTime(0);
     }
@@ -68,49 +63,69 @@ export default function ParachuteScreen() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isActive]);
 
-  // Format milliseconds to 00.00 
   const formatTime = (ms: number) => {
     const seconds = Math.floor((ms % 60000) / 1000);
     const centiseconds = Math.floor((ms % 1000) / 10);
     return `${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
   };
 
-  // Clear all data 
   const resetAll = () => {
     setIsActive(false);
     setTime(0);
     setAttempts([]);
   };
 
-  const finishAndViewResults = () => {
+  // SCRUM-109: Updated Finish function with Cloud Sync
+  const finishAndViewResults = async () => {
     if (!attempts.length) return;
-    router.push({
-      pathname: '/results',
-      params: { attempts: JSON.stringify(attempts) },
-    });
+
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert("Error", "You must be logged in to save results.");
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      // 1. Grab local team data
+      const teamData = await getTeamData();
+      
+      // 2. Upload to Firestore
+      await uploadParachuteResult(user.uid, teamData, attempts);
+
+      Alert.alert("Success", "Results synced to the cloud!");
+
+      // 3. Navigate to results page
+      router.push({
+        pathname: '/results',
+        params: { attempts: JSON.stringify(attempts) },
+      });
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Sync Failed", "Data saved locally, but cloud sync failed.");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const recordVideo = async () => {
-  // Request permission just in case
-  const { status } = await ImagePicker.requestCameraPermissionsAsync();
-  
-  if (status !== 'granted') {
-    alert('Sorry, we need camera permissions to make this work!');
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera access is required for video recording.');
+      return null;
+    }
+
+    let result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['videos'],
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      return result.assets[0].uri;
+    }
     return null;
-  }
-
-  // Launch the camera for video recording
-  let result = await ImagePicker.launchCameraAsync({
-    mediaTypes: ['videos'],
-    allowsEditing: true,
-    quality: 1,
-  });
-
-  if (!result.canceled) {
-    return result.assets[0].uri; // This is the "link" to your video
-  }
-  return null;
-};
+  };
 
   return (
     <ScrollView
@@ -144,7 +159,7 @@ export default function ParachuteScreen() {
           <PrimaryButton
             label={isActive ? 'Stop & record' : 'Start timer'}
             variant={isActive ? 'danger' : 'primary'}
-            disabled={!isActive && attempts.length >= 3}
+            disabled={(!isActive && attempts.length >= 3) || isSyncing}
             onPress={() => {
               if (isActive) stopAttempt();
               else startAttempt();
@@ -154,13 +169,13 @@ export default function ParachuteScreen() {
             label="Reset"
             variant="secondary"
             onPress={resetAll}
-            disabled={time === 0 && attempts.length === 0}
+            disabled={time === 0 && attempts.length === 0 || isSyncing}
           />
           <PrimaryButton
-            label="Finish"
+            label={isSyncing ? "Syncing..." : "Finish & Save"}
             variant="secondary"
             onPress={finishAndViewResults}
-            disabled={attempts.length === 0 || isActive}
+            disabled={attempts.length === 0 || isActive || isSyncing}
             style={{ borderColor: primary }}
           />
         </View>
@@ -170,7 +185,7 @@ export default function ParachuteScreen() {
             Attempts recorded: {attempts.length}/3
           </Text>
           <Text style={[styles.helper, { color: primary }]}>
-            Best: {attempts.length ? `${formatTime(Math.max(...attempts.map(a => a.time)))}s` : '—'}  
+            Best: {attempts.length ? `${formatTime(Math.min(...attempts.map(a => a.time)))}s` : '—'}  
           </Text>      
         </View>
       </View>
@@ -195,7 +210,7 @@ export default function ParachuteScreen() {
         )}
       </SectionCard>
 
-      <PrimaryButton label="Back to dashboard" variant="secondary" onPress={() => router.back()} />
+      <PrimaryButton label="Back to dashboard" variant="secondary" onPress={() => router.back()} disabled={isSyncing} />
     </ScrollView>
   );
 }
@@ -203,42 +218,18 @@ export default function ParachuteScreen() {
 const styles = StyleSheet.create({
   page: { flex: 1 },
   content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
-
   header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   title: { ...Typography.hero, fontSize: 26 },
   subtitle: { marginTop: Spacing.xs, ...Typography.body },
-
   sectionTitle: { ...Typography.section, marginBottom: Spacing.sm },
-  bullets: {
-    borderTopWidth: 1,
-    paddingTop: Spacing.sm,
-    gap: 6,
-  },
+  bullets: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: 6 },
   bullet: { ...Typography.body, fontSize: 13, lineHeight: 19 },
-
-  timerPanel: {
-    borderWidth: 1,
-    borderRadius: Radius.xl,
-    padding: Spacing.lg,
-  },
+  timerPanel: { borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.lg },
   timerLabel: { ...Typography.small, textTransform: 'uppercase', letterSpacing: 1.2 },
-  timerValue: {
-    marginTop: Spacing.sm,
-    fontSize: 64,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    fontVariant: ['tabular-nums'],
-  },
+  timerValue: { marginTop: Spacing.sm, fontSize: 64, fontWeight: '800', fontVariant: ['tabular-nums'] },
   timerButtons: { marginTop: Spacing.md, gap: Spacing.sm },
-
-  helperRow: {
-    marginTop: Spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  helperRow: { marginTop: Spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   helper: { ...Typography.small },
-
   attemptsWrap: { borderTopWidth: 1, paddingTop: Spacing.xs },
   placeholder: { ...Typography.body, fontSize: 13, lineHeight: 19 },
 });
