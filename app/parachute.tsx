@@ -24,6 +24,7 @@ export default function ParachuteScreen() {
   const [subscription, setSubscription] = useState<any>(null);
   const timerRef = useRef<any>(null);
   const timeRef = useRef(0);
+  const [liveForce, setLiveForce] = useState(1.0);
   
 
   const background = useThemeColor({}, 'background');
@@ -36,9 +37,13 @@ export default function ParachuteScreen() {
   const startAccelerometer = () => {
     Accelerometer.setUpdateInterval(100);
     const sub = Accelerometer.addListener(data => {
-      const totalForce = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
+      // Calculate total G-force (Resultant Vector)
+      const force = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
       
-      if (totalForce > 2.5 && timeRef.current > 500) { 
+      // Update the UI state so the user sees the numbers changing
+      setLiveForce(force); 
+      
+      if (force > 2.5 && timeRef.current > 500) { 
         console.log("Impact detected at:", timeRef.current);
         stopAttempt(); 
       }
@@ -204,6 +209,13 @@ export default function ParachuteScreen() {
         <Text style={[styles.timerLabel, { color: mutedText }]}>Timer</Text>
         <Text style={[styles.timerValue, { color: text }]}>{formatTime(time)}s</Text>
 
+        <View style={styles.sensorDataRow}>
+          <Text style={[styles.helper, { color: liveForce > 2.2 ? '#FF4444' : mutedText, fontWeight: '600' }]}>
+            Impact Sensor: {liveForce.toFixed(2)}g
+          </Text>
+          {liveForce > 2.2 && <Text style={{color: '#FF4444', fontSize: 10}}> [IMPACT DETECTED]</Text>}
+        </View>
+
         <View style={styles.timerButtons}>
           <PrimaryButton
             label={isActive ? 'Stop & record' : 'Start timer'}
@@ -281,4 +293,16 @@ const styles = StyleSheet.create({
   helper: { ...Typography.small },
   attemptsWrap: { borderTopWidth: 1, paddingTop: Spacing.xs },
   placeholder: { ...Typography.body, fontSize: 13, lineHeight: 19 },
+  sensorDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+    gap: 4,
+  },
+  sensorValue: {
+    ...Typography.small,
+    fontFamily: 'monospace', // Gives it a scientific look
+    fontWeight: '600',
+  },
 });
