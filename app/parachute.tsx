@@ -9,6 +9,7 @@ import { Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import { Accelerometer } from 'expo-sensors';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadParachuteResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
@@ -17,10 +18,13 @@ export default function ParachuteScreen() {
   const router = useRouter();
   
   const [isActive, setIsActive] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false); // Loading state for Cloud Sync
+  const [isSyncing, setIsSyncing] = useState(false);
   const [time, setTime] = useState(0); 
   const [attempts, setAttempts] = useState<{ time: number; videoUri?: string }[]>([]);  
+  const [subscription, setSubscription] = useState<any>(null);
   const timerRef = useRef<any>(null);
+  const timeRef = useRef(0);
+  
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
@@ -29,38 +33,74 @@ export default function ParachuteScreen() {
   const primary = useThemeColor({}, 'primary');
   const card = useThemeColor({}, 'card');
   
+  const startAccelerometer = () => {
+    Accelerometer.setUpdateInterval(100);
+    const sub = Accelerometer.addListener(data => {
+      const totalForce = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
+      
+      if (totalForce > 2.5 && timeRef.current > 500) { 
+        console.log("Impact detected at:", timeRef.current);
+        stopAttempt(); 
+      }
+    });
+    setSubscription(sub);
+  };
+
+  const stopAccelerometer = () => {
+    subscription && subscription.remove();
+    setSubscription(null);
+  };
+
   const startAttempt = () => {
     setTime(0);
     setIsActive(true);
+    startAccelerometer();
   };
 
   const stopAttempt = async () => {
+    // 1. Immediately kill the timer and sensors
     setIsActive(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+    stopAccelerometer();
 
-    const videoLink = await recordVideo();
+    // 2. Use the Ref to get the final time
+    const finalTime = timeRef.current;
 
-    if (time > 0 && attempts.length < 3) {
-      const newAttempt = { time: time, videoUri: videoLink || undefined };
-      const next = [...attempts, newAttempt];
-      setAttempts(next);
+    if (finalTime > 0 && attempts.length < 3) {
+      // Save to list immediately
+      setAttempts(prev => [...prev, { time: finalTime, videoUri: "" }]);
+      
+      // Reset the clock
       setTime(0);
+      timeRef.current = 0;
 
-      // Auto-finish logic removed here to allow user to click "Finish" manually for sync
-    } else {
-      setTime(0);
+      // 3. Open camera
+      const videoLink = await recordVideo();
+      if (videoLink) {
+        setAttempts(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1].videoUri = videoLink;
+          return updated;
+        });
+      }
     }
   };
 
-  // Timer "Engine" 
   useEffect(() => {
     if (isActive) {
       timerRef.current = setInterval(() => {
-        setTime((prevTime) => prevTime + 10);
+        setTime((prev) => {
+          const newTime = prev + 10;
+          timeRef.current = newTime; // Keep the Ref in sync with the state
+          return newTime;
+        });
       }, 10);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => { 
+      if (timerRef.current) clearInterval(timerRef.current); 
+    };
   }, [isActive]);
 
   const formatTime = (ms: number) => {
@@ -71,48 +111,51 @@ export default function ParachuteScreen() {
 
   const resetAll = () => {
     setIsActive(false);
+    stopAccelerometer();
     setTime(0);
     setAttempts([]);
   };
 
   const finishAndViewResults = async () => {
-  if (!attempts.length) return;
+    if (!attempts.length) return;
 
-  const user = auth.currentUser;
-  if (!user) {
-    Alert.alert("Error", "Please log in to save results.");
-    return;
-  }
-
-  setIsSyncing(true);
-
-  try {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    let locationData = null;
-    if (status === 'granted') {
-      const loc = await Location.getCurrentPositionAsync({});
-      locationData = {
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      };
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert("Error", "Please log in to save results.");
+      return;
     }
 
-    const sanitizedAttempts = attempts.map(attempt => ({
-      time: attempt.time || 0,
-      videoUri: attempt.videoUri || "" // If videoUri is undefined, make it ""
-    }));
+    setIsSyncing(true);
 
-    const teamData = await getTeamData();
-    
-    await uploadParachuteResult(user.uid, teamData, sanitizedAttempts, locationData);
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      let locationData = null;
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({});
+        locationData = {
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        };
+      }
 
-    Alert.alert("Success", "Results and Location saved!");
-    router.push('/results');
+      const sanitizedAttempts = attempts.map(attempt => ({
+        time: attempt.time || 0,
+        videoUri: attempt.videoUri || ""
+      }));
 
-  } catch (error) {
-    console.error("Final Sync Error:", error);
-  }
-};
+      const teamData = await getTeamData();
+      
+      await uploadParachuteResult(user.uid, teamData, sanitizedAttempts, locationData);
+
+      Alert.alert("Success", "Results and Location saved!");
+      router.push('/results');
+
+    } catch (error) {
+      console.error("Final Sync Error:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const recordVideo = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -152,7 +195,7 @@ export default function ParachuteScreen() {
             • Start the timer as you release the toy.
           </Text>
           <Text style={[styles.bullet, { color: mutedText }]}>
-            • Stop when it hits the ground, then record the attempt.
+            • Sensor will stop timer on impact, or tap stop manually.
           </Text>
         </View>
       </SectionCard>
@@ -175,7 +218,7 @@ export default function ParachuteScreen() {
             label="Reset"
             variant="secondary"
             onPress={resetAll}
-            disabled={time === 0 && attempts.length === 0 || isSyncing}
+            disabled={(time === 0 && attempts.length === 0) || isSyncing}
           />
           <PrimaryButton
             label={isSyncing ? "Syncing..." : "Finish & Save"}
