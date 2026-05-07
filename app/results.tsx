@@ -45,8 +45,7 @@ export default function ResultsScreen() {
   const success = useThemeColor({}, 'success');
 
   const attempts = useMemo(() => parseAttempts(params.attempts), [params.attempts]);
-  const best = useMemo(() => (attempts.length ? Math.max(...attempts) : null), [attempts]);
-
+  const best = useMemo(() => (attempts.length ? Math.max(...attempts.map(a => a.time)) : null), [attempts]);
   const [reflection, setReflection] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 

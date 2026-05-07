@@ -8,6 +8,7 @@ import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadParachuteResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
@@ -36,7 +37,6 @@ export default function ParachuteScreen() {
   const stopAttempt = async () => {
     setIsActive(false);
 
-    // SCRUM-46: Video recording
     const videoLink = await recordVideo();
 
     if (time > 0 && attempts.length < 3) {
@@ -76,42 +76,43 @@ export default function ParachuteScreen() {
   };
 
   const finishAndViewResults = async () => {
-    if (!attempts || attempts.length === 0) {
-      Alert.alert("No Data", "Please record at least one drop before finishing.");
-      return;
+  if (!attempts.length) return;
+
+  const user = auth.currentUser;
+  if (!user) {
+    Alert.alert("Error", "Please log in to save results.");
+    return;
+  }
+
+  setIsSyncing(true);
+
+  try {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    let locationData = null;
+    if (status === 'granted') {
+      const loc = await Location.getCurrentPositionAsync({});
+      locationData = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      };
     }
 
-    const user = auth.currentUser;
-    if (!user) {
-      Alert.alert("Not Logged In", "Please log in to save your results to the cloud.");
-      return;
-    }
+    const sanitizedAttempts = attempts.map(attempt => ({
+      time: attempt.time || 0,
+      videoUri: attempt.videoUri || "" // If videoUri is undefined, make it ""
+    }));
 
-    setIsSyncing(true); 
+    const teamData = await getTeamData();
+    
+    await uploadParachuteResult(user.uid, teamData, sanitizedAttempts, locationData);
 
-    try {
-      const teamData = await getTeamData();
-      
-      const sanitizedAttempts = attempts.map(a => ({
-        time: a.time || 0,
-        videoUri: a.videoUri || ""
-      }));
+    Alert.alert("Success", "Results and Location saved!");
+    router.push('/results');
 
-      await uploadParachuteResult(user.uid, teamData, sanitizedAttempts);
-
-      Alert.alert("Success", "Results synced to the cloud!");
-
-      router.push({
-        pathname: '/results',
-        params: { attempts: JSON.stringify(attempts) },
-      });
-    } catch (error) {
-      console.error("Upload Error:", error);
-      Alert.alert("Sync Failed", "There was an error saving to the cloud. Check your connection.");
-    } finally {
-      setIsSyncing(false); // Stop loading spinner
-    }
-  };
+  } catch (error) {
+    console.error("Final Sync Error:", error);
+  }
+};
 
   const recordVideo = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
