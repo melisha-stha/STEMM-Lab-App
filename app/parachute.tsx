@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AttemptRow } from '@/components/ui/attempt-row';
 import { PrimaryButton } from '@/components/ui/primary-button';
@@ -22,9 +22,10 @@ export default function ParachuteScreen() {
   const [time, setTime] = useState(0); 
   const [attempts, setAttempts] = useState<{ time: number; videoUri?: string }[]>([]);  
   const [subscription, setSubscription] = useState<any>(null);
+  const [liveForce, setLiveForce] = useState(1.0);
+  const [locationStatus, setLocationStatus] = useState("📡 Searching...");
   const timerRef = useRef<any>(null);
   const timeRef = useRef(0);
-  const [liveForce, setLiveForce] = useState(1.0);
   
 
   const background = useThemeColor({}, 'background');
@@ -33,18 +34,31 @@ export default function ParachuteScreen() {
   const border = useThemeColor({}, 'border');
   const primary = useThemeColor({}, 'primary');
   const card = useThemeColor({}, 'card');
+
+  useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        setLocationStatus("✅ Fixed");
+      } else {
+        setLocationStatus("❌ Off");
+      }
+    })();
+  }, []);
   
   const startAccelerometer = () => {
+    // ONLY run this if the device is NOT web
+    if (Platform.OS === 'web') {
+      console.log("Accelerometer not supported on web. Skipping sensor start.");
+      return;
+    }
+
     Accelerometer.setUpdateInterval(100);
     const sub = Accelerometer.addListener(data => {
-      // Calculate total G-force (Resultant Vector)
       const force = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
-      
-      // Update the UI state so the user sees the numbers changing
       setLiveForce(force); 
       
       if (force > 2.5 && timeRef.current > 500) { 
-        console.log("Impact detected at:", timeRef.current);
         stopAttempt(); 
       }
     });
@@ -96,7 +110,7 @@ export default function ParachuteScreen() {
       timerRef.current = setInterval(() => {
         setTime((prev) => {
           const newTime = prev + 10;
-          timeRef.current = newTime; // Keep the Ref in sync with the state
+          timeRef.current = newTime; 
           return newTime;
         });
       }, 10);
@@ -105,6 +119,7 @@ export default function ParachuteScreen() {
     }
     return () => { 
       if (timerRef.current) clearInterval(timerRef.current); 
+      stopAccelerometer(); 
     };
   }, [isActive]);
 
@@ -214,6 +229,12 @@ export default function ParachuteScreen() {
             Impact Sensor: {liveForce.toFixed(2)}g
           </Text>
           {liveForce > 2.2 && <Text style={{color: '#FF4444', fontSize: 10}}> [IMPACT DETECTED]</Text>}
+        </View>
+
+        <View style={styles.sensorDataRow}>
+          <Text style={[styles.helper, { color: mutedText }]}>
+            GPS Status: {locationStatus}
+          </Text>
         </View>
 
         <View style={styles.timerButtons}>
