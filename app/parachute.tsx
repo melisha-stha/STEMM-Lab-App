@@ -9,11 +9,13 @@ import { Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
 import { Accelerometer } from 'expo-sensors';
 import * as TaskManager from 'expo-task-manager'; // 
 import { auth } from '../hooks/firebaseConfig';
 import { uploadParachuteResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
+
 
 // 1. Define Task Name - Must be outside the component 
 const BACKGROUND_UPLOAD_TASK = 'BACKGROUND_PARACHUTE_UPLOAD';
@@ -34,6 +36,7 @@ TaskManager.defineTask(BACKGROUND_UPLOAD_TASK, async ({ data, error }: any) => {
     }
   }
 });
+
 
 export default function ParachuteScreen() {
   const router = useRouter();
@@ -190,12 +193,22 @@ export default function ParachuteScreen() {
           });
       }
 
-      // Foreground upload 
       await uploadParachuteResult(user.uid, teamData, sanitizedAttempts, locationData);
-      Alert.alert("Success", "Syncing results!");
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "STEMM Lab Sync Complete",
+          body: `Trial data for ${teamData || 'your team'} has been saved to the cloud!`,
+          data: { screen: 'results' }, // Optional: helps with navigation logic later
+        },
+        trigger: null, // null means "send immediately"
+      });
+
       router.push('/results');
+      
     } catch (error) {
       console.error("Sync Error:", error);
+      Alert.alert("Sync Error", "We couldn't save your data. Please check your connection.");
     } finally {
       setIsSyncing(false);
     }
