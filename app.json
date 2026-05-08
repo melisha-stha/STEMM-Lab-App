@@ -28,6 +28,14 @@
     "plugins": [
       "expo-router",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share parachute drop results.",
+          "cameraPermission": "The app accesses your camera to record your parachute drop trials.",
+          "microphonePermission": "The app accesses your microphone to record audio during drops."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
