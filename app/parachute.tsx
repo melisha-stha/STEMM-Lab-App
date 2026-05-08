@@ -27,7 +27,7 @@ TaskManager.defineTask(BACKGROUND_UPLOAD_TASK, async ({ data, error }: any) => {
   if (data) {
     try {
       const { userId, teamData, attempts, locationData } = data;
-      // Parallel background execution [cite: 123]
+      // Parallel background execution 
       await uploadParachuteResult(userId, teamData, attempts, locationData);
     } catch (err) {
       console.error("Background Sync Failed:", err);
@@ -59,9 +59,9 @@ export default function ParachuteScreen() {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
-        setLocationStatus("✅ Fixed");
+        setLocationStatus("Fixed");
       } else {
-        setLocationStatus("❌ Off");
+        setLocationStatus("Off");
       }
     })();
   }, []);
@@ -205,20 +205,20 @@ export default function ParachuteScreen() {
     <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: text }]}>Parachute Drop</Text>
-        <Text style={[styles.subtitle, { color: mutedText }]}>Run 1–3 trials. Compare results. [cite: 43]</Text>
+        <Text style={[styles.subtitle, { color: mutedText }]}>Run 1–3 trials. Compare results. </Text>
       </View>
 
       <SectionCard>
         <Text style={[styles.sectionTitle, { color: text }]}>Instructions</Text>
         <View style={[styles.bullets, { borderTopColor: border }]}>
           <Text style={[styles.bullet, { color: mutedText }]}>
-            • Use a consistent drop height. [cite: 41, 67]
+            • Use a consistent drop height. 
           </Text>
           <Text style={[styles.bullet, { color: mutedText }]}>
-            • Start the timer as you release the toy. [cite: 70]
+            • Start the timer as you release the toy. 
           </Text>
           <Text style={[styles.bullet, { color: mutedText }]}>
-            • Sensor stops on impact to measure landing force. [cite: 28, 90]
+            • Sensor stops on impact to measure landing force. 
           </Text>
         </View>
       </SectionCard>
@@ -228,7 +228,7 @@ export default function ParachuteScreen() {
         <Text style={[styles.timerValue, { color: text }]}>{formatTime(time)}s</Text>
         <View style={styles.sensorDataRow}>
           <Text style={[styles.helper, { color: liveForce > 2.2 ? '#FF4444' : mutedText, fontWeight: '600' }]}>
-            Impact Sensor: {liveForce.toFixed(2)}g [cite: 89, 90]
+            Impact Sensor: {liveForce.toFixed(2)}g 
           </Text>
           {liveForce > 2.2 && <Text style={{color: '#FF4444', fontSize: 10}}> [IMPACT DETECTED]</Text>}
         </View>
@@ -246,7 +246,7 @@ export default function ParachuteScreen() {
           <PrimaryButton label={isSyncing ? "Syncing..." : "Finish & Save"} variant="secondary" onPress={finishAndViewResults} disabled={attempts.length === 0 || isActive || isSyncing} style={{ borderColor: primary }} />
         </View>
         <View style={styles.helperRow}>
-          <Text style={[styles.helper, { color: mutedText }]}>Attempts: {attempts.length}/3 [cite: 43]</Text>
+          <Text style={[styles.helper, { color: mutedText }]}>Attempts: {attempts.length}/3</Text>
           <Text style={[styles.helper, { color: primary }]}>Best: {attempts.length ? `${formatTime(Math.min(...attempts.map(a => a.time)))}s` : '—'}</Text>
         </View>
       </View>
