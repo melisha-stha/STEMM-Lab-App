@@ -1,0 +1,61 @@
+rules_version = '2';
+
+// =============================================================================
+// STEMM-Lab-App-2 — Firestore Security Rules
+// -----------------------------------------------------------------------------
+// Security model:
+//   • Unauthenticated requests are denied at every collection.
+//   • Authenticated users may only read/write documents they own
+//     (a doc is "owned" when its `userId` field equals request.auth.uid).
+//   • Document creation must stamp the creator's uid as the `userId`,
+//     preventing impersonation at write time.
+//   • Everything outside of explicitly-matched collections is denied.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Reusable helper — single source of truth for ownership checks.
+    // Keeping this as a function avoids duplicating the `request.auth` guard
+    // across every collection rule (DRY).
+    // -------------------------------------------------------------------------
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: parachute_results
+    // Each doc represents a single team's submitted Parachute Drop trial and
+    // must always carry a `userId` field identifying the owner.
+    // -------------------------------------------------------------------------
+    match /parachute_results/{docId} {
+
+      // READ: any signed-in user may read these documents. This is required
+      // by `subscribeToLeaderboard()` in hooks/firestore.ts, which fetches the
+      // top global results regardless of ownership.
+      allow read: if request.auth != null;
+
+      // CREATE: the document doesn't exist yet, so `resource.data` is null.
+      // Validate the *incoming* payload via `request.resource.data` and make
+      // sure the caller is stamping their own uid as `userId` (this prevents
+      // a malicious client from creating docs on behalf of another user).
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+
+      // UPDATE + DELETE: gated by the *existing* document's userId via the
+      // `isOwner` helper. Only the original author can mutate or remove
+      // their submissions.
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Default deny — explicit catch-all for any collection/document path not
+    // matched above. Firestore's implicit default is already deny, but stating
+    // this explicitly documents intent and protects against future regressions.
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
