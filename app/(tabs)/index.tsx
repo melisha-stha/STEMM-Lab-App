@@ -109,6 +109,12 @@ export default function HomeScreen() {
           description="Drop a toy from a consistent height, time the fall, and compare results across attempts."
           onPress={() => router.push('/parachute')}
         />
+        <ActivityCard
+          title="Activity 2: Sound Pollution Hunter"
+          tag="Environmental Science"
+          description="Measure and compare sound levels from different classroom actions using your phone's microphone."
+          onPress={() => router.push('/sound')}
+        />
       </SectionCard>
 
       <SectionCard>
