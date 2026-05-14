@@ -31,6 +31,7 @@ TaskManager.defineTask(BACKGROUND_UPLOAD_TASK, async ({ data, error }: any) => {
       const { userId, teamData, attempts, locationData } = data;
       // Parallel background execution 
       await uploadParachuteResult(userId, teamData, attempts, locationData);
+      console.log("Background sync complete");
     } catch (err) {
       console.error("Background Sync Failed:", err);
     }
@@ -162,6 +163,7 @@ export default function ParachuteScreen() {
     setIsActive(false);
     stopAccelerometer();
     setTime(0);
+    timeRef.current = 0;
     setAttempts([]);
   };
 
@@ -169,53 +171,47 @@ export default function ParachuteScreen() {
     if (!attempts.length) return;
     const user = auth.currentUser;
     if (!user) return;
-    
+
     setIsSyncing(true);
     try {
-      let { status } = await Location.requestForegroundPermissionsAsync(); // 
+      let { status } = await Location.requestForegroundPermissionsAsync();
       let locationData = null;
       if (status === 'granted') {
         const loc = await Location.getCurrentPositionAsync({});
         locationData = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
       }
+
       const sanitizedAttempts = attempts.map(attempt => ({
         time: attempt.time || 0,
         videoUri: attempt.videoUri || ""
       }));
+
       const teamData = await getTeamData();
 
-      // Trigger background sync task 
-      if (Platform.OS !== 'web') {
-          await TaskManager.isTaskRegisteredAsync(BACKGROUND_UPLOAD_TASK).then(async (isRegistered) => {
-              if (!isRegistered) {
-                  console.log("Registering background task...");
-              }
-          });
-      }
-
-      await uploadParachuteResult(user.uid, teamData, sanitizedAttempts, locationData);
-
-      const bestTime = Math.min(...sanitizedAttempts.map(a => a.time));
-      insertTrial(
-        teamData?.name || 'unknown',
-        'parachute',
-        bestTime,
-        sanitizedAttempts[sanitizedAttempts.length - 1].videoUri || '',
-        locationData?.latitude || null,
-        locationData?.longitude || null
-      );
+      // TaskManager.defineTask above registers the background task handler for future background fetch triggers
+      await Promise.all([
+        uploadParachuteResult(user.uid, teamData, sanitizedAttempts, locationData),
+        Promise.resolve(insertTrial(
+          teamData?.name || 'unknown',
+          'parachute',
+          Math.min(...sanitizedAttempts.map(a => a.time)),
+          sanitizedAttempts[sanitizedAttempts.length - 1].videoUri || '',
+          locationData?.latitude || null,
+          locationData?.longitude || null
+        ))
+      ]);
 
       await Notifications.scheduleNotificationAsync({
         content: {
           title: "STEMM Lab Sync Complete",
           body: `Trial data for ${teamData?.name || 'your team'} has been saved to the cloud!`,
-          data: { screen: 'results' }, // Optional: helps with navigation logic later
+          data: { screen: 'results' },
         },
-        trigger: null, // null means "send immediately"
+        trigger: null,
       });
 
       router.push('/results');
-      
+
     } catch (error) {
       console.error("Sync Error:", error);
       Alert.alert("Sync Error", "We couldn't save your data. Please check your connection.");
