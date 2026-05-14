@@ -2,6 +2,7 @@ import { AttemptRow } from '@/components/ui/attempt-row';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
+import { insertTrial } from '@/hooks/database';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -194,10 +195,20 @@ export default function ParachuteScreen() {
 
       await uploadParachuteResult(user.uid, teamData, sanitizedAttempts, locationData);
 
+      const bestTime = Math.min(...sanitizedAttempts.map(a => a.time));
+      insertTrial(
+        teamData?.name || 'unknown',
+        'parachute',
+        bestTime,
+        sanitizedAttempts[sanitizedAttempts.length - 1].videoUri || '',
+        locationData?.latitude || null,
+        locationData?.longitude || null
+      );
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: "STEMM Lab Sync Complete",
-          body: `Trial data for ${teamData || 'your team'} has been saved to the cloud!`,
+          body: `Trial data for ${teamData?.name || 'your team'} has been saved to the cloud!`,
           data: { screen: 'results' }, // Optional: helps with navigation logic later
         },
         trigger: null, // null means "send immediately"
