@@ -52,3 +52,20 @@ export const subscribeToLeaderboard = (callback: (data: any[]) => void) => {
     callback(results);
   });
 };
+
+export const uploadSoundResult = async (
+  userId: string,
+  teamData: any,
+  measurements: { db: number; label: string }[],
+  locationData: { latitude: number; longitude: number } | null
+) => {
+  const docRef = await addDoc(collection(db, 'soundResults'), {
+    userId,
+    teamName: teamData?.name || 'unknown',
+    grade: teamData?.grade || '',
+    measurements,
+    locationData,
+    createdAt: new Date().toISOString(),
+  });
+  console.log('Sound result saved with ID:', docRef.id);
+};
