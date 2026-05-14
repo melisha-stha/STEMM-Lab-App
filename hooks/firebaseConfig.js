@@ -1,20 +1,39 @@
-import { initializeApp } from "firebase/app";
+/**
+ * Firebase initialisation for STEMM-Lab-App-2.
+ *
+ * Configuration values are read from environment variables instead of being
+ * hardcoded in source. Expo SDK 49+ exposes any `EXPO_PUBLIC_*` variable
+ * defined in a project-root `.env` file to the client bundle via
+ * `process.env` — no extra packages required (do NOT add react-native-dotenv
+ * or babel plugins for this).
+ *
+ * The accompanying `.env.example` documents the variables a developer must
+ * provide locally; `.env` itself is git-ignored so real values never enter
+ * the repository.
+ *
+ * Exports:
+ *   - `auth` — the shared `Auth` instance (used by hooks/authService.js).
+ *   - `db`   — the shared `Firestore` instance (used by hooks/firestore.ts).
+ */
+
+import { getApp, getApps, initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// These values are copied directly from your Firebase screenshot
 const firebaseConfig = {
-  apiKey: "AIzaSyCSN9GF9782RhPVVqe5YMEogbNK_uX3Pmw",
-  authDomain: "stemm-lab-app-6ec5b.firebaseapp.com",
-  projectId: "stemm-lab-app-6ec5b",
-  storageBucket: "stemm-lab-app-6ec5b.firebasestorage.app",
-  messagingSenderId: "291260475339",
-  appId: "1:291260475339:web:be86f29022df71276ef84e"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Guard against duplicate initialisation during Fast Refresh / hot reload.
+// `initializeApp` would otherwise throw "Firebase App named '[DEFAULT]'
+// already exists" the second time this module is evaluated.
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Export instances to use in your other tasks
-export const db = getFirestore(app); // Needed for SCRUM-92 (Data Sync)
-export const auth = getAuth(app);    // Needed for SCRUM-91 (Authentication)
+export const db = getFirestore(app);   // Needed for SCRUM-92 (Data Sync)
+export const auth = getAuth(app);      // Needed for SCRUM-91 (Authentication)
