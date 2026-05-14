@@ -1,7 +1,3 @@
-import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-
 import { AttemptRow } from '@/components/ui/attempt-row';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
@@ -10,8 +6,11 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
+import { useRouter } from 'expo-router';
 import { Accelerometer } from 'expo-sensors';
 import * as TaskManager from 'expo-task-manager'; // 
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadParachuteResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
