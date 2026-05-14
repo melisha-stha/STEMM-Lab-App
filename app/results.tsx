@@ -1,11 +1,12 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
+import { getTrials } from '@/hooks/database';
 import { getTeamData, saveParachuteResults } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
@@ -15,26 +16,9 @@ function formatTime(ms: number) {
   return `${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
 }
 
-function parseAttempts(raw: unknown): { time: number; videoUri?: string }[] {
-  if (typeof raw !== 'string' || raw.trim().length === 0) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    
-    // We map the parsed data to ensure it fits our object structure
-    return parsed.map((item) => ({
-      time: typeof item === 'number' ? item : (item.time || 0),
-      videoUri: item.videoUri || undefined,
-    }));
-  } catch (e) {
-    console.error("Error parsing attempts:", e);
-    return [];
-  }
-}
-
 export default function ResultsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ attempts?: string }>();
+  const [attempts, setAttempts] = useState<{ time: number; videoUri?: string }[]>([]);
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
@@ -44,7 +28,20 @@ export default function ResultsScreen() {
   const primary = useThemeColor({}, 'primary');
   const success = useThemeColor({}, 'success');
 
-  const attempts = useMemo(() => parseAttempts(params.attempts), [params.attempts]);
+  // Load attempts from SQLite on mount (SCRUM-158: offline fallback)
+  useEffect(() => {
+    try {
+      const trials = getTrials();
+      const parachuteTrials = trials
+        .filter(t => t.activity === 'parachute')
+        .slice(0, 3) // get the latest 3
+        .map(t => ({ time: t.time, videoUri: t.videoUri || undefined }));
+      setAttempts(parachuteTrials);
+    } catch (e) {
+      console.error('Failed to load trials from SQLite:', e);
+    }
+  }, []);
+
   const best = useMemo(() => (attempts.length ? Math.max(...attempts.map(a => a.time)) : null), [attempts]);
   const [reflection, setReflection] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);

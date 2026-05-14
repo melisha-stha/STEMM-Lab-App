@@ -1,19 +1,21 @@
-import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-
 import { AttemptRow } from '@/components/ui/attempt-row';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
+import { insertTrial } from '@/hooks/database';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
+import { useRouter } from 'expo-router';
 import { Accelerometer } from 'expo-sensors';
 import * as TaskManager from 'expo-task-manager'; // 
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadParachuteResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
+
 
 // 1. Define Task Name - Must be outside the component 
 const BACKGROUND_UPLOAD_TASK = 'BACKGROUND_PARACHUTE_UPLOAD';
@@ -34,6 +36,7 @@ TaskManager.defineTask(BACKGROUND_UPLOAD_TASK, async ({ data, error }: any) => {
     }
   }
 });
+
 
 export default function ParachuteScreen() {
   const router = useRouter();
@@ -190,12 +193,32 @@ export default function ParachuteScreen() {
           });
       }
 
-      // Foreground upload 
       await uploadParachuteResult(user.uid, teamData, sanitizedAttempts, locationData);
-      Alert.alert("Success", "Syncing results!");
+
+      const bestTime = Math.min(...sanitizedAttempts.map(a => a.time));
+      insertTrial(
+        teamData?.name || 'unknown',
+        'parachute',
+        bestTime,
+        sanitizedAttempts[sanitizedAttempts.length - 1].videoUri || '',
+        locationData?.latitude || null,
+        locationData?.longitude || null
+      );
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "STEMM Lab Sync Complete",
+          body: `Trial data for ${teamData?.name || 'your team'} has been saved to the cloud!`,
+          data: { screen: 'results' }, // Optional: helps with navigation logic later
+        },
+        trigger: null, // null means "send immediately"
+      });
+
       router.push('/results');
+      
     } catch (error) {
       console.error("Sync Error:", error);
+      Alert.alert("Sync Error", "We couldn't save your data. Please check your connection.");
     } finally {
       setIsSyncing(false);
     }
