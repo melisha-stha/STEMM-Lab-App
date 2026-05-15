@@ -116,7 +116,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/sound')}
         />
         <ActivityCard
-          title="🗺️ Drop Site Map"
+          title="Drop Site Map"
           tag="GPS • All Activities"
           description="View GPS-tagged locations of all your team's activity trials on a map."
           onPress={() => router.push('/map')}
