@@ -59,3 +59,27 @@ export const getParachuteResults = async () => {
     return [];
   }
 };
+
+const EARTHQUAKE_RESULTS_KEY = '@earthquake_results';
+
+export const saveEarthquakeResults = async (payload) => {
+  try {
+    const existing = await AsyncStorage.getItem(EARTHQUAKE_RESULTS_KEY);
+    const history = existing ? JSON.parse(existing) : [];
+    const next = Array.isArray(history) ? [payload, ...history] : [payload];
+    await AsyncStorage.setItem(EARTHQUAKE_RESULTS_KEY, JSON.stringify(next));
+    console.log('Success: Earthquake results saved.');
+  } catch (e) {
+    console.error('Failed to save earthquake results', e);
+  }
+};
+
+export const getEarthquakeResults = async () => {
+  try {
+    const existing = await AsyncStorage.getItem(EARTHQUAKE_RESULTS_KEY);
+    return existing ? JSON.parse(existing) : [];
+  } catch (e) {
+    console.error('Failed to load earthquake results', e);
+    return [];
+  }
+};

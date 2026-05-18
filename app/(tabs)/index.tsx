@@ -116,6 +116,12 @@ export default function HomeScreen() {
           onPress={() => router.push('/sound')}
         />
         <ActivityCard
+          title="Activity 4: Earthquake-Resistant Structure"
+          tag="Engineering • Sensors"
+          description="Measure structural stability using the gyroscope and accelerometer while simulating an earthquake."
+          onPress={() => router.push('/earthquake')}
+        />
+        <ActivityCard
           title="🗺️ Drop Site Map"
           tag="GPS • All Activities"
           description="View GPS-tagged locations of all your team's activity trials on a map."

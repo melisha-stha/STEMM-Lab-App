@@ -50,6 +50,40 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // Collection: soundResults
+    // Each doc represents a team's sound pollution measurements.
+    // -------------------------------------------------------------------------
+    match /soundResults/{docId} {
+
+      // READ: any signed-in user may read — required for sound leaderboard query
+      allow read: if request.auth != null;
+
+      // CREATE: only the owner may create
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+
+      // UPDATE + DELETE: only the owner may update or delete
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: earthquakeResults
+    // Each doc represents a team's earthquake stability trial submissions.
+    // -------------------------------------------------------------------------
+    match /earthquakeResults/{docId} {
+
+      // READ: any signed-in user may read — supports future leaderboard
+      allow read: if request.auth != null;
+
+      // CREATE: only the owner may create their own result
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+
+      // UPDATE + DELETE: only the owner may update or delete
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+
+    // -------------------------------------------------------------------------
     // Default deny — explicit catch-all for any collection/document path not
     // matched above. Firestore's implicit default is already deny, but stating
     // this explicitly documents intent and protects against future regressions.
