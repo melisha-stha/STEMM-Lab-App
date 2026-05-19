@@ -47,7 +47,8 @@
           }
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "react-native-google-mobile-ads"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { auth } from '../../hooks/firebaseConfig';
 
 import { ActivityCard } from '@/components/ui/activity-card';
+import { BannerAd } from '@/components/ui/banner-ad';
 import { InfoRow } from '@/components/ui/info-row';
 import { SectionCard } from '@/components/ui/section-card';
 import { Spacing, Typography } from '@/constants/design';
@@ -122,7 +123,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/earthquake')}
         />
         <ActivityCard
-          title="🗺️ Drop Site Map"
+          title="Drop Site Map"
           tag="GPS • All Activities"
           description="View GPS-tagged locations of all your team's activity trials on a map."
           onPress={() => router.push('/map')}
@@ -159,6 +160,7 @@ export default function HomeScreen() {
           />
         </View>
       </SectionCard>
+      <BannerAd />
     </ScrollView>
   );
 }
