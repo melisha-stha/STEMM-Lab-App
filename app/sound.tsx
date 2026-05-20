@@ -14,15 +14,64 @@ import { auth } from '../hooks/firebaseConfig';
 import { uploadSoundResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
 
-// Risk label based on spec dB table
 function getDbRisk(db: number): { label: string; color: string } {
-  if (db < 30) return { label: 'No Risk', color: '#4CAF50' };
-  if (db < 60) return { label: 'Safe', color: '#4CAF50' };
-  if (db < 85) return { label: 'Moderate', color: '#FF9800' };
-  if (db < 90) return { label: 'Hearing Damage Possible', color: '#FF6600' };
-  if (db < 100) return { label: 'Hearing Damage Likely', color: '#FF4444' };
-  return { label: 'Danger — Serious Damage', color: '#B00020' };
+  if (db < 30) return { label: 'No Risk', color: '#2E7D32' };
+  if (db < 60) return { label: 'Safe', color: '#558B2F' };
+  if (db < 85) return { label: 'Long Exposure Risk', color: '#F9A825' };
+  if (db < 90) return { label: 'Hearing Damage Possible', color: '#EF6C00' };
+  if (db < 100) return { label: 'Hearing Damage Likely', color: '#E53935' };
+  if (db < 110) return { label: 'Serious Damage', color: '#B71C1C' };
+  if (db < 120) return { label: 'Painful', color: '#880E4F' };
+  if (db < 130) return { label: 'Severe Damage', color: '#4A148C' };
+  return { label: 'Instant Permanent Damage', color: '#000000' };
 }
+
+const SOUND_LEVEL_TABLE_ROWS = [
+  { level: '0–30 dB', examples: 'Whisper, quiet library', risk: 'No risk', color: '#2E7D32' },
+  { level: '30–60 dB', examples: 'Normal conversation, classroom noise', risk: 'Safe for long periods', color: '#558B2F' },
+  {
+    level: '60–85 dB',
+    examples: 'Busy traffic, vacuum cleaner',
+    risk: 'Generally safe, but long exposure can cause fatigue',
+    color: '#F9A825',
+  },
+  {
+    level: '85–90 dB',
+    examples: 'Lawn mower, loud classroom, heavy traffic',
+    risk: 'Hearing damage possible after long exposure',
+    color: '#EF6C00',
+  },
+  {
+    level: '90–100 dB',
+    examples: 'Motorbike, power tools, loud music',
+    risk: 'Hearing damage likely after short exposure',
+    color: '#E53935',
+  },
+  {
+    level: '100–110 dB',
+    examples: 'Nightclub, rock concert, chainsaw',
+    risk: 'Serious hearing damage in minutes',
+    color: '#B71C1C',
+  },
+  {
+    level: '110–120 dB',
+    examples: 'Siren close by, car horn at 1 m',
+    risk: 'Painful; immediate damage possible',
+    color: '#880E4F',
+  },
+  {
+    level: '120–130 dB',
+    examples: 'Jet engine at close range',
+    risk: 'Immediate and severe hearing damage',
+    color: '#4A148C',
+  },
+  {
+    level: '140+ dB',
+    examples: 'Explosion, gunshot',
+    risk: 'Instant, permanent hearing damage',
+    color: '#000000',
+  },
+] as const;
 
 // Convert expo-av metering (-160 to 0) to approximate dB (0–120)
 function meterToDb(meter: number): number {
@@ -262,23 +311,41 @@ export default function SoundScreen() {
         )}
       </SectionCard>
 
-      {/* dB Reference Table from spec */}
       <SectionCard>
         <Text style={[styles.sectionTitle, { color: text }]}>Hearing Damage Risk Guide</Text>
-        {[
-          { range: '0–30 dB', example: 'Whisper, quiet library', risk: 'No risk', color: '#4CAF50' },
-          { range: '30–60 dB', example: 'Normal conversation', risk: 'Safe', color: '#4CAF50' },
-          { range: '60–85 dB', example: 'Vacuum cleaner', risk: 'Generally safe', color: '#FF9800' },
-          { range: '85–90 dB', example: 'Loud classroom', risk: 'Damage possible', color: '#FF6600' },
-          { range: '90–100 dB', example: 'Motorbike', risk: 'Damage likely', color: '#FF4444' },
-          { range: '100+ dB', example: 'Concert, chainsaw', risk: 'Serious damage', color: '#B00020' },
-        ].map((row, i) => (
-          <View key={i} style={[styles.tableRow, { borderTopColor: border, borderTopWidth: i === 0 ? 0 : 1 }]}>
-            <Text style={[styles.tableCell, { color: row.color, fontWeight: '700', width: 80 }]}>{row.range}</Text>
-            <Text style={[styles.tableCell, { color: mutedText, flex: 1 }]}>{row.example}</Text>
-            <Text style={[styles.tableCell, { color: row.color, width: 100, textAlign: 'right' }]}>{row.risk}</Text>
+        <View style={[styles.table, { borderColor: border }]}>
+          <View style={[styles.tableHeaderRow, { backgroundColor: card, borderBottomColor: border }]}>
+            <Text style={[styles.tableHeaderCell, styles.tableColLevel, { color: text }]}>Sound Level</Text>
+            <Text style={[styles.tableHeaderCell, styles.tableColExamples, { color: text }]}>
+              Example Sounds
+            </Text>
+            <Text style={[styles.tableHeaderCell, styles.tableColRisk, { color: text }]}>
+              Risk to Hearing
+            </Text>
           </View>
-        ))}
+          {SOUND_LEVEL_TABLE_ROWS.map((row, i) => (
+            <View
+              key={row.level}
+              style={[
+                styles.tableRow,
+                {
+                  backgroundColor: i % 2 === 0 ? background : card,
+                  borderBottomColor: border,
+                  borderBottomWidth: i < SOUND_LEVEL_TABLE_ROWS.length - 1 ? 1 : 0,
+                },
+              ]}>
+              <Text style={[styles.tableCell, styles.tableColLevel, { color: row.color, fontWeight: '700' }]}>
+                {row.level}
+              </Text>
+              <Text style={[styles.tableCell, styles.tableColExamples, { color: mutedText }]}>
+                {row.examples}
+              </Text>
+              <Text style={[styles.tableCell, styles.tableColRisk, { color: row.color }]}>
+                {row.risk}
+              </Text>
+            </View>
+          ))}
+        </View>
       </SectionCard>
 
       <PrimaryButton label='Back to dashboard' variant='secondary' onPress={() => router.back()} disabled={isSyncing} />
@@ -311,6 +378,24 @@ const styles = StyleSheet.create({
   measureRow: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   measureAction: { ...Typography.small, fontWeight: '700' },
   measureDb: { fontSize: 24, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  tableRow: { flexDirection: 'row', paddingVertical: 6, alignItems: 'center' },
-  tableCell: { ...Typography.small, fontSize: 11 },
+  table: { borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden' },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderBottomWidth: 1,
+    alignItems: 'center',
+  },
+  tableHeaderCell: { ...Typography.small, fontWeight: '800', fontSize: 11 },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    alignItems: 'flex-start',
+    gap: Spacing.xs,
+  },
+  tableCell: { ...Typography.small, fontSize: 11, lineHeight: 16 },
+  tableColLevel: { width: 72 },
+  tableColExamples: { flex: 1 },
+  tableColRisk: { flex: 1 },
 });
