@@ -1,0 +1,37 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      },
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyCSN9GF9782RhPVVqe5YMEogbNK_uX3Pmw",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "stemm-lab-app-6ec5b.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "stemm-lab-app-6ec5b",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "stemm-lab-app-6ec5b.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "101010101010",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:291260475339:web:be86f29022df71276ef84e",
+        
+        "EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID": "ca-app-pub-1472940621207668/5718257345"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "apk"
+      },
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID": "ca-app-pub-1472940621207668/5718257345"
+      }
+    }
+  }
+}
