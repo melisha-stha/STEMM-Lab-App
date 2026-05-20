@@ -83,3 +83,27 @@ export const getEarthquakeResults = async () => {
     return [];
   }
 };
+
+const REACTION_RESULTS_KEY = '@reaction_results';
+
+export const saveReactionResults = async (payload) => {
+  try {
+    const existing = await AsyncStorage.getItem(REACTION_RESULTS_KEY);
+    const history = existing ? JSON.parse(existing) : [];
+    const next = Array.isArray(history) ? [payload, ...history] : [payload];
+    await AsyncStorage.setItem(REACTION_RESULTS_KEY, JSON.stringify(next));
+    console.log('Success: Reaction results saved.');
+  } catch (e) {
+    console.error('Failed to save reaction results', e);
+  }
+};
+
+export const getReactionResults = async () => {
+  try {
+    const existing = await AsyncStorage.getItem(REACTION_RESULTS_KEY);
+    return existing ? JSON.parse(existing) : [];
+  } catch (e) {
+    console.error('Failed to load reaction results', e);
+    return [];
+  }
+};

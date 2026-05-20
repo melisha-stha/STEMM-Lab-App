@@ -4,7 +4,6 @@ import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
-import AdBanner from '@/components/ui/AdBanner';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -59,9 +58,15 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <MaterialIcons name="vibration" size={28} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="reaction"
+        options={{
+          title: 'Reaction',
+          tabBarIcon: ({ color }) => <MaterialIcons name="flash-on" size={28} color={color} />,
+        }}
+      />
     </Tabs>
     </View>
-    <AdBanner />
     </View>
   );
 }
