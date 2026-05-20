@@ -5,7 +5,6 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { auth } from '../../hooks/firebaseConfig';
 
 import { ActivityCard } from '@/components/ui/activity-card';
-import { BannerAd } from '@/components/ui/banner-ad';
 import { InfoRow } from '@/components/ui/info-row';
 import { SectionCard } from '@/components/ui/section-card';
 import { Spacing, Typography } from '@/constants/design';
@@ -160,7 +159,6 @@ export default function HomeScreen() {
           />
         </View>
       </SectionCard>
-      <BannerAd />
     </ScrollView>
   );
 }
