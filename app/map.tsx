@@ -22,7 +22,8 @@ interface Trial {
 function getMarkerColor(activity: string): string {
   switch (activity) {
     case 'parachute': return '#2196F3'; // blue
-    case 'sound': return '#4CAF50';     // green
+    case 'sound': return '#4CAF50';
+    case 'handfan': return '#FF9800';     // orange
     case 'earthquake': return '#FF5722'; // red
     case 'reaction': return '#9C27B0';   // purple
     case 'breathing': return '#00BCD4';
@@ -35,6 +36,9 @@ function formatActivity(activity: string): string {
     case 'parachute': return '🪂 Parachute Drop';
     case 'sound': return '🔊 Sound Pollution';
     case 'earthquake': return '🏗️ Earthquake';
+    case 'handfan': return '🌬️ Hand Fan Challenge';
+    case 'reaction': return '⚡ Reaction Board';
+    case 'breathing': return '🫁 Breathing Trainer';
     default: return activity;
   }
 }

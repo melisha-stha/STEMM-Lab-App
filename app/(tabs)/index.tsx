@@ -116,6 +116,12 @@ export default function HomeScreen() {
           onPress={() => router.push('/sound')}
         />
         <ActivityCard
+          title="Activity 3: Hand Fan Challenge"
+          tag="Physics • Air Movement"
+          description="Test how different fan designs and materials affect how much a paper strip bends."
+          onPress={() => router.push('/handfan')}
+        />
+        <ActivityCard
           title="Activity 4: Earthquake-Resistant Structure"
           tag="Engineering • Sensors"
           description="Measure structural stability using the gyroscope and accelerometer while simulating an earthquake."
