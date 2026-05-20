@@ -1,6 +1,7 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
@@ -102,6 +103,9 @@ export default function BreathingResultsScreen() {
 
   return (
     <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <MaterialIcons name="arrow-back" size={24} color={text} />
+      </TouchableOpacity>
       <View style={styles.header}>
         <Text style={[styles.title, { color: text }]}>Breathing Results</Text>
         <Text style={[styles.subtitle, { color: mutedText }]}>
@@ -191,6 +195,7 @@ export default function BreathingResultsScreen() {
 const styles = StyleSheet.create({
   page: { flex: 1 },
   content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
+  backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
   header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   title: { ...Typography.hero, fontSize: 26 },
   subtitle: { marginTop: Spacing.xs, ...Typography.body },
