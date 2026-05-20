@@ -128,6 +128,12 @@ export default function HomeScreen() {
           onPress={() => router.push('/earthquake')}
         />
         <ActivityCard
+          title="Activity 5: Human Performance Lab — Stretch Speed & Gracefulness"
+          tag="Medical Science • Biomechanics"
+          description="Investigate how the human body moves by measuring speed, smoothness, and coordination during controlled stretching activities."
+          onPress={() => router.push('/performance')}
+        />
+        <ActivityCard
           title="Reaction Board Challenge"
           tag="Neuroscience + Mathematics"
           description="Measure reaction time, hand coordination, and tracing accuracy across three challenge phases."
