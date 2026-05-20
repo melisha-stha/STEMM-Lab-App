@@ -5,14 +5,14 @@ import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
 import { insertTrial } from '@/hooks/database';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { ResizeMode, Video } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import { Accelerometer } from 'expo-sensors';
 import * as TaskManager from 'expo-task-manager';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -28,6 +28,7 @@ import { uploadParachuteResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
 
 const GRAVITY = 9.8;
+const MAX_ATTEMPTS = 3;
 
 const BACKGROUND_UPLOAD_TASK = 'BACKGROUND_PARACHUTE_UPLOAD';
 
@@ -55,14 +56,24 @@ TaskManager.defineTask(
 );
 
 type ScreenTab = 'overview' | 'experiment' | 'writeup' | 'discussion';
-type BounceMode = 'none' | 'no_bounce' | 'bounced';
+type BounceMode = 'no_bounce' | 'bounced';
 
 type ParachuteCalculations = {
-  finalVelocity: number; // m/s
-  acceleration: number; // m/s²
-  netForce: number; // N
-  weight: number; // N
-  dragForce: number; // N
+  finalVelocity: number;
+  acceleration: number;
+  netForce: number;
+  weight: number;
+  dragForce: number;
+};
+
+type ParachuteAttempt = {
+  dropTimeSec: number;
+  contactTimeSec: number;
+  bounced: boolean;
+  bounceTimeSec: number | null;
+  videoUri: string | null;
+  calculations: ParachuteCalculations;
+  gForce: number;
 };
 
 const SCREEN_TABS: ScreenTab[] = ['overview', 'experiment', 'writeup', 'discussion'];
@@ -113,20 +124,13 @@ type TableTheme = {
   background: string;
 };
 
-const formatTime = (ms: number): string => {
-  const seconds = Math.floor((ms % 60000) / 1000);
-  const centiseconds = Math.floor((ms % 1000) / 10);
-  return `${seconds.toString().padStart(2, '0')}.${centiseconds
-    .toString()
-    .padStart(2, '0')}`;
-};
+const formatDropTimeSec = (sec: number): string => `${sec.toFixed(2)}s`;
 
 const calculateParachutePhysics = (
-  dropTimeMs: number,
+  dropTimeSec: number,
   massKg: number,
   heightM: number
 ): ParachuteCalculations => {
-  const dropTimeSec = dropTimeMs / 1000;
   const finalVelocity = heightM / dropTimeSec;
   const acceleration = finalVelocity / dropTimeSec;
   const netForce = massKg * acceleration;
@@ -254,26 +258,23 @@ export default function ParachuteScreen() {
   const router = useRouter();
 
   const [screenTab, setScreenTab] = useState<ScreenTab>('overview');
-  const [isActive, setIsActive] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [time, setTime] = useState(0);
-  const [attempts, setAttempts] = useState<{ time: number; videoUri?: string }[]>(
-    []
-  );
-  const [subscription, setSubscription] = useState<{ remove: () => void } | null>(
-    null
-  );
-  const [liveForce, setLiveForce] = useState(1.0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [attempts, setAttempts] = useState<ParachuteAttempt[]>([]);
+  const [attemptCount, setAttemptCount] = useState<number>(0);
   const [locationStatus, setLocationStatus] = useState('📡 Searching...');
   const [massKg, setMassKg] = useState<string>('');
   const [heightM, setHeightM] = useState<string>('');
 
-  const [bounceByAttempt, setBounceByAttempt] = useState<
-    Record<number, { mode: BounceMode; contactTimeSec: string; bounceTimeSec: string }>
-  >({});
-
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timeRef = useRef(0);
+  const [currentVideoUri, setCurrentVideoUri] = useState<string | null>(null);
+  const [dropTimeSec, setDropTimeSec] = useState<string>('');
+  const [contactTimeSec, setContactTimeSec] = useState<string>('');
+  const [bounceMode, setBounceMode] = useState<BounceMode>('no_bounce');
+  const [bounceTimeSec, setBounceTimeSec] = useState<string>('');
+  const [currentCalculations, setCurrentCalculations] = useState<ParachuteCalculations | null>(
+    null
+  );
+  const [currentGForce, setCurrentGForce] = useState<number | null>(null);
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
@@ -292,94 +293,97 @@ export default function ParachuteScreen() {
     })();
   }, []);
 
-  const startAccelerometer = (): void => {
-    if (Platform.OS === 'web') return;
-    Accelerometer.setUpdateInterval(100);
-    const sub = Accelerometer.addListener((data) => {
-      const force = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
-      setLiveForce(force);
-      if (force > 2.5 && timeRef.current > 500) {
-        stopAttempt();
+  const hasUnsavedAttempt =
+    currentVideoUri !== null ||
+    dropTimeSec.trim().length > 0 ||
+    contactTimeSec.trim().length > 0 ||
+    currentCalculations !== null;
+
+  const resetCurrentAttempt = (): void => {
+    setCurrentVideoUri(null);
+    setDropTimeSec('');
+    setContactTimeSec('');
+    setBounceTimeSec('');
+    setBounceMode('no_bounce');
+    setCurrentCalculations(null);
+    setCurrentGForce(null);
+  };
+
+  const recordDrop = async (): Promise<void> => {
+    if (attemptCount >= MAX_ATTEMPTS || isSyncing || hasUnsavedAttempt) return;
+
+    setIsRecording(true);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Camera permission required');
+        return;
       }
-    });
-    setSubscription(sub);
-  };
 
-  const stopAccelerometer = (): void => {
-    subscription?.remove();
-    setSubscription(null);
-  };
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['videos'],
+        videoMaxDuration: 30,
+        allowsEditing: false,
+      });
 
-  const startAttempt = (): void => {
-    setTime(0);
-    setIsActive(true);
-    startAccelerometer();
-  };
-
-  const recordVideo = async (): Promise<string | null> => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera access is required.');
-      return null;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['videos'],
-      allowsEditing: true,
-      quality: 1,
-    });
-    if (!result.canceled) {
-      return result.assets[0].uri;
-    }
-    return null;
-  };
-
-  const stopAttempt = async (): Promise<void> => {
-    setIsActive(false);
-    if (timerRef.current) clearInterval(timerRef.current);
-    stopAccelerometer();
-
-    const finalTime = timeRef.current;
-    if (finalTime > 0 && attempts.length < 3) {
-      setAttempts((prev) => [...prev, { time: finalTime, videoUri: '' }]);
-      setTime(0);
-      timeRef.current = 0;
-
-      const videoLink = await recordVideo();
-      if (videoLink) {
-        setAttempts((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1].videoUri = videoLink;
-          return updated;
-        });
+      if (!result.canceled && result.assets[0]) {
+        setCurrentVideoUri(result.assets[0].uri);
+        setDropTimeSec('');
+        setContactTimeSec('');
+        setBounceTimeSec('');
+        setBounceMode('no_bounce');
+        setCurrentCalculations(null);
+        setCurrentGForce(null);
       }
+    } finally {
+      setIsRecording(false);
     }
   };
 
-  useEffect(() => {
-    if (isActive) {
-      timerRef.current = setInterval(() => {
-        setTime((prev) => {
-          const newTime = prev + 10;
-          timeRef.current = newTime;
-          return newTime;
-        });
-      }, 10);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
+  const calculatePhysics = (): void => {
+    const mass = parseFloat(massKg);
+    const height = parseFloat(heightM);
+    const dropTime = parseFloat(dropTimeSec);
+    const contactTime = parseFloat(contactTimeSec);
+
+    if (!mass || !height || !dropTime || !contactTime) {
+      Alert.alert('Please fill in all required fields');
+      return;
     }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      stopAccelerometer();
+
+    const calcs = calculateParachutePhysics(dropTime, mass, height);
+    setCurrentCalculations(calcs);
+
+    let gForce: number;
+    if (bounceMode === 'no_bounce') {
+      gForce = calculateGForceNoBounce(calcs.finalVelocity, contactTime);
+    } else {
+      const bounceTime = parseFloat(bounceTimeSec) || 0;
+      gForce = calculateGForceBounce(calcs.finalVelocity, contactTime, bounceTime);
+    }
+    setCurrentGForce(gForce);
+  };
+
+  const saveAttempt = (): void => {
+    if (!currentCalculations || currentGForce === null) {
+      Alert.alert('Calculate physics first');
+      return;
+    }
+
+    const newAttempt: ParachuteAttempt = {
+      dropTimeSec: parseFloat(dropTimeSec),
+      contactTimeSec: parseFloat(contactTimeSec),
+      bounced: bounceMode === 'bounced',
+      bounceTimeSec: bounceMode === 'bounced' ? parseFloat(bounceTimeSec) : null,
+      videoUri: currentVideoUri,
+      calculations: currentCalculations,
+      gForce: currentGForce,
     };
-  }, [isActive]);
 
-  const resetAll = (): void => {
-    setIsActive(false);
-    stopAccelerometer();
-    setTime(0);
-    timeRef.current = 0;
-    setAttempts([]);
-    setBounceByAttempt({});
+    const updated = [...attempts, newAttempt];
+    setAttempts(updated);
+    setAttemptCount(updated.length);
+    resetCurrentAttempt();
   };
 
   const finishAndViewResults = async (): Promise<void> => {
@@ -407,11 +411,32 @@ export default function ParachuteScreen() {
         Number.isFinite(massNum) &&
         Number.isFinite(heightNum);
 
+      const bestAttempt = attempts.reduce((best, attempt) =>
+        attempt.dropTimeSec > best.dropTimeSec ? attempt : best
+      );
+
       const sanitizedAttempts = attempts.map((attempt) => {
         const base = {
-          time: attempt.time || 0,
+          time: Math.round(attempt.dropTimeSec * 1000),
           videoUri: attempt.videoUri || '',
-        } as { time: number; videoUri: string; massKg?: number; heightM?: number };
+          dropTimeSec: attempt.dropTimeSec,
+          contactTimeSec: attempt.contactTimeSec,
+          bounced: attempt.bounced,
+          bounceTimeSec: attempt.bounceTimeSec,
+          calculations: attempt.calculations,
+          gForce: attempt.gForce,
+        } as {
+          time: number;
+          videoUri: string;
+          dropTimeSec: number;
+          contactTimeSec: number;
+          bounced: boolean;
+          bounceTimeSec: number | null;
+          calculations: ParachuteCalculations;
+          gForce: number;
+          massKg?: number;
+          heightM?: number;
+        };
         if (hasPhysicsInputs) {
           base.massKg = massNum;
           base.heightM = heightNum;
@@ -427,8 +452,8 @@ export default function ParachuteScreen() {
           insertTrial(
             teamData?.name || 'unknown',
             'parachute',
-            Math.min(...sanitizedAttempts.map((a) => a.time)),
-            sanitizedAttempts[sanitizedAttempts.length - 1].videoUri || '',
+            Math.round(bestAttempt.dropTimeSec * 1000),
+            bestAttempt.videoUri || '',
             locationData?.latitude ?? null,
             locationData?.longitude ?? null
           )
@@ -515,6 +540,20 @@ export default function ParachuteScreen() {
       massNum > 0 &&
       heightNum > 0;
 
+    const showCurrentAttempt =
+      Platform.OS === 'web' ? attemptCount < MAX_ATTEMPTS : currentVideoUri !== null;
+
+    const canCalculate =
+      hasInputs &&
+      dropTimeSec.trim().length > 0 &&
+      contactTimeSec.trim().length > 0 &&
+      (bounceMode === 'no_bounce' || bounceTimeSec.trim().length > 0);
+
+    const bestDropTime =
+      attempts.length > 0
+        ? Math.max(...attempts.map((attempt) => attempt.dropTimeSec))
+        : null;
+
     return (
       <View style={styles.experimentWrap}>
         <View style={[styles.infoCard, { borderColor: border, backgroundColor: card }]}>
@@ -540,190 +579,252 @@ export default function ParachuteScreen() {
         />
         <Text style={[styles.note, { color: mutedText }]}>Required for force and G-force calculations</Text>
 
-        <View style={[styles.timerPanel, { borderColor: border, backgroundColor: card }]}>
-          <Text style={[styles.timerLabel, { color: mutedText }]}>Timer</Text>
-          <Text style={[styles.timerValue, { color: text }]}>{formatTime(time)}s</Text>
-          <View style={styles.sensorDataRow}>
-            <Text
-              style={[
-                styles.helper,
-                { color: liveForce > 2.2 ? '#FF4444' : mutedText, fontWeight: '600' },
-              ]}>
-              Impact Sensor: {liveForce.toFixed(2)}g
-            </Text>
-            {liveForce > 2.2 ? (
-              <Text style={{ color: '#FF4444', fontSize: 10 }}> [IMPACT DETECTED]</Text>
-            ) : null}
-          </View>
+        <View style={[styles.experimentPanel, { borderColor: border, backgroundColor: card }]}>
+          <Text style={[styles.experimentLabel, { color: mutedText }]}>Experiment</Text>
           <View style={styles.sensorDataRow}>
             <Text style={[styles.helper, { color: mutedText }]}>GPS Status: {locationStatus}</Text>
           </View>
+          <Text style={[styles.helper, { color: text, marginTop: Spacing.sm, fontWeight: '700' }]}>
+            Attempt {Math.min(attemptCount + 1, MAX_ATTEMPTS)} of {MAX_ATTEMPTS}
+          </Text>
+
+          {Platform.OS === 'web' ? (
+            <Text style={[styles.note, { color: mutedText, marginBottom: Spacing.sm }]}>
+              Camera not available on web. Enter drop time manually.
+            </Text>
+          ) : (
+            <PrimaryButton
+              label={isRecording ? 'Recording...' : 'Record Drop'}
+              variant="primary"
+              disabled={
+                attemptCount >= MAX_ATTEMPTS ||
+                isSyncing ||
+                isRecording ||
+                hasUnsavedAttempt
+              }
+              onPress={() => void recordDrop()}
+              style={{ marginTop: Spacing.sm }}
+            />
+          )}
+
           <View style={styles.timerButtons}>
-            <PrimaryButton
-              label={isActive ? 'Stop & record' : 'Start timer'}
-              variant={isActive ? 'danger' : 'primary'}
-              disabled={(!isActive && attempts.length >= 3) || isSyncing}
-              onPress={() => (isActive ? void stopAttempt() : startAttempt())}
-            />
-            <PrimaryButton
-              label="Reset"
-              variant="secondary"
-              onPress={resetAll}
-              disabled={(time === 0 && attempts.length === 0) || isSyncing}
-            />
             <PrimaryButton
               label={isSyncing ? 'Syncing...' : 'Finish & Save'}
               variant="secondary"
               onPress={() => void finishAndViewResults()}
-              disabled={attempts.length === 0 || isActive || isSyncing}
-              style={{ borderColor: primary }}
+              disabled={
+                attemptCount === 0 || hasUnsavedAttempt || isRecording || isSyncing
+              }
+              style={{ borderColor: primary, marginTop: Spacing.sm }}
             />
           </View>
+
           <View style={styles.helperRow}>
-            <Text style={[styles.helper, { color: mutedText }]}>Attempts: {attempts.length}/3</Text>
+            <Text style={[styles.helper, { color: mutedText }]}>
+              Saved: {attemptCount}/{MAX_ATTEMPTS}
+            </Text>
             <Text style={[styles.helper, { color: primary }]}>
-              Best:{' '}
-              {attempts.length ? `${formatTime(Math.min(...attempts.map((a) => a.time)))}s` : '—'}
+              Best: {bestDropTime != null ? formatDropTimeSec(bestDropTime) : '—'}
             </Text>
           </View>
-          <Text style={[styles.helper, { color: mutedText, marginTop: Spacing.xs }]}>
-            {hasInputs ? '' : 'Enter mass and height to see force calculations'}
-          </Text>
         </View>
 
+        {showCurrentAttempt ? (
+          <SectionCard>
+            <Text style={[styles.sectionTitle, { color: text }]}>
+              Current Attempt
+            </Text>
+
+            {currentVideoUri ? (
+              <Video
+                source={{ uri: currentVideoUri }}
+                style={styles.videoPlayer}
+                useNativeControls
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay={false}
+              />
+            ) : null}
+
+            <View style={[styles.infoCard, { borderColor: border, backgroundColor: card, marginTop: Spacing.sm }]}>
+              <Text style={[styles.body, { color: mutedText }]}>
+                Review your slow-motion video carefully:{'\n'}
+                1. Find the moment the toy was released — this is time 0{'\n'}
+                2. Find the moment the toy first hits the ground — this is your drop time{'\n'}
+                3. Find the moment the toy stops moving — subtract first contact to get contact time
+              </Text>
+            </View>
+
+            <Input
+              label="Drop time (s)"
+              placeholder="e.g. 0.85"
+              hint="Time from release to first ground contact"
+              value={dropTimeSec}
+              onChangeText={(value) => {
+                setDropTimeSec(value);
+                setCurrentCalculations(null);
+                setCurrentGForce(null);
+              }}
+              keyboardType="decimal-pad"
+              style={{ marginTop: Spacing.sm }}
+            />
+            <Input
+              label="Contact time (s)"
+              placeholder="e.g. 0.05"
+              hint="Time from first contact to toy stopping"
+              value={contactTimeSec}
+              onChangeText={(value) => {
+                setContactTimeSec(value);
+                setCurrentCalculations(null);
+                setCurrentGForce(null);
+              }}
+              keyboardType="decimal-pad"
+            />
+
+            <Text style={[styles.bodyHeading, { color: text, marginTop: Spacing.sm }]}>
+              Did the toy bounce?
+            </Text>
+            <View style={styles.bounceRow}>
+              <Pressable
+                onPress={() => {
+                  setBounceMode('no_bounce');
+                  setCurrentCalculations(null);
+                  setCurrentGForce(null);
+                }}
+                style={[
+                  styles.bouncePill,
+                  {
+                    backgroundColor: bounceMode === 'no_bounce' ? primary : card,
+                    borderColor: bounceMode === 'no_bounce' ? primary : border,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.bouncePillText,
+                    { color: bounceMode === 'no_bounce' ? onPrimary : text },
+                  ]}>
+                  No Bounce
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setBounceMode('bounced');
+                  setCurrentCalculations(null);
+                  setCurrentGForce(null);
+                }}
+                style={[
+                  styles.bouncePill,
+                  {
+                    backgroundColor: bounceMode === 'bounced' ? primary : card,
+                    borderColor: bounceMode === 'bounced' ? primary : border,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.bouncePillText,
+                    { color: bounceMode === 'bounced' ? onPrimary : text },
+                  ]}>
+                  Bounced
+                </Text>
+              </Pressable>
+            </View>
+
+            {bounceMode === 'bounced' ? (
+              <Input
+                label="Bounce time (s)"
+                placeholder="e.g. 0.15"
+                hint="Time from first contact to max bounce height"
+                value={bounceTimeSec}
+                onChangeText={(value) => {
+                  setBounceTimeSec(value);
+                  setCurrentCalculations(null);
+                  setCurrentGForce(null);
+                }}
+                keyboardType="decimal-pad"
+                style={{ marginTop: Spacing.sm }}
+              />
+            ) : null}
+
+            <PrimaryButton
+              label="Calculate Physics"
+              variant="primary"
+              disabled={!canCalculate || isSyncing}
+              onPress={calculatePhysics}
+              style={{ marginTop: Spacing.sm }}
+            />
+
+            {currentCalculations && currentGForce !== null ? (
+              <SectionCard>
+                <Text style={[styles.sectionTitle, { color: text }]}>Calculations</Text>
+                <View style={[styles.calcList, { borderTopColor: border }]}>
+                  <Text style={[styles.calcRow, { color: mutedText }]}>
+                    Final Velocity: {currentCalculations.finalVelocity} m/s
+                  </Text>
+                  <Text style={[styles.calcRow, { color: mutedText }]}>
+                    Acceleration: {currentCalculations.acceleration} m/s²
+                  </Text>
+                  <Text style={[styles.calcRow, { color: mutedText }]}>
+                    Weight: {currentCalculations.weight} N
+                  </Text>
+                  <Text style={[styles.calcRow, { color: mutedText }]}>
+                    Net Force: {currentCalculations.netForce} N
+                  </Text>
+                  <Text style={[styles.calcRow, { color: mutedText }]}>
+                    Drag Force: {currentCalculations.dragForce} N
+                  </Text>
+                </View>
+                <Text style={[styles.gForceValue, { color: getGForceColour(currentGForce) }]}>
+                  G-Force: {currentGForce} g
+                </Text>
+                <PrimaryButton
+                  label="Save Attempt"
+                  variant="secondary"
+                  disabled={attemptCount >= MAX_ATTEMPTS || isSyncing}
+                  onPress={saveAttempt}
+                  style={{ marginTop: Spacing.sm, borderColor: primary }}
+                />
+              </SectionCard>
+            ) : null}
+          </SectionCard>
+        ) : null}
+
         <SectionCard>
-          <Text style={[styles.sectionTitle, { color: text }]}>Results</Text>
+          <Text style={[styles.sectionTitle, { color: text }]}>Saved Attempts</Text>
           {attempts.length === 0 ? (
-            <Text style={[styles.placeholder, { color: mutedText }]}>No drops recorded yet.</Text>
+            <Text style={[styles.placeholder, { color: mutedText }]}>No drops saved yet.</Text>
           ) : (
             <View style={[styles.attemptsWrap, { borderTopColor: border }]}>
-              {attempts.map((val, i) => {
-                const bounce = bounceByAttempt[i] ?? {
-                  mode: 'none' as BounceMode,
-                  contactTimeSec: '',
-                  bounceTimeSec: '',
-                };
-
-                const physics = hasInputs ? calculateParachutePhysics(val.time, massNum, heightNum) : null;
-                const contactTime = Number(bounce.contactTimeSec);
-                const bounceTime = Number(bounce.bounceTimeSec);
-
-                const gForce =
-                  physics && bounce.mode === 'no_bounce'
-                    ? calculateGForceNoBounce(physics.finalVelocity, contactTime)
-                    : physics && bounce.mode === 'bounced'
-                      ? calculateGForceBounce(physics.finalVelocity, contactTime, bounceTime)
-                      : null;
-
-                return (
-                  <View key={i} style={styles.attemptBlock}>
-                    <AttemptRow index={i + 1} value={`${formatTime(val.time)}s`} isLast={i === attempts.length - 1} />
-
-                    {physics ? (
-                      <SectionCard>
-                        <Text style={[styles.sectionTitle, { color: text }]}>Calculations</Text>
-                        <View style={[styles.calcList, { borderTopColor: border }]}>
-                          <Text style={[styles.calcRow, { color: mutedText }]}>Final Velocity: {physics.finalVelocity} m/s</Text>
-                          <Text style={[styles.calcRow, { color: mutedText }]}>Acceleration: {physics.acceleration} m/s²</Text>
-                          <Text style={[styles.calcRow, { color: mutedText }]}>Weight: {physics.weight} N</Text>
-                          <Text style={[styles.calcRow, { color: mutedText }]}>Net Force: {physics.netForce} N</Text>
-                          <Text style={[styles.calcRow, { color: mutedText }]}>Drag Force: {physics.dragForce} N</Text>
-                        </View>
-
-                        <Text style={[styles.bodyHeading, { color: text, marginTop: Spacing.sm }]}>Did the object bounce?</Text>
-                        <View style={styles.bounceRow}>
-                          <Pressable
-                            onPress={() =>
-                              setBounceByAttempt((prev) => ({
-                                ...prev,
-                                [i]: { ...bounce, mode: 'no_bounce' },
-                              }))
-                            }
-                            style={[
-                              styles.bouncePill,
-                              {
-                                backgroundColor: bounce.mode === 'no_bounce' ? primary : card,
-                                borderColor: bounce.mode === 'no_bounce' ? primary : border,
-                              },
-                            ]}>
-                            <Text style={[styles.bouncePillText, { color: bounce.mode === 'no_bounce' ? onPrimary : text }]}>
-                              No Bounce
-                            </Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={() =>
-                              setBounceByAttempt((prev) => ({
-                                ...prev,
-                                [i]: { ...bounce, mode: 'bounced' },
-                              }))
-                            }
-                            style={[
-                              styles.bouncePill,
-                              {
-                                backgroundColor: bounce.mode === 'bounced' ? primary : card,
-                                borderColor: bounce.mode === 'bounced' ? primary : border,
-                              },
-                            ]}>
-                            <Text style={[styles.bouncePillText, { color: bounce.mode === 'bounced' ? onPrimary : text }]}>
-                              Bounced
-                            </Text>
-                          </Pressable>
-                        </View>
-
-                        {bounce.mode === 'no_bounce' ? (
-                          <Input
-                            label="Contact time (s)"
-                            placeholder="e.g. 0.05"
-                            value={bounce.contactTimeSec}
-                            onChangeText={(v) =>
-                              setBounceByAttempt((prev) => ({
-                                ...prev,
-                                [i]: { ...bounce, contactTimeSec: v },
-                              }))
-                            }
-                            keyboardType="decimal-pad"
-                            style={{ marginTop: Spacing.sm }}
-                          />
-                        ) : bounce.mode === 'bounced' ? (
-                          <>
-                            <Input
-                              label="Contact time (s)"
-                              placeholder="e.g. 0.02"
-                              value={bounce.contactTimeSec}
-                              onChangeText={(v) =>
-                                setBounceByAttempt((prev) => ({
-                                  ...prev,
-                                  [i]: { ...bounce, contactTimeSec: v },
-                                }))
-                              }
-                              keyboardType="decimal-pad"
-                              style={{ marginTop: Spacing.sm }}
-                            />
-                            <Input
-                              label="Time to max bounce height (s)"
-                              placeholder="e.g. 0.15"
-                              value={bounce.bounceTimeSec}
-                              onChangeText={(v) =>
-                                setBounceByAttempt((prev) => ({
-                                  ...prev,
-                                  [i]: { ...bounce, bounceTimeSec: v },
-                                }))
-                              }
-                              keyboardType="decimal-pad"
-                            />
-                          </>
-                        ) : null}
-
-                        {gForce != null ? (
-                          <Text style={[styles.gForceValue, { color: getGForceColour(gForce) }]}>
-                            G-Force: {gForce} g
-                          </Text>
-                        ) : null}
-                      </SectionCard>
-                    ) : null}
+              {attempts.map((attempt, i) => (
+                <View key={i} style={styles.attemptBlock}>
+                  <AttemptRow
+                    index={i + 1}
+                    value={formatDropTimeSec(attempt.dropTimeSec)}
+                    isLast={i === attempts.length - 1}
+                  />
+                  {attempt.videoUri ? (
+                    <Video
+                      source={{ uri: attempt.videoUri }}
+                      style={styles.videoPlayer}
+                      useNativeControls
+                      resizeMode={ResizeMode.CONTAIN}
+                      shouldPlay={false}
+                    />
+                  ) : null}
+                  <View style={[styles.calcList, { borderTopColor: border }]}>
+                    <Text style={[styles.calcRow, { color: mutedText }]}>
+                      Contact time: {attempt.contactTimeSec}s
+                      {attempt.bounced && attempt.bounceTimeSec != null
+                        ? ` · Bounce: ${attempt.bounceTimeSec}s`
+                        : ''}
+                    </Text>
+                    <Text style={[styles.calcRow, { color: mutedText }]}>
+                      Final Velocity: {attempt.calculations.finalVelocity} m/s
+                    </Text>
+                    <Text style={[styles.calcRow, { color: mutedText }]}>
+                      G-Force: {attempt.gForce} g
+                    </Text>
                   </View>
-                );
-              })}
+                </View>
+              ))}
             </View>
           )}
         </SectionCard>
@@ -891,14 +992,14 @@ const styles = StyleSheet.create({
   experimentWrap: { gap: Spacing.md },
   infoCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md },
 
-  timerPanel: { borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.lg },
-  timerLabel: { ...Typography.small, textTransform: 'uppercase', letterSpacing: 1.2 },
-  timerValue: { marginTop: Spacing.sm, fontSize: 64, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  experimentPanel: { borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.lg },
+  experimentLabel: { ...Typography.small, textTransform: 'uppercase', letterSpacing: 1.2 },
   timerButtons: { marginTop: Spacing.md, gap: Spacing.sm },
   helperRow: { marginTop: Spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   helper: { ...Typography.small },
   attemptsWrap: { borderTopWidth: 1, paddingTop: Spacing.xs, gap: Spacing.sm },
   attemptBlock: { gap: Spacing.sm },
+  videoPlayer: { width: '100%', height: 200, borderRadius: Radius.lg },
   placeholder: { ...Typography.body, fontSize: 13, lineHeight: 19 },
   sensorDataRow: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.xs, paddingHorizontal: Spacing.xs, gap: 4 },
 
