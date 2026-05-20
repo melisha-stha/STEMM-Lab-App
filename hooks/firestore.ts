@@ -33,6 +33,12 @@ export type EarthquakeLeaderboardEntry = {
   userId?: string;
 };
 
+export type ReactionAttempt = {
+  phase: 1 | 2 | 3;
+  reactionTime?: number;
+  tooEarly?: boolean;
+};
+
 export const uploadParachuteResult = async (userId: string, teamData: any, attempts: any[], location?: any) => {
   try {
     const finalTeamName = teamData?.name || "Anonymous Team";
@@ -162,6 +168,96 @@ export const subscribeToEarthquakeLeaderboard = (
       id: doc.id,
       ...doc.data(),
     })) as EarthquakeLeaderboardEntry[];
+    callback(results);
+  });
+};
+
+/**
+ * Uploads a reaction board trial to Firestore.
+ * Parallel-called with insertTrial (SQLite) from reaction.tsx saveResults.
+ */
+export const uploadReactionResult = async (
+  userId: string,
+  teamData: any,
+  attempts: ReactionAttempt[],
+  location?: { latitude: number; longitude: number } | null
+): Promise<void> => {
+  const phase1Attempts = attempts.filter(
+    (a) => a.phase === 1 && !a.tooEarly && a.reactionTime != null
+  );
+  const phase2Attempts = attempts.filter(
+    (a) => a.phase === 2 && !a.tooEarly && a.reactionTime != null
+  );
+  const phase3Attempts = attempts.filter(
+    (a) => a.phase === 3 && !a.tooEarly && a.reactionTime != null
+  );
+
+  const avgPhase1 =
+    phase1Attempts.length > 0
+      ? phase1Attempts.reduce((sum, a) => sum + (a.reactionTime ?? 0), 0) / phase1Attempts.length
+      : null;
+
+  const avgPhase2 =
+    phase2Attempts.length > 0
+      ? phase2Attempts.reduce((sum, a) => sum + (a.reactionTime ?? 0), 0) / phase2Attempts.length
+      : null;
+
+  const avgPhase3 =
+    phase3Attempts.length > 0
+      ? phase3Attempts.reduce((sum, a) => sum + (a.reactionTime ?? 0), 0) / phase3Attempts.length
+      : null;
+
+  const timedAttempts = [...phase1Attempts, ...phase2Attempts, ...phase3Attempts];
+  const bestReactionTime =
+    timedAttempts.length > 0
+      ? Math.min(...timedAttempts.map((a) => a.reactionTime as number))
+      : null;
+
+  await addDoc(collection(db, 'reactionResults'), {
+    userId,
+    teamName: teamData?.name ?? 'Anonymous Team',
+    grade: teamData?.grade ?? 'N/A',
+    attempts,
+    avgPhase1ReactionTime: avgPhase1,
+    avgPhase2ReactionTime: avgPhase2,
+    avgPhase3ReactionTime: avgPhase3,
+    bestReactionTime,
+    locationData: location
+      ? { latitude: Number(location.latitude), longitude: Number(location.longitude) }
+      : null,
+    createdAt: new Date().toISOString(),
+  });
+};
+
+export type ReactionLeaderboardEntry = {
+  id: string;
+  teamName: string;
+  grade: string;
+  bestReactionTime: number;
+  avgPhase1ReactionTime: number | null;
+  avgPhase2ReactionTime: number | null;
+  avgPhase3ReactionTime: number | null;
+  locationData?: { latitude: number; longitude: number } | null;
+  createdAt: string;
+};
+
+/**
+ * Subscribes to top 10 reaction results ordered by bestReactionTime ascending.
+ * Lower time = faster reaction = better result.
+ */
+export const subscribeToReactionLeaderboard = (
+  callback: (results: ReactionLeaderboardEntry[]) => void
+): (() => void) => {
+  const q = query(
+    collection(db, 'reactionResults'),
+    orderBy('bestReactionTime', 'asc'),
+    limit(10)
+  );
+  return onSnapshot(q, (snapshot) => {
+    const results = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as ReactionLeaderboardEntry[];
     callback(results);
   });
 };

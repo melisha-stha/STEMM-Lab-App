@@ -11,22 +11,25 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import {
   subscribeToEarthquakeLeaderboard,
   subscribeToLeaderboard,
+  subscribeToReactionLeaderboard,
   subscribeToSoundLeaderboard,
 } from '../hooks/firestore';
 
-const ACTIVITIES = ['parachute', 'sound', 'earthquake'] as const;
+const ACTIVITIES = ['parachute', 'sound', 'earthquake', 'reaction'] as const;
 type Activity = (typeof ACTIVITIES)[number];
 
 const ACTIVITY_LABELS: Record<Activity, string> = {
   parachute: 'Parachute',
   sound: 'Sound',
   earthquake: 'Earthquake',
+  reaction: 'Reaction',
 };
 
 const ACTIVITY_DISPLAY_NAMES: Record<Activity, string> = {
   parachute: 'Parachute Drop',
   sound: 'Sound Pollution',
   earthquake: 'Earthquake',
+  reaction: 'Reaction Board',
 };
 
 type LeaderboardResult = {
@@ -38,6 +41,7 @@ type LeaderboardResult = {
   measurements?: { db: number; label: string }[];
   peakDb?: number;
   bestScore?: number;
+  bestReactionTime?: number;
 };
 
 const getTeamDiscriminator = (result: LeaderboardResult): string => {
@@ -80,6 +84,12 @@ const getActivityMetric = (
         primary: result.bestScore != null ? `${result.bestScore}/100` : '—',
         label: 'Stability score',
       };
+    case 'reaction':
+      return {
+        primary:
+          result.bestReactionTime != null ? `${result.bestReactionTime} ms` : '—',
+        label: 'Best reaction time',
+      };
   }
 };
 
@@ -114,8 +124,13 @@ export default function LeaderboardScreen() {
         setResults(data);
         setLoading(false);
       });
-    } else {
+    } else if (activeActivity === 'earthquake') {
       unsubscribe = subscribeToEarthquakeLeaderboard((data) => {
+        setResults(data);
+        setLoading(false);
+      });
+    } else if (activeActivity === 'reaction') {
+      unsubscribe = subscribeToReactionLeaderboard((data) => {
         setResults(data);
         setLoading(false);
       });

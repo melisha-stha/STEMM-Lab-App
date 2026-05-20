@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -120,6 +120,12 @@ export default function HomeScreen() {
           tag="Engineering • Sensors"
           description="Measure structural stability using the gyroscope and accelerometer while simulating an earthquake."
           onPress={() => router.push('/earthquake')}
+        />
+        <ActivityCard
+          title="Reaction Board Challenge"
+          tag="Neuroscience + Mathematics"
+          description="Measure reaction time, hand coordination, and tracing accuracy across three challenge phases."
+          onPress={() => router.push('/reaction' as Href)}
         />
         <ActivityCard
           title="Drop Site Map"
