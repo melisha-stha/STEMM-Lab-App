@@ -65,6 +65,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <MaterialIcons name="flash-on" size={28} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="breathing"
+        options={{
+          title: 'Breathing',
+          tabBarIcon: ({ color }) => <MaterialIcons name="air" size={28} color={color} />,
+        }}
+      />
     </Tabs>
     </View>
     </View>

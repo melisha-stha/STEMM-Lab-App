@@ -9,13 +9,14 @@ import { Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 import {
+  subscribeToBreathingLeaderboard,
   subscribeToEarthquakeLeaderboard,
   subscribeToLeaderboard,
   subscribeToReactionLeaderboard,
   subscribeToSoundLeaderboard,
 } from '../hooks/firestore';
 
-const ACTIVITIES = ['parachute', 'sound', 'earthquake', 'reaction'] as const;
+const ACTIVITIES = ['parachute', 'sound', 'earthquake', 'reaction', 'breathing'] as const;
 type Activity = (typeof ACTIVITIES)[number];
 
 const ACTIVITY_LABELS: Record<Activity, string> = {
@@ -23,6 +24,7 @@ const ACTIVITY_LABELS: Record<Activity, string> = {
   sound: 'Sound',
   earthquake: 'Earthquake',
   reaction: 'Reaction',
+  breathing: 'Breathing',
 };
 
 const ACTIVITY_DISPLAY_NAMES: Record<Activity, string> = {
@@ -30,6 +32,7 @@ const ACTIVITY_DISPLAY_NAMES: Record<Activity, string> = {
   sound: 'Sound Pollution',
   earthquake: 'Earthquake',
   reaction: 'Reaction Board',
+  breathing: 'Breathing Pace',
 };
 
 type LeaderboardResult = {
@@ -42,6 +45,7 @@ type LeaderboardResult = {
   peakDb?: number;
   bestScore?: number;
   bestReactionTime?: number;
+  restingBpm?: number;
 };
 
 const getTeamDiscriminator = (result: LeaderboardResult): string => {
@@ -90,6 +94,11 @@ const getActivityMetric = (
           result.bestReactionTime != null ? `${result.bestReactionTime} ms` : '—',
         label: 'Best reaction time',
       };
+    case 'breathing':
+      return {
+        primary: result.restingBpm != null ? `${result.restingBpm} BPM` : '—',
+        label: 'Resting breath rate',
+      };
   }
 };
 
@@ -131,6 +140,11 @@ export default function LeaderboardScreen() {
       });
     } else if (activeActivity === 'reaction') {
       unsubscribe = subscribeToReactionLeaderboard((data) => {
+        setResults(data);
+        setLoading(false);
+      });
+    } else if (activeActivity === 'breathing') {
+      unsubscribe = subscribeToBreathingLeaderboard((data) => {
         setResults(data);
         setLoading(false);
       });

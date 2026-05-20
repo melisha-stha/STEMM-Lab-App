@@ -261,3 +261,65 @@ export const subscribeToReactionLeaderboard = (
     callback(results);
   });
 };
+
+export type BreathingSession = {
+  label: string;
+  bpm: number;
+  duration: number;
+};
+
+export type BreathingLeaderboardEntry = {
+  id: string;
+  teamName: string;
+  grade: string;
+  sessions: BreathingSession[];
+  restingBpm: number;
+  locationData?: { latitude: number; longitude: number } | null;
+  createdAt: string;
+};
+
+/**
+ * Uploads a breathing pace trial to Firestore.
+ * Parallel-called with insertTrial (SQLite) from breathing.tsx saveResults.
+ */
+export const uploadBreathingResult = async (
+  userId: string,
+  teamData: any,
+  sessions: BreathingSession[],
+  location?: { latitude: number; longitude: number } | null
+): Promise<void> => {
+  const restingSession = sessions.find((s) => s.label === 'At Rest');
+
+  await addDoc(collection(db, 'breathingResults'), {
+    userId,
+    teamName: teamData?.name ?? 'Anonymous Team',
+    grade: teamData?.grade ?? 'N/A',
+    sessions,
+    restingBpm: restingSession?.bpm ?? 0,
+    locationData: location
+      ? { latitude: Number(location.latitude), longitude: Number(location.longitude) }
+      : null,
+    createdAt: new Date().toISOString(),
+  });
+};
+
+/**
+ * Subscribes to top 10 breathing results ordered by restingBpm ascending.
+ * Lower resting BPM = more relaxed = better baseline result.
+ */
+export const subscribeToBreathingLeaderboard = (
+  callback: (results: BreathingLeaderboardEntry[]) => void
+): (() => void) => {
+  const q = query(
+    collection(db, 'breathingResults'),
+    orderBy('restingBpm', 'asc'),
+    limit(10)
+  );
+  return onSnapshot(q, (snapshot) => {
+    const results = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as BreathingLeaderboardEntry[];
+    callback(results);
+  });
+};

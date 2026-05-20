@@ -101,6 +101,20 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // Collection: breathingResults
+    // Each doc represents a team's breathing pace trainer submissions.
+    // -------------------------------------------------------------------------
+    match /breathingResults/{docId} {
+
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+
+    // -------------------------------------------------------------------------
     // Default deny — explicit catch-all for any collection/document path not
     // matched above. Firestore's implicit default is already deny, but stating
     // this explicitly documents intent and protects against future regressions.

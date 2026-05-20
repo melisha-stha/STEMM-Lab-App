@@ -24,6 +24,7 @@ function getMarkerColor(activity: string): string {
     case 'sound': return '#4CAF50';     // green
     case 'earthquake': return '#FF5722'; // red
     case 'reaction': return '#9C27B0';   // purple
+    case 'breathing': return '#00BCD4';
     default: return '#9C27B0';           // purple
   }
 }
