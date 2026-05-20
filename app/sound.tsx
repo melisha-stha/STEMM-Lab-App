@@ -6,9 +6,10 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import { Audio } from 'expo-av';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadSoundResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
@@ -166,6 +167,9 @@ export default function SoundScreen() {
 
   return (
     <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <MaterialIcons name="arrow-back" size={24} color={text} />
+      </TouchableOpacity>
       <View style={styles.header}>
         <Text style={[styles.title, { color: text }]}>Sound Pollution Hunter</Text>
         <Text style={[styles.subtitle, { color: mutedText }]}>Measure and compare sound levels in your classroom.</Text>
@@ -285,6 +289,7 @@ export default function SoundScreen() {
 const styles = StyleSheet.create({
   page: { flex: 1 },
   content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
+  backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
   header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   title: { ...Typography.hero, fontSize: 26 },
   subtitle: { marginTop: Spacing.xs, ...Typography.body },

@@ -128,6 +128,12 @@ export default function HomeScreen() {
           onPress={() => router.push('/reaction' as Href)}
         />
         <ActivityCard
+          title="Breathing Pace Trainer"
+          tag="Biology • Health"
+          description="Place the phone on your chest and measure breaths per minute at rest and after exercise."
+          onPress={() => router.push('/breathing' as Href)}
+        />
+        <ActivityCard
           title="Drop Site Map"
           tag="GPS • All Activities"
           description="View GPS-tagged locations of all your team's activity trials on a map."

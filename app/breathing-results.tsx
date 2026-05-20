@@ -7,68 +7,57 @@ import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
-import type { ReactionAttempt } from '@/hooks/firestore';
-import { getTeamData, saveReactionResults } from '@/hooks/storage';
+import type { BreathingSession } from '@/hooks/firestore';
+import { getTeamData, saveBreathingResults } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
-const REACTION_FAST_MS = 300;
-const REACTION_SLOW_MS = 500;
-const COLOR_REACTION_FAST = '#2E7D32';
-const COLOR_REACTION_MID = '#F57F17';
-const COLOR_REACTION_SLOW = '#C62828';
+const SESSION_LABEL_REST = 'At Rest';
+const SESSION_LABEL_EXERCISE_1 = 'After Exercise 1 — Jog 1 minute or 100 star jumps';
+const SESSION_LABEL_EXERCISE_2 = 'After Exercise 2 — Repeat exercise';
 
-const getReactionColor = (ms: number): string => {
-  if (ms < REACTION_FAST_MS) return COLOR_REACTION_FAST;
-  if (ms <= REACTION_SLOW_MS) return COLOR_REACTION_MID;
-  return COLOR_REACTION_SLOW;
-};
-
-const parseAttempts = (attemptsJson: string | string[] | undefined): ReactionAttempt[] => {
-  if (!attemptsJson || Array.isArray(attemptsJson)) {
+const parseSessions = (sessionsJson: string | string[] | undefined): BreathingSession[] => {
+  if (!sessionsJson || Array.isArray(sessionsJson)) {
     return [];
   }
   try {
-    const parsed: unknown = JSON.parse(attemptsJson);
+    const parsed: unknown = JSON.parse(sessionsJson);
     if (!Array.isArray(parsed)) {
       return [];
     }
     return parsed.filter(
-      (item): item is ReactionAttempt =>
+      (item): item is BreathingSession =>
         typeof item === 'object' &&
         item !== null &&
-        (item.phase === 1 || item.phase === 2 || item.phase === 3)
+        typeof (item as BreathingSession).label === 'string' &&
+        typeof (item as BreathingSession).bpm === 'number' &&
+        typeof (item as BreathingSession).duration === 'number'
     );
   } catch {
     return [];
   }
 };
 
-const averageReactionTime = (items: ReactionAttempt[], phase: 1 | 2 | 3): number | null => {
-  const times = items
-    .filter((a) => a.phase === phase && !a.tooEarly && a.reactionTime != null)
-    .map((a) => a.reactionTime as number);
-  if (!times.length) return null;
-  return Math.round(times.reduce((sum, t) => sum + t, 0) / times.length);
-};
-
-const bestReactionTime = (items: ReactionAttempt[]): number | null => {
-  const times = items
-    .filter((a) => !a.tooEarly && a.reactionTime != null)
-    .map((a) => a.reactionTime as number);
-  return times.length ? Math.min(...times) : null;
-};
-
-export default function ReactionResultsScreen() {
+export default function BreathingResultsScreen() {
   const router = useRouter();
-  const { attemptsJson } = useLocalSearchParams<{ attemptsJson?: string }>();
+  const { sessionsJson } = useLocalSearchParams<{ sessionsJson?: string }>();
 
-  const attempts = useMemo(() => parseAttempts(attemptsJson), [attemptsJson]);
-  const avgPhase1 = useMemo(() => averageReactionTime(attempts, 1), [attempts]);
-  const avgPhase2 = useMemo(() => averageReactionTime(attempts, 2), [attempts]);
-  const avgPhase3 = useMemo(() => averageReactionTime(attempts, 3), [attempts]);
-  const best = useMemo(() => bestReactionTime(attempts), [attempts]);
-  const handDiff =
-    avgPhase1 != null && avgPhase2 != null ? avgPhase2 - avgPhase1 : null;
+  const sessions = useMemo(() => parseSessions(sessionsJson), [sessionsJson]);
+  const restingBpm = useMemo(
+    () => sessions.find((s) => s.label === SESSION_LABEL_REST)?.bpm ?? null,
+    [sessions]
+  );
+  const exercise1Bpm = useMemo(
+    () => sessions.find((s) => s.label === SESSION_LABEL_EXERCISE_1)?.bpm ?? null,
+    [sessions]
+  );
+  const exercise2Bpm = useMemo(
+    () => sessions.find((s) => s.label === SESSION_LABEL_EXERCISE_2)?.bpm ?? null,
+    [sessions]
+  );
+  const changeExercise1 =
+    restingBpm != null && exercise1Bpm != null ? exercise1Bpm - restingBpm : null;
+  const changeExercise2 =
+    restingBpm != null && exercise2Bpm != null ? exercise2Bpm - restingBpm : null;
 
   const [reflection, setReflection] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,29 +67,29 @@ export default function ReactionResultsScreen() {
   const mutedText = useThemeColor({}, 'mutedText');
   const border = useThemeColor({}, 'border');
   const card = useThemeColor({}, 'card');
-  const success = useThemeColor({}, 'success');
 
   const handleSubmit = async (): Promise<void> => {
-    if (!attempts.length) {
-      Alert.alert('No attempts', 'Please record at least one trial before submitting.');
+    if (sessions.length === 0) {
+      Alert.alert('No sessions', 'Please complete all recording sessions before submitting.');
       return;
     }
     if (!reflection.trim()) {
-      Alert.alert('Add a reflection', 'Write a short note about what improved your reaction time.');
+      Alert.alert('Add a reflection', 'Write a short note about how exercise affected your breathing.');
       return;
     }
 
     setIsSubmitting(true);
     try {
       const team = await getTeamData();
-      await saveReactionResults({
-        activity: 'reaction',
+      await saveBreathingResults({
+        activity: 'breathing',
         createdAt: Date.now(),
-        attempts,
-        avgPhase1ReactionTime: avgPhase1,
-        avgPhase2ReactionTime: avgPhase2,
-        avgPhase3ReactionTime: avgPhase3,
-        bestReactionTime: best,
+        sessions,
+        restingBpm,
+        exercise1Bpm,
+        exercise2Bpm,
+        changeExercise1,
+        changeExercise2,
         comment: reflection.trim(),
         teamName: team?.name ?? '—',
         teamId: team?.id ?? null,
@@ -118,58 +107,48 @@ export default function ReactionResultsScreen() {
         <MaterialIcons name="arrow-back" size={24} color={text} />
       </TouchableOpacity>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: text }]}>Reaction Results</Text>
+        <Text style={[styles.title, { color: text }]}>Breathing Results</Text>
         <Text style={[styles.subtitle, { color: mutedText }]}>
-          Review your phase results and submit your reflection.
+          Review your session results and submit your reflection.
         </Text>
       </View>
 
       <SectionCard>
         <Text style={[styles.sectionTitle, { color: text }]}>Summary</Text>
-        {attempts.length === 0 ? (
+        {sessions.length === 0 ? (
           <Text style={[styles.placeholder, { color: mutedText }]}>
-            No attempts were provided. Go back and complete the activity first.
+            No sessions were provided. Go back and complete the activity first.
           </Text>
         ) : (
           <View style={[styles.summaryList, { borderTopColor: border }]}>
             <View style={[styles.summaryCard, { backgroundColor: card, borderColor: border }]}>
-              <Text style={[styles.summaryLabel, { color: mutedText }]}>Phase 1 average</Text>
+              <Text style={[styles.summaryLabel, { color: mutedText }]}>At Rest</Text>
               <Text style={[styles.summaryValue, { color: text }]}>
-                {avgPhase1 != null ? `${avgPhase1} ms` : '—'}
+                {restingBpm != null ? `${restingBpm} BPM` : '—'}
               </Text>
             </View>
             <View style={[styles.summaryCard, { backgroundColor: card, borderColor: border }]}>
-              <Text style={[styles.summaryLabel, { color: mutedText }]}>Phase 2 average</Text>
+              <Text style={[styles.summaryLabel, { color: mutedText }]}>After Exercise 1</Text>
               <Text style={[styles.summaryValue, { color: text }]}>
-                {avgPhase2 != null ? `${avgPhase2} ms` : '—'}
+                {exercise1Bpm != null ? `${exercise1Bpm} BPM` : '—'}
               </Text>
             </View>
             <View style={[styles.summaryCard, { backgroundColor: card, borderColor: border }]}>
-              <Text style={[styles.summaryLabel, { color: mutedText }]}>Phase 3 average</Text>
+              <Text style={[styles.summaryLabel, { color: mutedText }]}>After Exercise 2</Text>
               <Text style={[styles.summaryValue, { color: text }]}>
-                {avgPhase3 != null ? `${avgPhase3} ms` : '—'}
+                {exercise2Bpm != null ? `${exercise2Bpm} BPM` : '—'}
               </Text>
             </View>
             <View style={[styles.summaryCard, { backgroundColor: card, borderColor: border }]}>
-              <Text style={[styles.summaryLabel, { color: mutedText }]}>
-                Dominant vs non-dominant
-              </Text>
+              <Text style={[styles.summaryLabel, { color: mutedText }]}>Change rest → exercise 1</Text>
               <Text style={[styles.summaryValue, { color: text }]}>
-                {handDiff != null ? `${handDiff > 0 ? '+' : ''}${handDiff} ms` : '—'}
+                {changeExercise1 != null ? `${changeExercise1 > 0 ? '+' : ''}${changeExercise1} BPM` : '—'}
               </Text>
             </View>
-            <View
-              style={[
-                styles.summaryCard,
-                { backgroundColor: card, borderColor: best != null ? success : border },
-              ]}>
-              <Text style={[styles.summaryLabel, { color: mutedText }]}>Best reaction time</Text>
-              <Text
-                style={[
-                  styles.summaryValue,
-                  { color: best != null ? getReactionColor(best) : text },
-                ]}>
-                {best != null ? `${best} ms` : '—'}
+            <View style={[styles.summaryCard, { backgroundColor: card, borderColor: border }]}>
+              <Text style={[styles.summaryLabel, { color: mutedText }]}>Change rest → exercise 2</Text>
+              <Text style={[styles.summaryValue, { color: text }]}>
+                {changeExercise2 != null ? `${changeExercise2 > 0 ? '+' : ''}${changeExercise2} BPM` : '—'}
               </Text>
             </View>
           </View>
@@ -179,11 +158,11 @@ export default function ReactionResultsScreen() {
       <SectionCard>
         <Text style={[styles.sectionTitle, { color: text }]}>Reflection</Text>
         <Text style={[styles.help, { color: mutedText }]}>
-          What helped you react faster across the three phases?
+          How did your breathing rate change after exercise?
         </Text>
         <Input
           label="Comment"
-          placeholder="e.g. predicting the next button position improved my phase 3 time"
+          placeholder="e.g. my BPM increased after star jumps because my body needed more oxygen"
           value={reflection}
           onChangeText={setReflection}
           multiline
@@ -196,7 +175,7 @@ export default function ReactionResultsScreen() {
         <PrimaryButton
           label={isSubmitting ? 'Submitting…' : 'Submit Results'}
           onPress={() => void handleSubmit()}
-          disabled={isSubmitting || attempts.length === 0 || reflection.trim().length === 0}
+          disabled={isSubmitting || sessions.length === 0 || reflection.trim().length === 0}
         />
         <PrimaryButton
           label="View leaderboard"

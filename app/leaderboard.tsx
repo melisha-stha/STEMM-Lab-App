@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
@@ -9,13 +9,14 @@ import { Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 import {
+  subscribeToBreathingLeaderboard,
   subscribeToEarthquakeLeaderboard,
   subscribeToLeaderboard,
   subscribeToReactionLeaderboard,
   subscribeToSoundLeaderboard,
 } from '../hooks/firestore';
 
-const ACTIVITIES = ['parachute', 'sound', 'earthquake', 'reaction'] as const;
+const ACTIVITIES = ['parachute', 'sound', 'earthquake', 'reaction', 'breathing'] as const;
 type Activity = (typeof ACTIVITIES)[number];
 
 const ACTIVITY_LABELS: Record<Activity, string> = {
@@ -23,6 +24,7 @@ const ACTIVITY_LABELS: Record<Activity, string> = {
   sound: 'Sound',
   earthquake: 'Earthquake',
   reaction: 'Reaction',
+  breathing: 'Breathing',
 };
 
 const ACTIVITY_DISPLAY_NAMES: Record<Activity, string> = {
@@ -30,6 +32,7 @@ const ACTIVITY_DISPLAY_NAMES: Record<Activity, string> = {
   sound: 'Sound Pollution',
   earthquake: 'Earthquake',
   reaction: 'Reaction Board',
+  breathing: 'Breathing Pace',
 };
 
 type LeaderboardResult = {
@@ -42,6 +45,7 @@ type LeaderboardResult = {
   peakDb?: number;
   bestScore?: number;
   bestReactionTime?: number;
+  restingBpm?: number;
 };
 
 const getTeamDiscriminator = (result: LeaderboardResult): string => {
@@ -90,6 +94,11 @@ const getActivityMetric = (
           result.bestReactionTime != null ? `${result.bestReactionTime} ms` : '—',
         label: 'Best reaction time',
       };
+    case 'breathing':
+      return {
+        primary: result.restingBpm != null ? `${result.restingBpm} BPM` : '—',
+        label: 'Resting breath rate',
+      };
   }
 };
 
@@ -134,6 +143,11 @@ export default function LeaderboardScreen() {
         setResults(data);
         setLoading(false);
       });
+    } else if (activeActivity === 'breathing') {
+      unsubscribe = subscribeToBreathingLeaderboard((data) => {
+        setResults(data);
+        setLoading(false);
+      });
     }
 
     return () => unsubscribe?.();
@@ -141,6 +155,9 @@ export default function LeaderboardScreen() {
 
   return (
     <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <MaterialIcons name="arrow-back" size={24} color={text} />
+      </TouchableOpacity>
       <View style={styles.header}>
         <Text style={[styles.title, { color: text }]}>Leaderboard</Text>
         <Text style={[styles.subtitle, { color: mutedText }]}>Top 10 teams per activity</Text>
@@ -236,6 +253,7 @@ export default function LeaderboardScreen() {
 const styles = StyleSheet.create({
   page: { flex: 1 },
   content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
+  backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
   header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   title: { ...Typography.hero, fontSize: 26 },
   subtitle: { marginTop: Spacing.xs, ...Typography.body },

@@ -7,6 +7,7 @@ import { uploadReactionResult } from '@/hooks/firestore';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
 import {
@@ -510,6 +511,9 @@ export default function ReactionScreen() {
 
   return (
     <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <MaterialIcons name="arrow-back" size={24} color={text} />
+      </TouchableOpacity>
       <View style={styles.header}>
         <Text style={[styles.title, { color: text }]}>Reaction Board Challenge</Text>
         <Text style={[styles.subtitle, { color: mutedText }]}>
@@ -558,6 +562,7 @@ const boardMinHeight = Math.min(Dimensions.get('window').height * 0.35, 320);
 const styles = StyleSheet.create({
   page: { flex: 1 },
   content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
+  backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
   header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   title: { ...Typography.hero, fontSize: 26 },
   subtitle: { marginTop: Spacing.xs, ...Typography.body },

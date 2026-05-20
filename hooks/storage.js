@@ -107,3 +107,27 @@ export const getReactionResults = async () => {
     return [];
   }
 };
+
+const BREATHING_RESULTS_KEY = '@breathing_results';
+
+export const saveBreathingResults = async (payload) => {
+  try {
+    const existing = await AsyncStorage.getItem(BREATHING_RESULTS_KEY);
+    const history = existing ? JSON.parse(existing) : [];
+    const next = Array.isArray(history) ? [payload, ...history] : [payload];
+    await AsyncStorage.setItem(BREATHING_RESULTS_KEY, JSON.stringify(next));
+    console.log('Success: Breathing results saved.');
+  } catch (e) {
+    console.error('Failed to save breathing results', e);
+  }
+};
+
+export const getBreathingResults = async () => {
+  try {
+    const existing = await AsyncStorage.getItem(BREATHING_RESULTS_KEY);
+    return existing ? JSON.parse(existing) : [];
+  } catch (e) {
+    console.error('Failed to load breathing results', e);
+    return [];
+  }
+};

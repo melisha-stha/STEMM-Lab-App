@@ -4,7 +4,8 @@ import { Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { login } from '../hooks/authService';
 
 export default function LoginScreen() {
@@ -30,6 +31,9 @@ export default function LoginScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: background }]}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <MaterialIcons name="arrow-back" size={24} color={text} />
+      </TouchableOpacity>
       <Text style={[styles.title, { color: text }]}>Team Login</Text>
       <Input label="Email" value={email} onChangeText={setEmail} placeholder="Enter team email" />
       <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry />
@@ -43,5 +47,6 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: Spacing.lg, justifyContent: 'center', gap: Spacing.md },
+  backButton: { alignSelf: 'flex-start', padding: Spacing.xs, position: 'absolute', top: Spacing.lg, left: Spacing.lg },
   title: { ...Typography.hero, textAlign: 'center', marginBottom: Spacing.lg }
 });
