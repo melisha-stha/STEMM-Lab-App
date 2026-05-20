@@ -36,7 +36,6 @@ export type EarthquakeLeaderboardEntry = {
 export type ReactionAttempt = {
   phase: 1 | 2 | 3;
   reactionTime?: number;
-  accuracy?: number;
   tooEarly?: boolean;
 };
 
@@ -189,6 +188,9 @@ export const uploadReactionResult = async (
   const phase2Attempts = attempts.filter(
     (a) => a.phase === 2 && !a.tooEarly && a.reactionTime != null
   );
+  const phase3Attempts = attempts.filter(
+    (a) => a.phase === 3 && !a.tooEarly && a.reactionTime != null
+  );
 
   const avgPhase1 =
     phase1Attempts.length > 0
@@ -200,9 +202,16 @@ export const uploadReactionResult = async (
       ? phase2Attempts.reduce((sum, a) => sum + (a.reactionTime ?? 0), 0) / phase2Attempts.length
       : null;
 
-  const bestReactionTime = Math.min(
-    ...[...phase1Attempts, ...phase2Attempts].map((a) => a.reactionTime ?? Infinity)
-  );
+  const avgPhase3 =
+    phase3Attempts.length > 0
+      ? phase3Attempts.reduce((sum, a) => sum + (a.reactionTime ?? 0), 0) / phase3Attempts.length
+      : null;
+
+  const timedAttempts = [...phase1Attempts, ...phase2Attempts, ...phase3Attempts];
+  const bestReactionTime =
+    timedAttempts.length > 0
+      ? Math.min(...timedAttempts.map((a) => a.reactionTime as number))
+      : null;
 
   await addDoc(collection(db, 'reactionResults'), {
     userId,
@@ -211,7 +220,8 @@ export const uploadReactionResult = async (
     attempts,
     avgPhase1ReactionTime: avgPhase1,
     avgPhase2ReactionTime: avgPhase2,
-    bestReactionTime: Number.isFinite(bestReactionTime) ? bestReactionTime : null,
+    avgPhase3ReactionTime: avgPhase3,
+    bestReactionTime,
     locationData: location
       ? { latitude: Number(location.latitude), longitude: Number(location.longitude) }
       : null,
@@ -226,6 +236,7 @@ export type ReactionLeaderboardEntry = {
   bestReactionTime: number;
   avgPhase1ReactionTime: number | null;
   avgPhase2ReactionTime: number | null;
+  avgPhase3ReactionTime: number | null;
   locationData?: { latitude: number; longitude: number } | null;
   createdAt: string;
 };

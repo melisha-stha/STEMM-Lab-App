@@ -8,11 +8,10 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Dimensions,
-  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,27 +22,37 @@ import {
 import { auth } from '../hooks/firebaseConfig';
 import { getTeamData } from '../hooks/storage';
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 const ACTIVITY_REACTION = 'reaction';
 const TAPS_PER_ROUND = 10;
 const BUTTON_COUNT = 8;
-const BOARD_PADDING = 60;
-const BOARD_BOTTOM_RESERVE = 200;
+const MIN_DISTANCE = 90;
+const BUTTON_POSITION_MAX_ATTEMPTS = 200;
+const SCREEN_HORIZONTAL_PADDING = 80;
+const SCREEN_TOP_PADDING = 120;
+const SCREEN_BOTTOM_PADDING = 250;
+const USABLE_PLAY_HEIGHT = SCREEN_HEIGHT - SCREEN_TOP_PADDING - SCREEN_BOTTOM_PADDING;
 const BUTTON_DIAMETER = 56;
 const BUTTON_RADIUS = BUTTON_DIAMETER / 2;
-const TRACING_DURATION_MS = 10000;
-const TRACING_RADIUS = 80;
-const TRACING_ROTATION_MS = 4000;
-const TRACING_ACCURACY_DISTANCE = 80;
-
 const REACTION_FAST_MS = 300;
 const REACTION_SLOW_MS = 500;
 
 const COLOR_REACTION_FAST = '#2E7D32';
 const COLOR_REACTION_MID = '#F57F17';
 const COLOR_REACTION_SLOW = '#C62828';
-const COLOR_BUTTON_INACTIVE = '#9E9E9E';
-const COLOR_BUTTON_ACTIVE = '#4CAF50';
-const COLOR_TARGET = '#FF5722';
+const COLOR_BUTTON_INACTIVE = '#3A3A3A';
+
+const BUTTON_COLOURS = [
+  '#E53935',
+  '#8E24AA',
+  '#1E88E5',
+  '#00897B',
+  '#F4511E',
+  '#039BE5',
+  '#7CB342',
+  '#FFB300',
+] as const;
 
 type ScreenTab = 'instructions' | 'activity' | 'discussion';
 type ActivityPhase = 1 | 2 | 3;
@@ -59,7 +68,13 @@ const SCREEN_TAB_LABELS: Record<ScreenTab, string> = {
 const PHASE_LABELS: Record<ActivityPhase, string> = {
   1: 'Phase 1 — Tap Reaction',
   2: 'Phase 2 — Swap Hands',
-  3: 'Phase 3 — Tracing Challenge',
+  3: 'Phase 3 — Predict & Tap',
+};
+
+const getPhaseBanner = (phase: ActivityPhase): string | null => {
+  if (phase === 1) return null;
+  if (phase === 2) return 'Phase 2 — Use your non-dominant hand';
+  return 'Phase 3 — Try to predict where the next button will appear and move early';
 };
 
 const getReactionColor = (ms: number): string => {
@@ -68,31 +83,26 @@ const getReactionColor = (ms: number): string => {
   return COLOR_REACTION_SLOW;
 };
 
-const generateButtonPositions = (
-  screenWidth: number,
-  screenHeight: number,
-  count: number
-): ButtonPosition[] => {
+const generateButtonPositions = (count: number): ButtonPosition[] => {
   const positions: ButtonPosition[] = [];
-  for (let i = 0; i < count; i++) {
-    positions.push({
-      x: BOARD_PADDING + Math.random() * (screenWidth - BOARD_PADDING * 2),
-      y: BOARD_PADDING + Math.random() * (screenHeight - BOARD_PADDING * 2 - BOARD_BOTTOM_RESERVE),
-    });
-  }
-  return positions;
-};
+  let attempts = 0;
 
-const calculateTracingAccuracy = (
-  fingerX: number,
-  fingerY: number,
-  targetX: number,
-  targetY: number
-): number => {
-  const distance = Math.sqrt(
-    Math.pow(fingerX - targetX, 2) + Math.pow(fingerY - targetY, 2)
-  );
-  return Math.max(0, Math.round(100 - (distance / TRACING_ACCURACY_DISTANCE) * 100));
+  while (positions.length < count && attempts < BUTTON_POSITION_MAX_ATTEMPTS) {
+    attempts++;
+    const candidate = {
+      x: SCREEN_HORIZONTAL_PADDING + Math.random() * (SCREEN_WIDTH - SCREEN_HORIZONTAL_PADDING * 2),
+      y: Math.random() * (USABLE_PLAY_HEIGHT - BUTTON_DIAMETER),
+    };
+
+    const tooClose = positions.some(
+      (p) =>
+        Math.sqrt((p.x - candidate.x) ** 2 + (p.y - candidate.y) ** 2) < MIN_DISTANCE
+    );
+
+    if (!tooClose) positions.push(candidate);
+  }
+
+  return positions;
 };
 
 const averageReactionTime = (items: ReactionAttempt[]): number | null => {
@@ -112,7 +122,7 @@ const bestReactionTimeForPhase = (items: ReactionAttempt[]): number | null => {
 
 const calculateAverageReactionTime = (items: ReactionAttempt[]): number => {
   const times = items
-    .filter((a) => (a.phase === 1 || a.phase === 2) && !a.tooEarly && a.reactionTime != null)
+    .filter((a) => !a.tooEarly && a.reactionTime != null)
     .map((a) => a.reactionTime as number);
   if (!times.length) return 0;
   return Math.round(times.reduce((sum, t) => sum + t, 0) / times.length);
@@ -120,27 +130,22 @@ const calculateAverageReactionTime = (items: ReactionAttempt[]): number => {
 
 const bestReactionTime = (items: ReactionAttempt[]): number | null => {
   const times = items
-    .filter((a) => (a.phase === 1 || a.phase === 2) && !a.tooEarly && a.reactionTime != null)
+    .filter((a) => !a.tooEarly && a.reactionTime != null)
     .map((a) => a.reactionTime as number);
   return times.length ? Math.min(...times) : null;
 };
 
-const pickNextButtonIndex = (previousIndex: number | null, count: number): number => {
-  if (count <= 1) return 0;
-  if (previousIndex == null) return Math.floor(Math.random() * count);
-  let next = Math.floor(Math.random() * count);
-  while (next === previousIndex) {
-    next = Math.floor(Math.random() * count);
-  }
+const getNextButtonIndex = (currentIndex: number, totalButtons: number): number => {
+  let next: number;
+  do {
+    next = Math.floor(Math.random() * totalButtons);
+  } while (next === currentIndex);
   return next;
 };
 
 export default function ReactionScreen() {
   const router = useRouter();
-  const boardLayout = useRef({ width: 0, height: 0 });
-  const boardRef = useRef<View>(null);
-  const buttonPositionsRef = useRef<ButtonPosition[] | null>(null);
-  const [, setBoardLayoutReady] = useState(false);
+  const buttonPositionsRef = useRef<ButtonPosition[]>(generateButtonPositions(BUTTON_COUNT));
 
   const [screenTab, setScreenTab] = useState<ScreenTab>('instructions');
   const [activePhase, setActivePhase] = useState<ActivityPhase>(1);
@@ -153,19 +158,7 @@ export default function ReactionScreen() {
   const [tapInRound, setTapInRound] = useState(0);
   const [lastTapMs, setLastTapMs] = useState<number | null>(null);
 
-  const [tracing, setTracing] = useState(false);
-  const [liveAccuracy, setLiveAccuracy] = useState(0);
-  const [targetPos, setTargetPos] = useState({ x: 0, y: 0 });
-
   const reactionStart = useRef(0);
-  const tracingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const tracingStopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const accuracyReadings = useRef<number[]>([]);
-  const animationStart = useRef(0);
-  const currentTargetX = useRef(0);
-  const currentTargetY = useRef(0);
-  const boardScreenOffset = useRef({ x: 0, y: 0 });
-  const tracingActiveRef = useRef(false);
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
@@ -186,86 +179,16 @@ export default function ReactionScreen() {
 
   const avgPhase1 = useMemo(() => averageReactionTime(phase1Attempts), [phase1Attempts]);
   const avgPhase2 = useMemo(() => averageReactionTime(phase2Attempts), [phase2Attempts]);
-  const avgPhase3 = useMemo(() => {
-    const scores = phase3Attempts.map((a) => a.accuracy).filter((v): v is number => v != null);
-    if (!scores.length) return null;
-    return Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length);
-  }, [phase3Attempts]);
+  const avgPhase3 = useMemo(() => averageReactionTime(phase3Attempts), [phase3Attempts]);
 
   const overallBest = useMemo(() => bestReactionTime(attempts), [attempts]);
   const allPhasesComplete =
     phase1Attempts.length >= TAPS_PER_ROUND &&
     phase2Attempts.length >= TAPS_PER_ROUND &&
-    phase3Attempts.length >= 1;
-
-  useEffect(() => {
-    tracingActiveRef.current = tracing;
-  }, [tracing]);
-
-  useEffect(() => {
-    return () => {
-      stopTracingLoop();
-    };
-  }, []);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => tracingActiveRef.current,
-      onMoveShouldSetPanResponder: () => tracingActiveRef.current,
-      onPanResponderGrant: (_, gestureState) => {
-        if (!tracingActiveRef.current) return;
-        const fingerX = gestureState.x0 - boardScreenOffset.current.x;
-        const fingerY = gestureState.y0 - boardScreenOffset.current.y;
-        const accuracy = calculateTracingAccuracy(
-          fingerX,
-          fingerY,
-          currentTargetX.current,
-          currentTargetY.current
-        );
-        accuracyReadings.current.push(accuracy);
-        setLiveAccuracy(accuracy);
-      },
-      onPanResponderMove: (_, gestureState) => {
-        if (!tracingActiveRef.current) return;
-        const fingerX = gestureState.moveX - boardScreenOffset.current.x;
-        const fingerY = gestureState.moveY - boardScreenOffset.current.y;
-        const accuracy = calculateTracingAccuracy(
-          fingerX,
-          fingerY,
-          currentTargetX.current,
-          currentTargetY.current
-        );
-        accuracyReadings.current.push(accuracy);
-        setLiveAccuracy(accuracy);
-      },
-    })
-  ).current;
-
-  const stopTracingLoop = (): void => {
-    if (tracingInterval.current) {
-      clearInterval(tracingInterval.current);
-      tracingInterval.current = null;
-    }
-    if (tracingStopTimer.current) {
-      clearTimeout(tracingStopTimer.current);
-      tracingStopTimer.current = null;
-    }
-  };
-
-  const measureBoardOffset = (): void => {
-    boardRef.current?.measureInWindow((x, y) => {
-      boardScreenOffset.current = { x, y };
-    });
-  };
+    phase3Attempts.length >= TAPS_PER_ROUND;
 
   const recordAttempt = (entry: ReactionAttempt): void => {
     setAttempts((prev) => [...prev, entry]);
-  };
-
-  const lightNextButton = (previousIndex: number | null): void => {
-    const nextIndex = pickNextButtonIndex(previousIndex, BUTTON_COUNT);
-    setActiveButtonIndex(nextIndex);
-    reactionStart.current = Date.now();
   };
 
   const startRound = (): void => {
@@ -274,7 +197,9 @@ export default function ReactionScreen() {
     setRoundActive(true);
     setTapInRound(0);
     setLastTapMs(null);
-    lightNextButton(null);
+    const firstIndex = Math.floor(Math.random() * BUTTON_COUNT);
+    setActiveButtonIndex(firstIndex);
+    reactionStart.current = Date.now();
   };
 
   const handleButtonTap = (index: number): void => {
@@ -284,61 +209,19 @@ export default function ReactionScreen() {
     setLastTapMs(reactionTime);
     recordAttempt({ phase: activePhase, reactionTime, tooEarly: false });
 
-    const completedTaps = tapInRound + 1;
-    setTapInRound(completedTaps);
-
-    if (completedTaps >= TAPS_PER_ROUND) {
-      setRoundActive(false);
-      setActiveButtonIndex(null);
-      setRoundComplete(true);
-      return;
-    }
-
-    lightNextButton(index);
-  };
-
-  const startTracingChallenge = (): void => {
-    if (phaseAttempts.length >= 1) return;
-    const { width, height } = boardLayout.current;
-    if (!width || !height) return;
-
-    accuracyReadings.current = [];
-    setLiveAccuracy(0);
-    setTracing(true);
-    tracingActiveRef.current = true;
-    animationStart.current = Date.now();
-    measureBoardOffset();
-
-    const cx = width / 2;
-    const cy = height / 2;
-    const initialTarget = { x: cx + TRACING_RADIUS, y: cy };
-    currentTargetX.current = initialTarget.x;
-    currentTargetY.current = initialTarget.y;
-    setTargetPos(initialTarget);
-
-    tracingInterval.current = setInterval(() => {
-      const elapsed = (Date.now() - animationStart.current) % TRACING_ROTATION_MS;
-      const angle = (elapsed / TRACING_ROTATION_MS) * 2 * Math.PI;
-      const nextTarget = {
-        x: cx + TRACING_RADIUS * Math.cos(angle),
-        y: cy + TRACING_RADIUS * Math.sin(angle),
-      };
-      currentTargetX.current = nextTarget.x;
-      currentTargetY.current = nextTarget.y;
-      setTargetPos(nextTarget);
-    }, 16);
-
-    tracingStopTimer.current = setTimeout(() => {
-      stopTracingLoop();
-      setTracing(false);
-      tracingActiveRef.current = false;
-      const samples = accuracyReadings.current;
-      const avgAccuracy = samples.length
-        ? Math.round(samples.reduce((sum, v) => sum + v, 0) / samples.length)
-        : 0;
-      recordAttempt({ phase: 3, accuracy: avgAccuracy });
-      setLiveAccuracy(avgAccuracy);
-    }, TRACING_DURATION_MS);
+    setTapInRound((prev) => {
+      const completedTaps = prev + 1;
+      if (completedTaps >= TAPS_PER_ROUND) {
+        setRoundActive(false);
+        setActiveButtonIndex(null);
+        setRoundComplete(true);
+      } else {
+        const nextIndex = getNextButtonIndex(index, BUTTON_COUNT);
+        setActiveButtonIndex(nextIndex);
+        reactionStart.current = Date.now();
+      }
+      return completedTaps;
+    });
   };
 
   const resetRoundState = (): void => {
@@ -433,15 +316,15 @@ export default function ReactionScreen() {
         <Text style={[styles.bullet, { color: mutedText }]}>• Compare results</Text>
         <Text style={[styles.bullet, { color: mutedText }]}>• Rotate through each team member</Text>
 
-        <Text style={[styles.phaseHeading, { color: text }]}>Phase 3 - Tracing Challenge</Text>
-        <Text style={[styles.bullet, { color: mutedText }]}>• Trace a moving shape on the screen</Text>
-        <Text style={[styles.bullet, { color: mutedText }]}>• Review accuracy and delay</Text>
-        <Text style={[styles.bullet, { color: mutedText }]}>• Rotate through each team member</Text>
+        <Text style={[styles.phaseHeading, { color: text }]}>Phase 3 - Predict & Tap</Text>
+        <Text style={[styles.bullet, { color: mutedText }]}>• Predict where the next button will appear</Text>
+        <Text style={[styles.bullet, { color: mutedText }]}>• Move your hand early and tap as fast as you can</Text>
+        <Text style={[styles.bullet, { color: mutedText }]}>• Complete 10 taps per round</Text>
       </View>
     </SectionCard>
   );
 
-  const renderTapPhase = (): React.ReactElement => {
+  const renderGamePhase = (): React.ReactElement => {
     const phaseAvg = averageReactionTime(phaseAttempts);
     const phaseBest = bestReactionTimeForPhase(phaseAttempts);
     const phaseDone =
@@ -449,26 +332,22 @@ export default function ReactionScreen() {
       (roundComplete && tapInRound >= TAPS_PER_ROUND);
     const resultColor = lastTapMs != null ? getReactionColor(lastTapMs) : mutedText;
     const liveTapNumber = roundActive ? tapInRound + 1 : Math.min(tapInRound, TAPS_PER_ROUND);
+    const phaseBanner = getPhaseBanner(activePhase);
 
     return (
       <View style={styles.activityBlock}>
-        {activePhase === 2 ? (
+        {phaseBanner ? (
           <Text style={[styles.phaseBanner, { color: primary, backgroundColor: card, borderColor: border }]}>
-            Phase 2 — Use your non-dominant hand
+            {phaseBanner}
           </Text>
         ) : null}
 
         <View
-          style={[styles.reactionBoard, { borderColor: border }]}
-          onLayout={(e) => {
-            const { width, height } = e.nativeEvent.layout;
-            boardLayout.current = { width, height };
-            if (!buttonPositionsRef.current && width > 0 && height > 0) {
-              buttonPositionsRef.current = generateButtonPositions(width, height, BUTTON_COUNT);
-              setBoardLayoutReady(true);
-            }
-          }}>
-          {(buttonPositionsRef.current ?? []).map((pos, index) => {
+          style={[
+            styles.reactionBoard,
+            { borderColor: border, minHeight: USABLE_PLAY_HEIGHT, height: USABLE_PLAY_HEIGHT },
+          ]}>
+          {buttonPositionsRef.current.map((pos, index) => {
             const isActive = roundActive && activeButtonIndex === index;
             return (
               <TouchableOpacity
@@ -481,7 +360,7 @@ export default function ReactionScreen() {
                   {
                     left: pos.x - BUTTON_RADIUS,
                     top: pos.y - BUTTON_RADIUS,
-                    backgroundColor: isActive ? COLOR_BUTTON_ACTIVE : COLOR_BUTTON_INACTIVE,
+                    backgroundColor: isActive ? BUTTON_COLOURS[index] : COLOR_BUTTON_INACTIVE,
                   },
                 ]}
               />
@@ -533,55 +412,6 @@ export default function ReactionScreen() {
     );
   };
 
-  const renderTracingPhase = (): React.ReactElement => (
-    <View style={styles.activityBlock}>
-      <Text style={[styles.phaseHint, { color: mutedText }]}>
-        Keep your finger on the moving circle
-      </Text>
-      <View
-        ref={boardRef}
-        style={[styles.tracingBoard, { borderColor: border, backgroundColor: card }]}
-        onLayout={(e) => {
-          boardLayout.current = {
-            width: e.nativeEvent.layout.width,
-            height: e.nativeEvent.layout.height,
-          };
-          measureBoardOffset();
-        }}>
-        <View
-          style={[
-            styles.targetDot,
-            {
-              left: targetPos.x - 14,
-              top: targetPos.y - 14,
-              backgroundColor: COLOR_TARGET,
-            },
-          ]}
-        />
-        {tracing ? (
-          <View
-            style={styles.tracingOverlay}
-            {...panResponder.panHandlers}
-          />
-        ) : null}
-      </View>
-
-      <Text style={[styles.resultText, { color: primary }]}>Accuracy: {liveAccuracy}%</Text>
-
-      <PrimaryButton
-        label={tracing ? 'Tracing…' : 'Start Tracing'}
-        onPress={startTracingChallenge}
-        disabled={tracing || phaseAttempts.length >= 1 || isSyncing}
-      />
-
-      {phaseAttempts.length >= 1 && activePhase === 3 ? (
-        <Text style={[styles.helper, { color: mutedText }]}>
-          Phase 3 complete · Average accuracy: {avgPhase3 ?? '—'}%
-        </Text>
-      ) : null}
-    </View>
-  );
-
   const renderSummary = (): React.ReactElement | null => {
     if (!allPhasesComplete) return null;
     const handDiff =
@@ -598,11 +428,11 @@ export default function ReactionScreen() {
             Phase 2 average: {avgPhase2 != null ? `${avgPhase2} ms` : '—'}
           </Text>
           <Text style={[styles.summaryRow, { color: mutedText }]}>
-            Phase 2 vs Phase 1:{' '}
-            {handDiff != null ? `${handDiff > 0 ? '+' : ''}${handDiff} ms` : '—'}
+            Phase 3 average: {avgPhase3 != null ? `${avgPhase3} ms` : '—'}
           </Text>
           <Text style={[styles.summaryRow, { color: mutedText }]}>
-            Phase 3 tracing accuracy: {avgPhase3 != null ? `${avgPhase3}%` : '—'}
+            Dominant vs non-dominant:{' '}
+            {handDiff != null ? `${handDiff > 0 ? '+' : ''}${handDiff} ms` : '—'}
           </Text>
           <Text style={[styles.summaryRow, { color: text, fontWeight: '700' }]}>
             Best reaction time: {overallBest != null ? `${overallBest} ms` : '—'}
@@ -649,7 +479,7 @@ export default function ReactionScreen() {
 
       <Text style={[styles.phaseTitle, { color: text }]}>{PHASE_LABELS[activePhase]}</Text>
 
-      {activePhase === 3 ? renderTracingPhase() : renderTapPhase()}
+      {renderGamePhase()}
       {renderSummary()}
     </View>
   );
@@ -679,13 +509,11 @@ export default function ReactionScreen() {
   );
 
   return (
-    <ScrollView
-      style={[styles.page, { backgroundColor: background }]}
-      contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: text }]}>Reaction Board Challenge</Text>
         <Text style={[styles.subtitle, { color: mutedText }]}>
-          Measure reaction time, coordination, and tracing accuracy.
+          Measure reaction time and coordination across three challenge phases.
         </Text>
       </View>
 
@@ -762,7 +590,6 @@ const styles = StyleSheet.create({
   phasePillText: { ...Typography.small, fontWeight: '700' },
   phaseTitle: { ...Typography.section },
   activityBlock: { gap: Spacing.sm },
-  phaseHint: { ...Typography.body, fontWeight: '600' },
   phaseBanner: {
     ...Typography.body,
     fontWeight: '700',
@@ -784,23 +611,6 @@ const styles = StyleSheet.create({
     width: BUTTON_DIAMETER,
     height: BUTTON_DIAMETER,
     borderRadius: BUTTON_RADIUS,
-  },
-  tracingBoard: {
-    position: 'relative',
-    minHeight: boardMinHeight,
-    borderWidth: 1,
-    borderRadius: Radius.xl,
-    overflow: 'hidden',
-  },
-  tracingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
-  },
-  targetDot: {
-    position: 'absolute',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
   },
   statusText: { ...Typography.body, textAlign: 'center', fontWeight: '600' },
   resultText: {

@@ -42,7 +42,7 @@ const parseAttempts = (attemptsJson: string | string[] | undefined): ReactionAtt
   }
 };
 
-const averageReactionTime = (items: ReactionAttempt[], phase: 1 | 2): number | null => {
+const averageReactionTime = (items: ReactionAttempt[], phase: 1 | 2 | 3): number | null => {
   const times = items
     .filter((a) => a.phase === phase && !a.tooEarly && a.reactionTime != null)
     .map((a) => a.reactionTime as number);
@@ -52,7 +52,7 @@ const averageReactionTime = (items: ReactionAttempt[], phase: 1 | 2): number | n
 
 const bestReactionTime = (items: ReactionAttempt[]): number | null => {
   const times = items
-    .filter((a) => (a.phase === 1 || a.phase === 2) && !a.tooEarly && a.reactionTime != null)
+    .filter((a) => !a.tooEarly && a.reactionTime != null)
     .map((a) => a.reactionTime as number);
   return times.length ? Math.min(...times) : null;
 };
@@ -64,14 +64,10 @@ export default function ReactionResultsScreen() {
   const attempts = useMemo(() => parseAttempts(attemptsJson), [attemptsJson]);
   const avgPhase1 = useMemo(() => averageReactionTime(attempts, 1), [attempts]);
   const avgPhase2 = useMemo(() => averageReactionTime(attempts, 2), [attempts]);
-  const avgPhase3 = useMemo(() => {
-    const scores = attempts
-      .filter((a) => a.phase === 3 && a.accuracy != null)
-      .map((a) => a.accuracy as number);
-    if (!scores.length) return null;
-    return Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length);
-  }, [attempts]);
+  const avgPhase3 = useMemo(() => averageReactionTime(attempts, 3), [attempts]);
   const best = useMemo(() => bestReactionTime(attempts), [attempts]);
+  const handDiff =
+    avgPhase1 != null && avgPhase2 != null ? avgPhase2 - avgPhase1 : null;
 
   const [reflection, setReflection] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,7 +98,7 @@ export default function ReactionResultsScreen() {
         attempts,
         avgPhase1ReactionTime: avgPhase1,
         avgPhase2ReactionTime: avgPhase2,
-        avgPhase3Accuracy: avgPhase3,
+        avgPhase3ReactionTime: avgPhase3,
         bestReactionTime: best,
         comment: reflection.trim(),
         teamName: team?.name ?? '—',
@@ -145,9 +141,17 @@ export default function ReactionResultsScreen() {
               </Text>
             </View>
             <View style={[styles.summaryCard, { backgroundColor: card, borderColor: border }]}>
-              <Text style={[styles.summaryLabel, { color: mutedText }]}>Phase 3 tracing accuracy</Text>
+              <Text style={[styles.summaryLabel, { color: mutedText }]}>Phase 3 average</Text>
               <Text style={[styles.summaryValue, { color: text }]}>
-                {avgPhase3 != null ? `${avgPhase3}%` : '—'}
+                {avgPhase3 != null ? `${avgPhase3} ms` : '—'}
+              </Text>
+            </View>
+            <View style={[styles.summaryCard, { backgroundColor: card, borderColor: border }]}>
+              <Text style={[styles.summaryLabel, { color: mutedText }]}>
+                Dominant vs non-dominant
+              </Text>
+              <Text style={[styles.summaryValue, { color: text }]}>
+                {handDiff != null ? `${handDiff > 0 ? '+' : ''}${handDiff} ms` : '—'}
               </Text>
             </View>
             <View
@@ -171,11 +175,11 @@ export default function ReactionResultsScreen() {
       <SectionCard>
         <Text style={[styles.sectionTitle, { color: text }]}>Reflection</Text>
         <Text style={[styles.help, { color: mutedText }]}>
-          What helped you react faster or trace more accurately?
+          What helped you react faster across the three phases?
         </Text>
         <Input
           label="Comment"
-          placeholder="e.g. focusing on the centre of the screen improved my tracing"
+          placeholder="e.g. predicting the next button position improved my phase 3 time"
           value={reflection}
           onChangeText={setReflection}
           multiline
