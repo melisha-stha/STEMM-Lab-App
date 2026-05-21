@@ -347,24 +347,13 @@ export const uploadPerformanceResult = async (
   attempts: any[],
   locationData: any
 ) => {
-  try {
-    const bestAvg = attempts.length > 0 
-      ? Math.min(...attempts.map(a => a.averageForce)) 
-      : 0;
-
-    const docRef = await addDoc(collection(db, "performanceResults"), {
-      userId,
-      teamName: teamData?.name || "unknown",
-      grade: teamData?.grade || "",
-      attempts,
-      bestAvgForce: bestAvg,
-      locationData,
-      createdAt: new Date().toISOString(),
-    });
-    
-    console.log("Performance result saved with ID:", docRef.id);
-  } catch (error) {
-    console.error("Performance Sync Error:", error);
-    throw error;
-  }
+  const docRef = await addDoc(collection(db, 'performanceResults'), {
+    userId,
+    teamName: teamData?.name || 'unknown',
+    grade: teamData?.grade || '',
+    attempts,
+    locationData,
+    createdAt: new Date().toISOString(),
+  });
+  console.log('Performance result saved with ID:', docRef.id);
 };
