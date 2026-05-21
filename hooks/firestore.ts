@@ -340,3 +340,20 @@ export const uploadHandFanResult = async (
   });
   console.log('Hand Fan result saved with ID:', docRef.id);
 };
+
+export const uploadPerformanceResult = async (
+  userId: string,
+  teamData: any,
+  attempts: any[],
+  locationData: any
+) => {
+  const docRef = await addDoc(collection(db, 'performanceResults'), {
+    userId,
+    teamName: teamData?.name || 'unknown',
+    grade: teamData?.grade || '',
+    attempts,
+    locationData,
+    createdAt: new Date().toISOString(),
+  });
+  console.log('Performance result saved with ID:', docRef.id);
+};
