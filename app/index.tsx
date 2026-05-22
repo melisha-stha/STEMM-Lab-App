@@ -1,5 +1,5 @@
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { getTeamData } from '@/hooks/storage';
+import { resolveAppRoute } from '@/hooks/app-routing';
 import { type Href, useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
@@ -16,23 +16,12 @@ export default function IndexRedirect() {
     let cancelled = false;
 
     const routeUser = async (hasAuth: boolean) => {
-      const team = await getTeamData();
-      const hasTeam =
-        Boolean(team?.name) && Array.isArray(team?.members) && team.members.length > 0;
+      const destination = await resolveAppRoute(hasAuth);
 
       if (cancelled) return;
 
-      if (!hasTeam) {
-        router.replace('/welcome' as Href);
-        return;
-      }
-
       setChecking(false);
-      if (hasAuth) {
-        router.replace('/(tabs)');
-      } else {
-        router.replace('/login');
-      }
+      router.replace(destination);
     };
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {

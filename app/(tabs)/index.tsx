@@ -4,6 +4,7 @@ import { SectionHeading } from '@/components/ui/SectionHeading';
 import { StatCard } from '@/components/ui/stat-card';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { resolveAppRoute } from '@/hooks/app-routing';
 import { getParachuteResults, getTeamData } from '@/hooks/storage';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -37,9 +38,12 @@ export default function HomeScreen() {
   const surface = useThemeColor({}, 'surface');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.replace('/login');
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      const destination = await resolveAppRoute(Boolean(user));
+      const onTabs = destination === '/(tabs)';
+
+      if (!onTabs) {
+        router.replace(destination);
       }
     });
     const loadTeam = async () => {

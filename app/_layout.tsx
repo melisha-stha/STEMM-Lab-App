@@ -18,7 +18,7 @@ Notifications.setNotificationHandler({
 });
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  initialRouteName: 'index',
 };
 
 export default function RootLayout() {

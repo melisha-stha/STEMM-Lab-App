@@ -3,6 +3,8 @@ import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { resolveAppRoute } from '@/hooks/app-routing';
+import { auth } from '@/hooks/firebaseConfig';
 import { clearTeamData, getTeamData } from '@/hooks/storage';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -30,7 +32,8 @@ export default function TeamTabScreen() {
   const handleResetTeam = () => {
     const performClear = async () => {
       await clearTeamData();
-      router.replace('/welcome' as Href);
+      const destination = await resolveAppRoute(Boolean(auth.currentUser));
+      router.replace(destination);
     };
 
     if (Platform.OS === 'web') {
