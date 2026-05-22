@@ -1,79 +1,99 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { Radius, Spacing, Typography } from '@/constants/design';
+import { Card, type CardColour, useCardColours } from '@/components/ui/Card';
+import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
-type Props = {
+type ActivityCardProps = {
   title: string;
-  tag: string;
-  description: string;
-  cta?: string;
-  onPress?: () => void;
+  subtitle: string;
+  colour: CardColour;
+  onPress: () => void;
+  badge?: string;
+  completed?: boolean;
 };
 
-export function ActivityCard({ title, tag, description, cta = 'Open activity', onPress }: Props) {
-  const surface = useThemeColor({}, 'surface');
-  const border = useThemeColor({}, 'border');
-  const text = useThemeColor({}, 'text');
-  const mutedText = useThemeColor({}, 'mutedText');
+export function ActivityCard({
+  title,
+  subtitle,
+  colour,
+  onPress,
+  badge,
+  completed,
+}: ActivityCardProps) {
+  const { textColor } = useCardColours(colour);
+  const textSecondary = useThemeColor({}, 'textSecondary');
+  const textTertiary = useThemeColor({}, 'textTertiary');
+  const success = useThemeColor({}, 'success');
+  const primarySoft = useThemeColor({}, 'primarySoft');
   const primary = useThemeColor({}, 'primary');
 
+  const titleColour = completed ? textTertiary : textColor;
+  const subtitleColour = completed ? textTertiary : textSecondary;
+
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Card
+      colour={colour}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.base,
-        { backgroundColor: surface, borderColor: border },
-        pressed ? styles.pressed : null,
-      ]}>
+      style={completed ? [styles.wrap, styles.completed] : styles.wrap}>
       <View style={styles.topRow}>
-        <Text style={[styles.title, { color: text }]} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={[styles.tag, { color: mutedText }]} numberOfLines={1}>
-          {tag}
-        </Text>
+        <View style={styles.textBlock}>
+          <Text style={[styles.title, { color: titleColour }]} numberOfLines={2}>
+            {title}
+          </Text>
+          <Text style={[styles.subtitle, { color: subtitleColour }]} numberOfLines={2}>
+            {subtitle}
+          </Text>
+        </View>
+        {badge ? (
+          <View style={[styles.badge, { backgroundColor: primarySoft }]}>
+            <Text style={[styles.badgeText, { color: primary }]}>{badge}</Text>
+          </View>
+        ) : null}
+        {completed ? (
+          <MaterialIcons name="check-circle" size={24} color={success} />
+        ) : (
+          <MaterialIcons name="chevron-right" size={28} color={textColor} />
+        )}
       </View>
-      <Text style={[styles.body, { color: mutedText }]}>{description}</Text>
-      <Text style={[styles.cta, { color: primary }]}>{cta}</Text>
-    </Pressable>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  base: {
-    borderWidth: 1,
-    borderRadius: Radius.lg,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
+  wrap: {
+    width: '100%',
   },
-  pressed: {
-    transform: [{ scale: 0.99 }],
+  completed: {
+    opacity: 0.85,
   },
   topRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     gap: Spacing.sm,
-    alignItems: 'baseline',
+  },
+  textBlock: {
+    flex: 1,
+    gap: Spacing.xs,
   },
   title: {
-    ...Typography.section,
-    fontSize: 15,
-    flex: 1,
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.semibold,
   },
-  tag: {
-    ...Typography.small,
+  subtitle: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.regular,
+    lineHeight: 20,
   },
-  body: {
-    marginTop: Spacing.sm,
-    ...Typography.body,
+  badge: {
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
   },
-  cta: {
-    marginTop: Spacing.sm,
-    ...Typography.section,
-    fontSize: 13,
+  badgeText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.semibold,
   },
 });
-

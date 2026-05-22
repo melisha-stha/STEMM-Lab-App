@@ -1,13 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Logic to SAVE the team info
-export const saveTeamData = async (teamName, members, grade) => {
+export const saveTeamData = async (teamName, members, grade, extra = {}) => {
   try {
+    const existing = await getTeamData();
     const teamObj = {
       name: teamName,
-      members: members, // Stores the list of names 
-      grade: grade, // Stores the year level 
-      id: Math.floor(1000 + Math.random() * 9000) 
+      members: members,
+      grade: grade,
+      yearLevel: extra.yearLevel ?? existing?.yearLevel ?? grade,
+      learningLevel: extra.learningLevel ?? existing?.learningLevel ?? null,
+      id: existing?.id ?? Math.floor(1000 + Math.random() * 9000),
     };
     const jsonValue = JSON.stringify(teamObj);
     await AsyncStorage.setItem('@team_info', jsonValue);
