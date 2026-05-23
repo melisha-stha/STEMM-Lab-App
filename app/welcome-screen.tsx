@@ -1,10 +1,7 @@
-import { resolveAppRoute } from '@/hooks/app-routing';
-import { auth } from '@/hooks/firebaseConfig';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -34,17 +31,6 @@ const FEATURE_PILLS = [
 export default function WelcomeScreen() {
   const router = useRouter();
   const [logoFailed, setLogoFailed] = useState(false);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
-      const destination = await resolveAppRoute(true);
-      if (destination !== '/welcome-screen') {
-        router.replace(destination);
-      }
-    });
-    return unsubscribe;
-  }, [router]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>

@@ -8,15 +8,19 @@ export async function hasTeamSaved(): Promise<boolean> {
 }
 
 export async function resolveAppRoute(hasAuth: boolean): Promise<Href> {
-  const hasTeam = await hasTeamSaved();
-
-  if (!hasTeam) {
-    return hasAuth ? '/setup-level' : '/welcome-screen';
+  if (!hasAuth) {
+    return '/welcome-screen';
   }
 
-  if (!hasAuth) {
-    return '/login';
+  const hasTeam = await hasTeamSaved();
+  if (!hasTeam) {
+    return '/setup-level';
   }
 
   return '/(tabs)';
+}
+
+export async function resolvePostLoginRoute(): Promise<Href> {
+  const hasTeam = await hasTeamSaved();
+  return hasTeam ? '/(tabs)' : '/setup-level';
 }
