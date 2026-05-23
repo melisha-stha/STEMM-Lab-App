@@ -1,222 +1,459 @@
-import { type Href, useRouter } from 'expo-router';
-import { onAuthStateChanged } from 'firebase/auth';
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { auth } from '../../hooks/firebaseConfig';
-
 import { ActivityCard } from '@/components/ui/activity-card';
-import { InfoRow } from '@/components/ui/info-row';
-import { SectionCard } from '@/components/ui/section-card';
-import { Spacing, Typography } from '@/constants/design';
+import { SectionHeading } from '@/components/ui/SectionHeading';
+import { FontSize, FontWeight, Radius, Shadow, Spacing } from '@/constants/design';
+import { resolveAppRoute } from '@/hooks/app-routing';
+import { getTrials } from '@/hooks/database';
+import { getTeamData } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { getParachuteResults, getTeamData } from '../../hooks/storage';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { onAuthStateChanged } from 'firebase/auth';
+import { type Href, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { auth } from '../../hooks/firebaseConfig';
 
 interface TeamData {
   name: string;
   id: number;
   members: string[];
   grade: string;
+  yearLevel?: string;
+  learningLevel?: string;
 }
+
+interface TrialRow {
+  activity: string;
+}
+
+const ACTIVITIES = [
+  {
+    title: 'Parachute Drop',
+    subtitle: 'Engineering · Physics',
+    colour: 'mint' as const,
+    badge: 'Engineering',
+    route: '/parachute',
+  },
+  {
+    title: 'Sound Pollution Hunter',
+    subtitle: 'Health · Physics',
+    colour: 'peach' as const,
+    badge: 'Health',
+    route: '/sound',
+  },
+  {
+    title: 'Earthquake Structure',
+    subtitle: 'Engineering · Earth Science',
+    colour: 'lavender' as const,
+    badge: 'Engineering',
+    route: '/earthquake',
+  },
+  {
+    title: 'Reaction Board',
+    subtitle: 'Health · Neuroscience',
+    colour: 'yellow' as const,
+    badge: 'Health',
+    route: '/reaction',
+  },
+  {
+    title: 'Breathing Pace Trainer',
+    subtitle: 'Health · Biology',
+    colour: 'sky' as const,
+    badge: 'Health',
+    route: '/breathing',
+  },
+];
+
+const MISSION_HOOK: Record<string, string> = {
+  parachute: 'Film, time, and compare — like real engineers.',
+  sound: 'Measure noise levels across your school.',
+  earthquake: 'Build a structure that survives the shake.',
+  reaction: 'How fast is your brain? Test all team members.',
+  breathing: 'Track how exercise changes your breathing rate.',
+};
+
+const MISSION_ICON: Record<string, keyof typeof MaterialIcons.glyphMap> = {
+  parachute: 'flight-land',
+  sound: 'graphic-eq',
+  earthquake: 'domain',
+  reaction: 'flash-on',
+  breathing: 'air',
+};
+
+const MISSION_ROUTE: Record<string, Href> = {
+  parachute: '/parachute',
+  sound: '/sound',
+  earthquake: '/earthquake',
+  reaction: '/reaction',
+  breathing: '/breathing',
+};
+
+const MISSION_HEADLINE: Record<string, { stream: string; action: string }> = {
+  parachute: { stream: 'Engineering', action: 'Drop Challenge' },
+  sound: { stream: 'Health', action: 'Sound Hunt' },
+  earthquake: { stream: 'Engineering', action: 'Structure Test' },
+  reaction: { stream: 'Health', action: 'Reaction Board' },
+  breathing: { stream: 'Health', action: 'Breathing Pace' },
+};
+
+const ACTIVITY_KEYS = ACTIVITIES.map((a) => a.route.replace('/', ''));
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [team, setTeam] = useState<TeamData | null>(null);
-  const [recent, setRecent] = useState<any[]>([]);
+  const [trials, setTrials] = useState<TrialRow[]>([]);
+
   const background = useThemeColor({}, 'background');
+  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   const text = useThemeColor({}, 'text');
-  const mutedText = useThemeColor({}, 'mutedText');
-  const border = useThemeColor({}, 'border');
+  const textSecondary = useThemeColor({}, 'textSecondary');
+  const textInverse = useThemeColor({}, 'textInverse');
+  const primary = useThemeColor({}, 'primary');
+  const primarySoft = useThemeColor({}, 'primarySoft');
+  const cardLavender = useThemeColor({}, 'cardLavender');
+  const cardMint = useThemeColor({}, 'cardMint');
+  const cardMintText = useThemeColor({}, 'cardMintText');
+  const cardYellow = useThemeColor({}, 'cardYellow');
+  const cardYellowText = useThemeColor({}, 'cardYellowText');
+  const shadow = useThemeColor({}, 'shadow');
+  const warning = useThemeColor({}, 'warning');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.replace('/login');
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      const destination = await resolveAppRoute(Boolean(user));
+      const onTabs = destination === '/(tabs)';
+
+      if (!onTabs) {
+        router.replace(destination);
       }
     });
     const loadTeam = async () => {
       const data = await getTeamData();
       setTeam(data);
     };
-    const loadRecent = async () => {
-      const data = await getParachuteResults();
-      setRecent(Array.isArray(data) ? data.slice(0, 3) : []);
-    };
     loadTeam();
-    loadRecent();
+    return unsubscribe;
+  }, [router]);
+
+  useEffect(() => {
+    try {
+      const rows = getTrials() as TrialRow[];
+      setTrials(Array.isArray(rows) ? rows : []);
+    } catch {
+      setTrials([]);
+    }
   }, []);
 
+  const uniqueActivities = useMemo(
+    () => new Set(trials.map((t) => t.activity)).size,
+    [trials]
+  );
+  const totalAttempts = trials.length;
+
+  const featuredActivity = useMemo(() => {
+    const counts: Record<string, number> = {};
+    ACTIVITY_KEYS.forEach((key) => {
+      counts[key] = 0;
+    });
+    trials.forEach((t) => {
+      if (counts[t.activity] !== undefined) {
+        counts[t.activity]++;
+      }
+    });
+    const least = Object.entries(counts).sort((a, b) => a[1] - b[1])[0];
+    return least?.[0] ?? 'parachute';
+  }, [trials]);
+
+  const missionHeadline = MISSION_HEADLINE[featuredActivity] ?? MISSION_HEADLINE.parachute;
+  const missionIcon = MISSION_ICON[featuredActivity] ?? MISSION_ICON.parachute;
+  const missionHook = MISSION_HOOK[featuredActivity] ?? MISSION_HOOK.parachute;
+  const missionRoute = MISSION_ROUTE[featuredActivity] ?? MISSION_ROUTE.parachute;
+
+  const teamInitial = (team?.name?.trim().charAt(0) || 'T').toUpperCase();
+  const yearLabel = team?.yearLevel ?? team?.grade ?? '—';
+
+  const completedActivities = useMemo(() => {
+    const done = new Set<string>();
+    trials.forEach((t) => done.add(t.activity));
+    return done;
+  }, [trials]);
+
   return (
-    <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
-      <View style={styles.hero}>
-        <Text style={[styles.heroTitle, { color: text }]}>STEMM Lab</Text>
-        <Text style={[styles.heroSubtitle, { color: mutedText }]}>
-          School-friendly STEMM challenges for teams
-        </Text>
+    <ScrollView
+      style={[styles.page, { backgroundColor: background }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: insets.bottom + Spacing.xxl + 80 },
+      ]}>
+      <View
+        style={[
+          styles.headerRow,
+          { paddingTop: insets.top + Spacing.md, paddingHorizontal: Spacing.lg },
+        ]}>
+        <View style={styles.headerLeft}>
+          <View style={[styles.avatar, { backgroundColor: primary }]}>
+            <Text style={[styles.avatarLetter, { color: textInverse }]}>{teamInitial}</Text>
+          </View>
+          <View style={styles.headerText}>
+            <Text style={[styles.greeting, { color: text }]}>
+              Hey, {team?.name || 'Team'}
+            </Text>
+            <Text style={[styles.greetingSub, { color: textSecondary }]}>
+              {yearLabel} · Lab Explorer
+            </Text>
+          </View>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Lab alerts"
+          onPress={() => Alert.alert('Lab Alerts', 'No new alerts')}
+          style={[styles.bellBtn, { backgroundColor: backgroundSecondary }]}>
+          <MaterialIcons name="notifications-none" size={24} color={textSecondary} />
+        </Pressable>
       </View>
 
-      <SectionCard>
-        <Text style={[styles.cardHeader, { color: text }]}>Your Team</Text>
-        <InfoRow label="Team" value={team?.name || '—'} />
-        <InfoRow label="Team ID" value={team?.id ? String(team.id) : '—'} />
-        <InfoRow label="Grade" value={team?.grade || '—'} />
-        <Text style={[styles.cardNote, { color: mutedText }]}>
-          Saved locally on this device.
+      <View
+        style={[
+          styles.heroCard,
+          {
+            backgroundColor: cardLavender,
+            shadowColor: shadow,
+          },
+          Shadow.lg,
+        ]}>
+        <View style={[styles.missionBadge, { backgroundColor: primarySoft }]}>
+          <Text style={[styles.missionBadgeText, { color: primary }]}>THIS WEEK&apos;S MISSION</Text>
+        </View>
+
+        <Text style={[styles.heroStream, { color: text }]}>{missionHeadline.stream}</Text>
+        <Text style={[styles.heroAction, { color: text }]}>
+          <Text style={[styles.heroActionHighlight, { backgroundColor: warning, color: text }]}>
+            {missionHeadline.action}
+          </Text>
         </Text>
-      </SectionCard>
 
-      <SectionCard>
-        <Text style={[styles.cardHeader, { color: text }]}>Project Concept</Text>
-        <Text style={[styles.paragraph, { color: mutedText }]}>
-          STEMM Lab is a collection of short, hands-on challenges that feel like real-world STEMM work:
-          you plan, test, record results, and compare outcomes across attempts.
-        </Text>
-      </SectionCard>
+        <Text style={[styles.heroHook, { color: textSecondary }]}>{missionHook}</Text>
 
-      <SectionCard>
-        <Text style={[styles.cardHeader, { color: text }]}>How it works</Text>
-        <View style={[styles.step, { borderTopColor: border }]}>
-          <Text style={[styles.stepTitle, { color: text }]}>1) Set up your team</Text>
-          <Text style={[styles.stepBody, { color: mutedText }]}>
-            Enter your team name, at least one member, and grade on the Setup screen.
-          </Text>
-        </View>
-        <View style={[styles.step, { borderTopColor: border }]}>
-          <Text style={[styles.stepTitle, { color: text }]}>2) Choose a challenge</Text>
-          <Text style={[styles.stepBody, { color: mutedText }]}>
-            Each activity gives you clear instructions and a built-in tool (like a timer) to capture data.
-          </Text>
-        </View>
-        <View style={[styles.step, { borderTopColor: border }]}>
-          <Text style={[styles.stepTitle, { color: text }]}>3) Run multiple trials</Text>
-          <Text style={[styles.stepBody, { color: mutedText }]}>
-            Record multiple attempts (e.g., 3 drops), then compare the results to spot patterns and improve
-            your design.
-          </Text>
-        </View>
-        <View style={[styles.stepLast, { borderTopColor: border }]}>
-          <Text style={[styles.stepTitle, { color: text }]}>4) Reflect & iterate</Text>
-          <Text style={[styles.stepBody, { color: mutedText }]}>
-            Use your results to explain what changed and why. (We can add graphs and saved history next.)
-          </Text>
-        </View>
-      </SectionCard>
-
-      <SectionCard>
-        <Text style={[styles.cardHeader, { color: text }]}>Available Activities</Text>
-        <ActivityCard
-          title="Activity 1: Parachute Drop"
-          tag="Engineering • Physics"
-          description="Drop a toy from a consistent height, time the fall, and compare results across attempts."
-          onPress={() => router.push('/parachute')}
-        />
-        <ActivityCard
-          title="Activity 2: Sound Pollution Hunter"
-          tag="Environmental Science"
-          description="Measure and compare sound levels from different classroom actions using your phone's microphone."
-          onPress={() => router.push('/sound')}
-        />
-        <ActivityCard
-          title="Activity 3: Hand Fan Challenge"
-          tag="Physics • Air Movement"
-          description="Test how different fan designs and materials affect how much a paper strip bends."
-          onPress={() => router.push('/handfan')}
-        />
-        <ActivityCard
-          title="Activity 4: Earthquake-Resistant Structure"
-          tag="Engineering • Sensors"
-          description="Measure structural stability using the gyroscope and accelerometer while simulating an earthquake."
-          onPress={() => router.push('/earthquake')}
-        />
-        <ActivityCard
-          title="Activity 5: Human Performance Lab — Stretch Speed & Gracefulness"
-          tag="Medical Science • Biomechanics"
-          description="Investigate how the human body moves by measuring speed, smoothness, and coordination during controlled stretching activities."
-          onPress={() => router.push('/performance')}
-        />
-        <ActivityCard
-          title="Reaction Board Challenge"
-          tag="Neuroscience + Mathematics"
-          description="Measure reaction time, hand coordination, and tracing accuracy across three challenge phases."
-          onPress={() => router.push('/reaction' as Href)}
-        />
-        <ActivityCard
-          title="Breathing Pace Trainer"
-          tag="Biology • Health"
-          description="Place the phone on your chest and measure breaths per minute at rest and after exercise."
-          onPress={() => router.push('/breathing' as Href)}
-        />
-        <ActivityCard
-          title="Drop Site Map"
-          tag="GPS • All Activities"
-          description="View GPS-tagged locations of all your team's activity trials on a map."
-          onPress={() => router.push('/map')}
-        />
-      </SectionCard>
-
-      <SectionCard>
-        <Text style={[styles.cardHeader, { color: text }]}>Recent Results</Text>
-        {recent.length === 0 ? (
-          <Text style={[styles.paragraph, { color: mutedText }]}>
-            No submissions yet. Complete Parachute Drop and submit results to see them here.
-          </Text>
-        ) : (
-          <View style={[styles.recentWrap, { borderTopColor: border }]}>
-            {recent.map((r, idx) => (
-              <View key={`${r.createdAt ?? idx}`} style={styles.recentRow}>
-                <Text style={[styles.recentTeam, { color: text }]} numberOfLines={1}>
-                  {r.teamName ?? 'Team'}
-                </Text>
-                <Text style={[styles.recentScore, { color: mutedText }]}>
-                  Best: {typeof r.bestAttempt === 'number' ? `${(r.bestAttempt / 1000).toFixed(2)}s` : '—'}
-                </Text>
-              </View>
-            ))}
+        <View style={styles.heroFooter}>
+          <View style={styles.iconTile}>
+            <MaterialIcons name={missionIcon} size={28} color={primary} />
           </View>
-        )}
-        <View style={{ marginTop: Spacing.sm }}>
-          <ActivityCard
-            title="View Leaderboard"
-            tag="Rankings"
-            description="See how teams compare on Parachute Drop."
-            cta="Open leaderboard"
-            onPress={() => router.push('/leaderboard')}
-          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Start mission"
+            onPress={() => router.push(missionRoute)}
+            style={[styles.startBtn, { backgroundColor: primary }]}>
+            <Text style={[styles.startBtnText, { color: textInverse }]}>Start →</Text>
+          </Pressable>
         </View>
-      </SectionCard>
+      </View>
+
+      <View style={[styles.statRow, { paddingHorizontal: Spacing.lg }]}>
+        <View
+          style={[
+            styles.statCard,
+            { backgroundColor: cardMint, shadowColor: shadow },
+            Shadow.sm,
+          ]}>
+          <View style={styles.statIconTile}>
+            <MaterialIcons name="science" size={24} color={cardMintText} />
+          </View>
+          <Text style={[styles.statNumber, { color: cardMintText }]}>{uniqueActivities}</Text>
+          <Text style={[styles.statUnit, { color: cardMintText }]}>experiments</Text>
+          <Text style={[styles.statLabel, { color: cardMintText }]}>Lab Sessions</Text>
+        </View>
+
+        <View
+          style={[
+            styles.statCard,
+            { backgroundColor: cardYellow, shadowColor: shadow },
+            Shadow.sm,
+          ]}>
+          <View style={styles.statIconTile}>
+            <MaterialIcons name="repeat" size={24} color={cardYellowText} />
+          </View>
+          <Text style={[styles.statNumber, { color: cardYellowText }]}>{totalAttempts}</Text>
+          <Text style={[styles.statUnit, { color: cardYellowText }]}>trials</Text>
+          <Text style={[styles.statLabel, { color: cardYellowText }]}>Total Attempts</Text>
+        </View>
+      </View>
+
+      <View style={[styles.catalogueSection, { paddingHorizontal: Spacing.lg }]}>
+        <SectionHeading
+          title="Your Activities"
+          subtitle="Record · Analyse · Improve"
+        />
+        <View style={styles.activityList}>
+          {ACTIVITIES.map((activity) => {
+            const activityKey = activity.route.replace('/', '');
+            return (
+              <ActivityCard
+                key={activity.route}
+                title={activity.title}
+                subtitle={activity.subtitle}
+                colour={activity.colour}
+                badge={activity.badge}
+                completed={completedActivities.has(activityKey)}
+                onPress={() => router.push(activity.route as Href)}
+              />
+            );
+          })}
+        </View>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   page: { flex: 1 },
-  content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
-
-  hero: {
-    paddingHorizontal: Spacing.xs,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xs,
+  content: {
+    gap: 0,
   },
-  heroTitle: { ...Typography.hero },
-  heroSubtitle: { marginTop: Spacing.xs, ...Typography.body },
-
-  cardHeader: { ...Typography.section, marginBottom: Spacing.sm },
-  cardNote: { marginTop: Spacing.sm, ...Typography.small },
-
-  paragraph: { ...Typography.body },
-
-  recentWrap: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.xs },
-  recentRow: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.sm },
-  recentTeam: { ...Typography.body, fontSize: 13, flex: 1 },
-  recentScore: { ...Typography.small },
-
-  step: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 0,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    flex: 1,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarLetter: {
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+  },
+  headerText: {
+    flex: 1,
+    gap: 2,
+  },
+  greeting: {
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+  },
+  greetingSub: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.regular,
+  },
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroCard: {
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    minHeight: 160,
+    gap: Spacing.xs,
+  },
+  missionBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    marginBottom: Spacing.xs,
+  },
+  missionBadgeText: {
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
+  },
+  heroStream: {
+    fontSize: FontSize.xxl,
+    fontWeight: FontWeight.extrabold,
+  },
+  heroAction: {
+    fontSize: FontSize.xxl,
+    fontWeight: FontWeight.extrabold,
+    marginTop: -Spacing.xs,
+  },
+  heroActionHighlight: {
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  heroHook: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.regular,
+    lineHeight: 20,
+    marginTop: Spacing.xs,
+  },
+  heroFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.md,
+  },
+  iconTile: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  startBtn: {
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    borderTopWidth: 1,
+    borderRadius: Radius.full,
   },
-  stepLast: {
-    paddingVertical: Spacing.sm,
-    borderTopWidth: 1,
+  startBtnText: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.bold,
   },
-  stepTitle: { ...Typography.section, fontSize: 14 },
-  stepBody: { marginTop: Spacing.xs, ...Typography.body, fontSize: 13, lineHeight: 19 },
+  statRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  statCard: {
+    flex: 1,
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    gap: Spacing.xs,
+  },
+  statIconTile: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.xs,
+  },
+  statNumber: {
+    fontSize: 32,
+    fontWeight: FontWeight.extrabold,
+  },
+  statUnit: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.medium,
+    opacity: 0.7,
+    marginTop: -Spacing.xs,
+  },
+  statLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    marginTop: Spacing.xs,
+  },
+  catalogueSection: {
+    marginTop: Spacing.xl,
+    gap: Spacing.md,
+  },
+  activityList: {
+    gap: Spacing.md,
+  },
 });

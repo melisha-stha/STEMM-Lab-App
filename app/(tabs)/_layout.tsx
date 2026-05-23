@@ -5,75 +5,88 @@ import { Platform, StyleSheet, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const theme = colorScheme ?? 'light';
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
 
   return (
-    <View style={styles.root}>
-    <View style={styles.tabs}>
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarStyle: {
-          backgroundColor: Colors[theme].card,
-          borderTopColor: Colors[theme].border,
-          borderTopWidth: Platform.OS === 'android' ? 0 : 1,
-          height: Platform.select({ ios: 86, default: 72 }),
-          paddingTop: 8,
-          paddingBottom: Platform.select({ ios: 26, default: 10 }),
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          marginTop: -2,
-        },
-        tabBarItemStyle: {
-          paddingHorizontal: 6,
-        },
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="earthquake"
-        options={{
-          title: 'Earthquake',
-          tabBarIcon: ({ color }) => <MaterialIcons name="vibration" size={28} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="reaction"
-        options={{
-          title: 'Reaction',
-          tabBarIcon: ({ color }) => <MaterialIcons name="flash-on" size={28} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="breathing"
-        options={{
-          title: 'Breathing',
-          tabBarIcon: ({ color }) => <MaterialIcons name="air" size={28} color={color} />,
-        }}
-      />
-    </Tabs>
-    </View>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <View style={styles.tabs}>
+        <Tabs
+          screenOptions={{
+            tabBarActiveTintColor: colors.tabBarActive,
+            tabBarInactiveTintColor: colors.tabBarInactive,
+            headerShown: false,
+            tabBarButton: HapticTab,
+            tabBarStyle: {
+              backgroundColor: colors.tabBar,
+              borderTopWidth: 0,
+              borderRadius: Radius.xl,
+              marginHorizontal: Spacing.md,
+              marginBottom: Spacing.md,
+              height: 64,
+              position: 'absolute',
+              shadowColor: colors.shadow,
+              shadowOffset: { width: 0, height: -4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 16,
+              elevation: 16,
+              paddingTop: Spacing.sm,
+              paddingBottom: Platform.select({ ios: Spacing.sm, default: Spacing.sm }),
+            },
+            tabBarLabelStyle: {
+              fontSize: FontSize.xs,
+              fontWeight: FontWeight.medium,
+              marginBottom: 4,
+            },
+            tabBarItemStyle: {
+              paddingHorizontal: 4,
+            },
+          }}>
+          <Tabs.Screen
+            name="index"
+            options={{
+              title: 'Home',
+              tabBarIcon: ({ color }) => <IconSymbol size={24} name="house.fill" color={color} />,
+            }}
+          />
+          <Tabs.Screen
+            name="explore"
+            options={{
+              title: 'Streams',
+              tabBarIcon: ({ color }) => <MaterialIcons name="category" size={24} color={color} />,
+            }}
+          />
+          <Tabs.Screen
+            name="leaderboard"
+            options={{
+              title: 'Ranks',
+              tabBarIcon: ({ color }) => <MaterialIcons name="leaderboard" size={24} color={color} />,
+            }}
+          />
+          <Tabs.Screen
+            name="map"
+            options={{
+              title: 'Map',
+              tabBarIcon: ({ color }) => <MaterialIcons name="map" size={24} color={color} />,
+            }}
+          />
+          <Tabs.Screen
+            name="team"
+            options={{
+              title: 'Team',
+              tabBarIcon: ({ color }) => <MaterialIcons name="groups" size={24} color={color} />,
+            }}
+          />
+          <Tabs.Screen name="earthquake" options={{ href: null }} />
+          <Tabs.Screen name="reaction" options={{ href: null }} />
+          <Tabs.Screen name="breathing" options={{ href: null }} />
+        </Tabs>
+      </View>
     </View>
   );
 }

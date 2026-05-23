@@ -1,11 +1,13 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { PillTab } from '@/components/ui/PillTab';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
-import { Radius, Spacing, Typography } from '@/constants/design';
+import { SectionHeading } from '@/components/ui/SectionHeading';
+import { FontSize, FontWeight, Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 import {
@@ -109,9 +111,8 @@ export default function LeaderboardScreen() {
   const mutedText = useThemeColor({}, 'mutedText');
   const border = useThemeColor({}, 'border');
   const card = useThemeColor({}, 'card');
-  const primary = useThemeColor({}, 'primary');
-  const onPrimary = useThemeColor({}, 'onPrimary');
   const success = useThemeColor({}, 'success');
+  const cardMint = useThemeColor({}, 'cardMint');
 
   const [activeActivity, setActiveActivity] = useState<Activity>('parachute');
   const [results, setResults] = useState<LeaderboardResult[]>([]);
@@ -158,36 +159,16 @@ export default function LeaderboardScreen() {
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
         <MaterialIcons name="arrow-back" size={24} color={text} />
       </TouchableOpacity>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: text }]}>Leaderboard</Text>
-        <Text style={[styles.subtitle, { color: mutedText }]}>Top 10 teams per activity</Text>
-      </View>
+      <SectionHeading
+        title="Leaderboard"
+        subtitle="Top 10 teams per activity"
+      />
 
-      <View style={styles.pillRow}>
-        {ACTIVITIES.map((activity) => {
-          const isActive = activeActivity === activity;
-          return (
-            <Pressable
-              key={activity}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isActive }}
-              onPress={() => setActiveActivity(activity)}
-              style={[
-                styles.pill,
-                {
-                  backgroundColor: isActive ? primary : card,
-                  borderColor: isActive ? primary : border,
-                },
-              ]}>
-              <Text
-                style={[styles.pillLabel, { color: isActive ? onPrimary : text }]}
-                numberOfLines={1}>
-                {ACTIVITY_LABELS[activity]}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <PillTab
+        tabs={ACTIVITIES.map((a) => ACTIVITY_LABELS[a])}
+        activeIndex={ACTIVITIES.indexOf(activeActivity)}
+        onChange={(index) => setActiveActivity(ACTIVITIES[index])}
+      />
 
       <SectionCard>
         <Text style={[styles.sectionTitle, { color: text }]}>
@@ -217,7 +198,7 @@ export default function LeaderboardScreen() {
                   style={[
                     styles.row,
                     {
-                      backgroundColor: card,
+                      backgroundColor: isFirst ? cardMint : card,
                       borderColor: isFirst ? success : border,
                     },
                   ]}>
@@ -257,24 +238,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   title: { ...Typography.hero, fontSize: 26 },
   subtitle: { marginTop: Spacing.xs, ...Typography.body },
-  pillRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  pill: {
-    flex: 1,
-    minHeight: 40,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.sm,
-  },
-  pillLabel: {
-    ...Typography.small,
-    fontWeight: '700',
-  },
-  sectionTitle: { ...Typography.section, marginBottom: Spacing.sm },
+  sectionTitle: { ...Typography.section, marginBottom: Spacing.sm, fontSize: FontSize.lg },
   loader: { marginVertical: 20 },
   emptyState: {
     alignItems: 'center',

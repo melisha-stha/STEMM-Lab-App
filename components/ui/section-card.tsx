@@ -2,6 +2,8 @@ import React from 'react';
 import { StyleSheet, View, ViewProps } from 'react-native';
 
 import { Radius, Shadow, Spacing } from '@/constants/design';
+
+const cardShadow = Shadow.md;
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 type Props = ViewProps & {
@@ -30,7 +32,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    ...Shadow,
+    ...cardShadow,
   },
   inset: {
     padding: Spacing.sm,
