@@ -23,7 +23,7 @@ export default function SignUpScreen() {
     try {
       await signUp(email, password);
       Alert.alert("Success", "Account created!");
-      router.replace('/'); // Go to dashboard
+      router.replace('/setup-level');
     } catch (err: any) {
       Alert.alert("Signup Failed", err);
     } finally {

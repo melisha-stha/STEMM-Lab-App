@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { resolvePostLoginRoute } from '@/hooks/app-routing';
 import { login } from '../hooks/authService';
 
 export default function LoginScreen() {
@@ -21,7 +22,8 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await login(email, password);
-      router.replace('/');
+      const destination = await resolvePostLoginRoute();
+      router.replace(destination);
     } catch (err: any) {
       Alert.alert("Login Failed", err);
     } finally {
