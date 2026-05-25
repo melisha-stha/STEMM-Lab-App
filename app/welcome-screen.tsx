@@ -33,7 +33,11 @@ const BRAND = {
 };
 
 const LOGO_SOURCE = require('@/assets/images/welcomelogo.png');
-const WELCOME_TEXT_SOURCE = require('@/assets/images/welcometext.png');
+
+const HORIZONTAL_PADDING = 24;
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const LOGO_SIZE = Math.min(SCREEN_WIDTH - HORIZONTAL_PADDING * 2, 380, SCREEN_HEIGHT * 0.42);
 
 const FEATURE_PILLS = [
   {
@@ -43,7 +47,7 @@ const FEATURE_PILLS = [
     borderColor: BRAND.goldBorder,
   },
   {
-    label: 'Track Results',
+    label: 'Tracking',
     backgroundColor: BRAND.purpleSoft,
     color: BRAND.purple,
     borderColor: BRAND.purpleBorder,
@@ -55,11 +59,6 @@ const FEATURE_PILLS = [
     borderColor: BRAND.coralBorder,
   },
 ] as const;
-
-const LOGO_SIZE = 360;
-const HORIZONTAL_PADDING = 24;
-const WELCOME_TEXT_WIDTH = Dimensions.get('window').width - HORIZONTAL_PADDING * 2;
-const WELCOME_TEXT_HEIGHT = 188;
 
 const PIXEL_RADIUS = 6;
 const PIXEL_BORDER = 3;
@@ -114,41 +113,33 @@ export default function WelcomeScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: background }]} edges={['top', 'bottom']}>
       <View style={[styles.screen, { backgroundColor: background }]}>
         <View style={styles.topSection}>
-          <View style={styles.heroGroup}>
-            <Image
-              source={WELCOME_TEXT_SOURCE}
-              style={styles.welcomeTextImage}
-              contentFit="contain"
-              accessibilityLabel="Welcome to"
-              transition={0}
-            />
-
-            <View style={[styles.brandBlock, { width: LOGO_SIZE }]}>
-              <View style={styles.logoWrap}>
-                {logoFailed ? (
-                  <View style={styles.logoFallback}>
-                    <MaterialIcons name="science" size={96} color={BRAND.coral} />
-                    <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>STEMM</Text>
-                    <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>LAB</Text>
-                  </View>
-                ) : (
-                  <Image
-                    source={LOGO_SOURCE}
-                    style={styles.logoImage}
-                    contentFit="contain"
-                    accessibilityLabel="STEMM Lab logo"
-                    transition={0}
-                    onError={() => setLogoFailed(true)}
-                  />
-                )}
-              </View>
-              <Text
-                style={[
-                  styles.slogan,
-                  { color: welcomeTitleColor, fontFamily: pixelFamily },
-                ]}>
-                learning made fun
-              </Text>
+          <View style={[styles.brandBlock, { width: LOGO_SIZE }]}>
+            <Text
+              adjustsFontSizeToFit
+              numberOfLines={1}
+              style={[
+                styles.welcomeHeading,
+                { color: welcomeTitleColor, fontFamily: pixelFamily, width: LOGO_SIZE },
+              ]}>
+              WELCOME TO
+            </Text>
+            <View style={[styles.logoWrap, { width: LOGO_SIZE, height: LOGO_SIZE }]}>
+              {logoFailed ? (
+                <View style={styles.logoFallback}>
+                  <MaterialIcons name="science" size={96} color={BRAND.coral} />
+                  <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>STEMM</Text>
+                  <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>LAB</Text>
+                </View>
+              ) : (
+                <Image
+                  source={LOGO_SOURCE}
+                  style={[styles.logoImage, { width: LOGO_SIZE, height: LOGO_SIZE }]}
+                  contentFit="contain"
+                  accessibilityLabel="STEMM Lab logo"
+                  transition={0}
+                  onError={() => setLogoFailed(true)}
+                />
+              )}
             </View>
           </View>
         </View>
@@ -166,6 +157,8 @@ export default function WelcomeScreen() {
                     },
                   ]}>
                   <Text
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
                     style={[
                       styles.pillText,
                       { color: pill.color, fontFamily: pixelFamily },
@@ -176,6 +169,14 @@ export default function WelcomeScreen() {
               </PixelBox>
             ))}
           </View>
+
+          <Text
+            style={[
+              styles.taglineCta,
+              { color: welcomeTitleColor, fontFamily: pixelFamily },
+            ]}>
+            join us today!!
+          </Text>
 
           <PixelBox shadowColor={pixelShadow} style={styles.buttonOuter}>
             <Pressable
@@ -242,68 +243,89 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topSection: {
-    flex: 0.55,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: HORIZONTAL_PADDING,
-    paddingTop: 8,
-  },
-  heroGroup: {
-    alignItems: 'center',
-    gap: 0,
+    paddingTop: 16,
+    paddingBottom: 8,
+    minHeight: 0,
   },
   brandBlock: {
     alignItems: 'center',
-    marginTop: -20,
+    gap: 10,
+  },
+  welcomeHeading: {
+    fontSize: 28,
+    lineHeight: 32,
+    textAlign: 'center',
+    letterSpacing: 2,
+    marginBottom: 4,
   },
   logoWrap: {
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoImage: {
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
-  },
+  logoImage: {},
   logoFallback: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
   },
   logoLine: {
     fontSize: 36,
     fontWeight: '800',
     lineHeight: 40,
   },
-  welcomeTextImage: {
-    width: WELCOME_TEXT_WIDTH,
-    height: WELCOME_TEXT_HEIGHT,
-    marginTop: 4,
-    marginBottom: -28,
-  },
-  slogan: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 6,
-    width: '100%',
-    lineHeight: 20,
-    letterSpacing: 0.5,
-  },
   bottomSection: {
-    flex: 0.45,
-    justifyContent: 'center',
+    flexShrink: 0,
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: HORIZONTAL_PADDING,
+    paddingBottom: 8,
+    paddingTop: 12,
+    gap: 4,
   },
   pillsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+    width: '100%',
+    marginBottom: 16,
+    paddingBottom: PIXEL_SHADOW,
+  },
+  pillOuter: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pill: {
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    borderRadius: PIXEL_RADIUS,
+    borderWidth: PIXEL_BORDER,
+    minHeight: 40,
+    width: '100%',
     justifyContent: 'center',
-    gap: 12,
-    marginBottom: 28,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  pillText: {
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: 'center',
+  },
+  taglineCta: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 8,
     maxWidth: '100%',
+    letterSpacing: 0.5,
   },
   pixelBoxWrap: {
     position: 'relative',
@@ -317,28 +339,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: PIXEL_RADIUS,
-  },
-  pillOuter: {
-    maxWidth: '100%',
-  },
-  pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: PIXEL_RADIUS,
-    borderWidth: PIXEL_BORDER,
-    minHeight: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-  pillText: {
-    fontSize: 10,
-    lineHeight: 14,
-    textAlign: 'center',
   },
   buttonOuter: {
     width: '100%',
@@ -364,8 +364,8 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   primaryButtonText: {
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 20,
     textAlign: 'center',
   },
   secondaryButton: {
@@ -384,8 +384,8 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   secondaryButtonText: {
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 20,
     textAlign: 'center',
   },
   buttonPressed: {
