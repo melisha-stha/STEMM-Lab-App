@@ -412,9 +412,191 @@ export default function ParachuteScreen() {
         </View>
       )}
 
-      {screenTab === 'writeup' && <SectionCard><Text style={{ color: text }}>Refer to paper curriculum worksheets.</Text></SectionCard>}
-      {screenTab === 'discussion' && <SectionCard><Text style={{ color: text }}>Review Newton&apos;s Second Law physics properties.</Text></SectionCard>}
-    </ScrollView>
+      {screenTab === 'overview' && (
+        <SectionCard>
+          {/* Main Title and Subject Subtitle */}
+          <Text style={[styles.heroTitle, { color: text }]}>Parachute Drop Challenge</Text>
+          <Text style={[styles.subtitle, { color: mutedText, marginBottom: Spacing.md }]}>
+            Engineering + Physics
+          </Text>
+
+          {/* Intro Description */}
+          <Text style={[styles.body, { color: text, lineHeight: 20 }]}>
+            Students design, build, and test a parachute for a small toy to reduce its landing speed and impact force. Teams iterate their designs under time and material constraints, aiming to achieve the slowest and safest landing within a target area.
+          </Text>
+
+          {/* Divider Line */}
+          <View style={[styles.divider, { backgroundColor: border }]} />
+
+          {/* Equipment List Section */}
+          <Text style={[styles.sectionHeading, { color: text }]}>Equipment</Text>
+          <View style={styles.listContainer}>
+            <Text style={[styles.listItem, { color: text }]}>• Mobile phone with STEMM Lab app</Text>
+            <Text style={[styles.listItem, { color: text }]}>• Small toy (e.g. army toy soldier)</Text>
+            <Text style={[styles.listItem, { color: text }]}>• Table or elevated surface</Text>
+            <Text style={[styles.listItem, { color: text }]}>• Paper or plastic</Text>
+            <Text style={[styles.listItem, { color: text }]}>• String</Text>
+            <Text style={[styles.listItem, { color: text }]}>• Scissors</Text>
+            <Text style={[styles.listItem, { color: text }]}>• Tape</Text>
+          </View>
+
+          {/* Divider Line */}
+          <View style={[styles.divider, { backgroundColor: border }]} />
+
+          {/* Instructions List Section */}
+          <Text style={[styles.sectionHeading, { color: text }]}>Instructions</Text>
+          <View style={styles.listContainer}>
+            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
+              1. Drop the toy without a parachute and record the fall (baseline test).
+            </Text>
+            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
+              2. Build a parachute using provided materials.
+            </Text>
+            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
+              3. Drop the toy from the same height and record the fall.
+            </Text>
+            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
+              4. Review speed and landing accuracy results in the app.
+            </Text>
+            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
+              5. Redesign and test up to three prototypes within 20 minutes.
+            </Text>
+            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
+              6. Upload videos, results, and team reflections.
+            </Text>
+          </View>
+
+          {/* Interactive Graphic Box Placeholder */}
+          <View style={[styles.diagramPlaceholderBox, { backgroundColor: card, borderColor: border }]}>
+            <Text style={[styles.diagramText, { color: mutedText }]}>
+              [Diagram: Toy attached to parachute, drop height marked, target landing zone shown on floor]
+            </Text>
+          </View>
+        </SectionCard>
+      )}
+
+      {screenTab === 'writeup' && (
+        <View style={{ gap: Spacing.md }}>
+          <SectionCard>
+            <Text style={[styles.sectionTitle, { color: text }]}>Write-up Template</Text>
+            <Text style={[styles.body, { color: mutedText, fontStyle: 'italic', marginBottom: Spacing.sm }]}>
+              Use these questions as a guide for your physical paper lesson worksheet:
+            </Text>
+            
+            {/* Core Worksheet Lab Prompts */}
+            <View style={styles.promptListContainer}>
+              <Text style={[styles.bulletPrompt, { color: text }]}>• Predict which parachute design will perform the best.</Text>
+              <Text style={[styles.bulletPrompt, { color: text }]}>• Sketch each distinctive prototype layout design on paper.</Text>
+              <Text style={[styles.bulletPrompt, { color: text }]}>• Record the calculated flight times of each attempt configuration.</Text>
+              <Text style={[styles.bulletPrompt, { color: text }]}>• Were your structural predictions correct in final timings?</Text>
+              <Text style={[styles.bulletPrompt, { color: text }]}>• Which canopy design layout was the easiest to manufacture?</Text>
+            </View>
+          </SectionCard>
+
+          {/* Render Scrollable Data Grid Matrix for Field Entry */}
+          <SectionCard>
+            <Text style={[styles.bodyHeading, { color: text, marginBottom: Spacing.xs }]}>Worksheet Reference Table</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+              <View style={[styles.matrixTableGrid, { borderColor: border }]}>
+                {/* Header Row */}
+                <View style={[styles.matrixHeaderRow, { backgroundColor: card, borderBottomColor: border }]}>
+                  <Text style={[styles.tableHeaderCell, { color: text, width: 140 }]}>Configuration Profile</Text>
+                  <Text style={[styles.tableHeaderCell, { color: text, width: 100 }]}>Predicted Time</Text>
+                  <Text style={[styles.tableHeaderCell, { color: text, width: 110 }]}>Drop Time (Air Time)</Text>
+                  <Text style={[styles.tableHeaderCell, { color: text, width: 90 }]}>Prediction Correct?</Text>
+                  <Text style={[styles.tableHeaderCell, { color: text, width: 140 }]}>Contact Stop Time (Slow-Mo)</Text>
+                </View>
+
+                {/* Data Columns mapped directly to brief text matrix keys */}
+                {[
+                  { id: '1', label: 'Action 1: Baseline (No Parachute)' },
+                  { id: '2', label: 'Action 2: 4-Corner Plastic Canopy' },
+                  { id: '3', label: 'Action 3: Custom Prototype' }
+                ].map((row, idx) => (
+                  <View key={row.id} style={[styles.matrixDataRow, { borderBottomWidth: idx === 2 ? 0 : 1, borderBottomColor: border }]}>
+                    <Text style={[styles.tableBodyCell, { color: text, fontWeight: '600', width: 140 }]}>{row.label}</Text>
+                    <Text style={[styles.tableBodyCell, { color: mutedText, fontStyle: 'italic', width: 100 }]}>Fill on paper...</Text>
+                    <Text style={[styles.tableBodyCell, { color: mutedText, fontStyle: 'italic', width: 110 }]}>Fill on paper...</Text>
+                    <Text style={[styles.tableBodyCell, { color: mutedText, fontStyle: 'italic', width: 90 }]}>[  ] Y / [  ] N</Text>
+                    <Text style={[styles.tableBodyCell, { color: mutedText, fontStyle: 'italic', width: 140 }]}>Fill on paper...</Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+            <Text style={[styles.fieldSubHintText, { color: mutedText, marginTop: Spacing.xs, textAlign: 'center' }]}>
+              All cells are for reference — fill these values directly into your physical print sheets during active drops.
+            </Text>
+          </SectionCard>
+        </View>
+      )}
+      {screenTab === 'discussion' && (
+        <View style={{ gap: Spacing.md }}>
+          <SectionCard>
+            <Text style={[styles.sectionTitle, { color: text }]}>Discussion: Parachutes and Forces</Text>
+            <Text style={[styles.body, { color: text, lineHeight: 19 }]}>
+              Gravity pulls physical mass objects downward, causing them to accelerate as they fall. A deployment canopy structure increases air resistance, which is also commonly referred to as **drag force**.
+            </Text>
+            <Text style={[styles.body, { color: text, lineHeight: 19, marginTop: Spacing.xs }]}>
+              Drag force acts directly upward, opposing kinetic descent velocity to produce a slower total fall. A slower terminal landing speed limits the sudden kinetic shock force when the toy hits the surface, ensuring a safer landing zone payload.
+            </Text>
+          </SectionCard>
+
+          {/* Mathematical Forces Mapping Matrix */}
+          <SectionCard>
+            <Text style={[styles.bodyHeading, { color: text, marginBottom: Spacing.xs }]}>Forces Acting on the Toy</Text>
+            <View style={[styles.matrixTableGrid, { borderColor: border }]}>
+              <View style={[styles.matrixHeaderRow, { backgroundColor: card, borderBottomColor: border }]}>
+                <Text style={[styles.tableHeaderCell, { color: text, flex: 1 }]}>Vector Force Direction</Text>
+                <Text style={[styles.tableHeaderCell, { color: text, flex: 1.2 }]}>Formula Derivation Equation</Text>
+              </View>
+              <View style={[styles.matrixDataRow, { borderBottomColor: border }]}>
+                <Text style={[styles.tableBodyCell, { color: text, flex: 1 }]}>Downward (Weight)</Text>
+                <Text style={[styles.tableBodyCell, { color: primary, fontWeight: 'bold', flex: 1.2 }]}>Weight = mass × g</Text>
+              </View>
+              <View style={[styles.matrixDataRow, { borderBottomColor: border }]}>
+                <Text style={[styles.tableBodyCell, { color: text, flex: 1 }]}>Upward (Drag Force)</Text>
+                <Text style={[styles.tableBodyCell, { color: mutedText, flex: 1.2 }]}>Air resistance counteraction</Text>
+              </View>
+              <View style={[styles.matrixDataRow, { borderBottomWidth: 0 }]}>
+                <Text style={[styles.tableBodyCell, { color: text, flex: 1 }]}>Net (Total) Force</Text>
+                <Text style={[styles.tableBodyCell, { color: primary, fontWeight: 'bold', flex: 1.2 }]}>Net Force = Weight - Drag</Text>
+              </View>
+            </View>
+            <Text style={[styles.newtonLawCallout, { backgroundColor: card, borderColor: border, color: text }]}>
+              Newton’s Second Law: Net Force = mass × acceleration
+            </Text>
+          </SectionCard>
+
+          {/* G-Force Threshold Table */}
+          <SectionCard>
+            <Text style={[styles.bodyHeading, { color: text }]}>G-Force and Injury Risk Analysis</Text>
+            <Text style={[styles.body, { color: mutedText, fontSize: 12, marginBottom: Spacing.sm }]}>
+              G-force describes how quickly an object decelerates on sudden impact. It is measured in multiples of baseline planetary gravity acceleration constants where g = 9.8 m/s².
+            </Text>
+
+            <View style={[styles.matrixTableGrid, { borderColor: border }]}>
+              <View style={[styles.matrixHeaderRow, { backgroundColor: card, borderBottomColor: border }]}>
+                <Text style={[styles.tableHeaderCell, { color: text, width: 85 }]}>G-Force Range</Text>
+                <Text style={[styles.tableHeaderCell, { color: text, width: 130 }]}>Real-World Examples</Text>
+                <Text style={[styles.tableHeaderCell, { color: text, width: 115 }]}>Likely Structural Effects</Text>
+              </View>
+              {[
+                { range: '1–5 g', ex: 'Amusement park rides', effect: 'Safe; no damage risk' },
+                { range: '5–10 g', ex: 'Hard dynamic running drops', effect: 'Minor deformation risk' },
+                { range: '10–30 g', ex: 'Bicycle or sports crashes', effect: 'Serious stress failures' },
+                { range: '30–50 g', ex: 'Falls onto solid surfaces', effect: 'Severe structural rupture' },
+                { range: '50+ g', ex: 'Sudden dead stops (no cushion)', effect: 'Catastrophic destruction' }
+              ].map((item, index) => (
+                <View key={index} style={[styles.matrixDataRow, { borderBottomWidth: index === 4 ? 0 : 1, borderBottomColor: border }]}>
+                  <Text style={[styles.tableBodyCell, { color: text, fontWeight: '700', width: 85 }]}>{item.range}</Text>
+                  <Text style={[styles.tableBodyCell, { color: text, width: 130 }]}>{item.ex}</Text>
+                  <Text style={[styles.tableBodyCell, { color: text, width: 115 }]}>{item.effect}</Text>
+                </View>
+              ))}
+            </View>
+          </SectionCard>
+        </View>
+      )}    </ScrollView>
   );
 }
 
@@ -425,7 +607,7 @@ const styles = StyleSheet.create({
   tabRow: { flexDirection: 'row', gap: Spacing.sm },
   tabPill: { flex: 1, minHeight: 40, borderRadius: Radius.pill, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   tabPillText: { ...Typography.small, fontWeight: '700' },
-  heroTitle: { ...Typography.hero, fontSize: 24 },
+  heroTitle: { ...Typography.hero, fontSize: 26, fontWeight: '800' },
   sectionTitle: { ...Typography.section, fontSize: 16, marginBottom: Spacing.xs },
   bodyHeading: { ...Typography.section, fontSize: 13, marginTop: Spacing.xs },
   body: { ...Typography.body, fontSize: 13, lineHeight: 18 },
@@ -437,4 +619,33 @@ const styles = StyleSheet.create({
   statusIndicatorBox: { flex: 1, paddingVertical: 8, borderRadius: Radius.sm, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   calcOutputBox: { padding: Spacing.md, backgroundColor: 'rgba(0,0,0,0.02)', borderRadius: Radius.md, gap: 4 },
   gForceText: { fontSize: 16, fontWeight: '900', marginTop: Spacing.xs },
+  promptListContainer: { gap: 6, marginVertical: Spacing.xs, paddingLeft: 4 },
+  bulletPrompt: { ...Typography.body, fontSize: 13, lineHeight: 18 },
+  matrixTableGrid: { borderWidth: 1, borderRadius: Radius.md, overflow: 'hidden', marginTop: Spacing.xs },
+  matrixHeaderRow: { flexDirection: 'row', borderBottomWidth: 1, paddingVertical: 10, paddingHorizontal: Spacing.sm },
+  matrixDataRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: Spacing.sm, borderBottomWidth: 1, alignItems: 'center' },
+  tableHeaderCell: { ...Typography.small, fontWeight: 'bold' },
+  tableBodyCell: { ...Typography.small, fontSize: 12 },
+  newtonLawCallout: { marginTop: Spacing.sm, borderWidth: 1, borderRadius: Radius.sm, padding: Spacing.sm, textAlign: 'center', fontWeight: 'bold', fontSize: 13 },
+  fieldSubHintText: { ...Typography.small, fontSize: 10 },
+  subtitle: { ...Typography.small, fontSize: 14, fontWeight: '600', marginTop: 2 },
+  sectionHeading: { ...Typography.section, fontSize: 18, fontWeight: '700', marginBottom: Spacing.sm },
+  divider: { height: 1, marginVertical: Spacing.md, opacity: 0.6 },
+  listContainer: { gap: 8, marginBottom: Spacing.md },
+  listItem: { ...Typography.body, fontSize: 14, paddingLeft: 4 },
+  diagramPlaceholderBox: {
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  diagramText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
 });
