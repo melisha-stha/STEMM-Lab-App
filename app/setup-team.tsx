@@ -18,13 +18,25 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const MAX_MEMBERS = 5;
+const INITIAL_MEMBER_FIELDS = 2;
+
+function memberFieldLabel(index: number): string {
+  if (index === 0) return 'Team member first name';
+  if (index === 1) return 'Second team member (optional)';
+  const ordinals = ['Third', 'Fourth', 'Fifth'];
+  return `${ordinals[index - 2]} team member (optional)`;
+}
+
 export default function SetupTeamScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { level, year } = useLocalSearchParams<{ level?: string; year?: string }>();
 
   const [teamName, setTeamName] = useState('');
-  const [members, setMembers] = useState<string[]>(['', '', '', '']);
+  const [members, setMembers] = useState<string[]>(
+    Array.from({ length: INITIAL_MEMBER_FIELDS }, () => '')
+  );
   const [errors, setErrors] = useState<{
     teamName?: string;
     member?: string;
@@ -72,6 +84,12 @@ export default function SetupTeamScreen() {
     }
   };
 
+  const addMemberField = () => {
+    setMembers((prev) => (prev.length < MAX_MEMBERS ? [...prev, ''] : prev));
+  };
+
+  const canAddMember = members.length < MAX_MEMBERS;
+
   return (
     <KeyboardAvoidingView
       style={[styles.page, { backgroundColor: background }]}
@@ -118,32 +136,27 @@ export default function SetupTeamScreen() {
           error={errors.teamName}
         />
 
-        <Input
-          label="Team member first name"
-          placeholder="First name"
-          value={members[0]}
-          onChangeText={(v) => updateMember(0, v)}
-          error={errors.member}
-        />
+        {members.map((member, index) => (
+          <Input
+            key={`member-${index}`}
+            label={memberFieldLabel(index)}
+            placeholder="First name"
+            value={member}
+            onChangeText={(v) => updateMember(index, v)}
+            error={index === 0 ? errors.member : undefined}
+          />
+        ))}
 
-        <Input
-          label="Second team member (optional)"
-          placeholder="First name"
-          value={members[1]}
-          onChangeText={(v) => updateMember(1, v)}
-        />
-        <Input
-          label="Third team member (optional)"
-          placeholder="First name"
-          value={members[2]}
-          onChangeText={(v) => updateMember(2, v)}
-        />
-        <Input
-          label="Fourth team member (optional)"
-          placeholder="First name"
-          value={members[3]}
-          onChangeText={(v) => updateMember(3, v)}
-        />
+        {canAddMember ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Add another team member"
+            onPress={addMemberField}
+            style={[styles.addMemberBtn, { backgroundColor: primarySoft, borderColor: primary }]}>
+            <MaterialIcons name="person-add" size={20} color={primary} />
+            <Text style={[styles.addMemberText, { color: primary }]}>Add another team member</Text>
+          </TouchableOpacity>
+        ) : null}
 
         <Card colour="sky">
           <View style={styles.privacyRow}>
@@ -207,6 +220,20 @@ const styles = StyleSheet.create({
   inlineError: {
     fontSize: FontSize.sm,
     marginTop: Spacing.sm,
+  },
+  addMemberBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    minHeight: 48,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.lg,
+  },
+  addMemberText: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
   },
   privacyRow: {
     flexDirection: 'row',
