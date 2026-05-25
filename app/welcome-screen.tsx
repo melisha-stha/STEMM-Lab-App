@@ -1,8 +1,9 @@
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const BRAND = {
@@ -28,23 +29,31 @@ const FEATURE_PILLS = [
   { label: '🏆 Leaderboard', backgroundColor: BRAND.coralSoft, color: BRAND.coral },
 ] as const;
 
+const LOGO_SIZE = 220;
+
 export default function WelcomeScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
   const [logoFailed, setLogoFailed] = useState(false);
 
+  const background = useThemeColor({}, 'background');
+  const textSecondary = useThemeColor({}, 'textSecondary');
+  const isDark = colorScheme === 'dark';
+  const welcomeTitleColor = isDark ? BRAND.white : BRAND.purple;
+  const welcomeMutedColor = isDark ? textSecondary : BRAND.textMuted;
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <View style={styles.gradientTop} />
-      <View style={styles.screen}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: background }]} edges={['top', 'bottom']}>
+      <View style={[styles.screen, { backgroundColor: background }]}>
         <View style={styles.topSection}>
           <View style={styles.logoRow}>
             <View style={[styles.goldLine, { backgroundColor: BRAND.gold }]} />
-            <View style={styles.logoCard}>
+            <View style={styles.logoWrap}>
               {logoFailed ? (
                 <View style={styles.logoFallback}>
-                  <MaterialIcons name="science" size={64} color={BRAND.coral} />
-                  <Text style={[styles.logoLine, { color: BRAND.purple }]}>STEMM</Text>
-                  <Text style={[styles.logoLine, { color: BRAND.purple }]}>LAB</Text>
+                  <MaterialIcons name="science" size={80} color={BRAND.coral} />
+                  <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>STEMM</Text>
+                  <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>LAB</Text>
                 </View>
               ) : (
                 <Image
@@ -59,14 +68,14 @@ export default function WelcomeScreen() {
             <View style={[styles.goldLine, { backgroundColor: BRAND.gold }]} />
           </View>
 
-          <Text style={[styles.welcomePrefix, { color: BRAND.textMuted }]}>Welcome to</Text>
-          <Text style={[styles.welcomeTitle, { color: BRAND.purple }]}>STEMM Lab</Text>
-          <Text style={[styles.welcomeSubtitle, { color: BRAND.textMuted }]}>
+          <Text style={[styles.welcomePrefix, { color: welcomeMutedColor }]}>Welcome to</Text>
+          <Text style={[styles.welcomeTitle, { color: welcomeTitleColor }]}>STEMM Lab</Text>
+          <Text style={[styles.welcomeSubtitle, { color: welcomeMutedColor }]}>
             Explore science through hands-on experiments
           </Text>
         </View>
 
-        <View style={styles.bottomSection}>
+        <View style={[styles.bottomSection, { backgroundColor: background }]}>
           <View style={styles.pillsRow}>
             {FEATURE_PILLS.map((pill) => (
               <View
@@ -99,7 +108,7 @@ export default function WelcomeScreen() {
             <Text style={[styles.secondaryButtonText, { color: BRAND.purple }]}>Sign In</Text>
           </Pressable>
 
-          <Text style={[styles.footer, { color: BRAND.textMuted }]}>
+          <Text style={[styles.footer, { color: welcomeMutedColor }]}>
             For school science programs
           </Text>
         </View>
@@ -111,15 +120,6 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BRAND.white,
-  },
-  gradientTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '60%',
-    backgroundColor: BRAND.purpleSoft,
   },
   screen: {
     flex: 1,
@@ -129,49 +129,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
+    paddingTop: 8,
   },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 16,
+    width: '100%',
+    maxWidth: 340,
   },
   goldLine: {
-    width: 60,
+    width: 48,
     height: 2,
+    flexShrink: 0,
   },
-  logoCard: {
-    width: 140,
-    height: 140,
-    borderRadius: 24,
-    backgroundColor: BRAND.white,
-    padding: 12,
+  logoWrap: {
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
-    shadowColor: BRAND.textDark,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 8,
   },
   logoImage: {
-    width: 116,
-    height: 116,
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
   },
   logoFallback: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
   },
   logoLine: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '800',
-    lineHeight: 36,
+    lineHeight: 40,
   },
   welcomePrefix: {
     fontSize: 16,
     fontWeight: '400',
-    marginTop: 32,
+    marginTop: 28,
   },
   welcomeTitle: {
     fontSize: 36,
@@ -189,7 +186,6 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     flex: 0.45,
-    backgroundColor: BRAND.white,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
