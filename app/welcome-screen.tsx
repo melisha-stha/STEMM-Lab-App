@@ -60,25 +60,25 @@ export default function WelcomeScreen() {
             />
 
             <View style={[styles.brandBlock, { width: LOGO_SIZE }]}>
-            <View style={styles.logoWrap}>
-              {logoFailed ? (
-                <View style={styles.logoFallback}>
-                  <MaterialIcons name="science" size={96} color={BRAND.coral} />
-                  <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>STEMM</Text>
-                  <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>LAB</Text>
-                </View>
-              ) : (
-                <Image
-                  source={LOGO_SOURCE}
-                  style={styles.logoImage}
-                  contentFit="contain"
-                  accessibilityLabel="STEMM Lab logo"
-                  transition={0}
-                  onError={() => setLogoFailed(true)}
-                />
-              )}
-            </View>
-            <Text style={[styles.slogan, { color: welcomeTitleColor }]}>learning made fun</Text>
+              <View style={styles.logoWrap}>
+                {logoFailed ? (
+                  <View style={styles.logoFallback}>
+                    <MaterialIcons name="science" size={96} color={BRAND.coral} />
+                    <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>STEMM</Text>
+                    <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>LAB</Text>
+                  </View>
+                ) : (
+                  <Image
+                    source={LOGO_SOURCE}
+                    style={styles.logoImage}
+                    contentFit="contain"
+                    accessibilityLabel="STEMM Lab logo"
+                    transition={0}
+                    onError={() => setLogoFailed(true)}
+                  />
+                )}
+              </View>
+              <Text style={[styles.slogan, { color: welcomeTitleColor }]}>learning made fun</Text>
             </View>
           </View>
         </View>
@@ -175,13 +175,13 @@ const styles = StyleSheet.create({
     marginBottom: -28,
   },
   slogan: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 4,
     width: '100%',
-    lineHeight: 26,
-    letterSpacing: 0.3,
+    lineHeight: 28,
+    letterSpacing: 0.4,
   },
   bottomSection: {
     flex: 0.45,
@@ -193,16 +193,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
     marginBottom: 32,
   },
   pill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderRadius: 99,
   },
   pillText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
   },
   primaryButton: {
