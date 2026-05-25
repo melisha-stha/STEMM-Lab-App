@@ -3,7 +3,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const BRAND = {
@@ -21,15 +21,19 @@ const BRAND = {
   textMuted: '#6B7280',
 };
 
-const LOGO_SOURCE = require('@/assets/images/logo.png');
+const LOGO_SOURCE = require('@/assets/images/welcomelogo.png');
+const WELCOME_TEXT_SOURCE = require('@/assets/images/welcometext.png');
 
 const FEATURE_PILLS = [
-  { label: '🔬 Experiments', backgroundColor: BRAND.goldSoft, color: BRAND.purple },
-  { label: '📊 Track Results', backgroundColor: BRAND.purpleSoft, color: BRAND.purple },
-  { label: '🏆 Leaderboard', backgroundColor: BRAND.coralSoft, color: BRAND.coral },
+  { label: 'Experiments', backgroundColor: BRAND.goldSoft, color: BRAND.purple },
+  { label: 'Track Results', backgroundColor: BRAND.purpleSoft, color: BRAND.purple },
+  { label: 'Leaderboard', backgroundColor: BRAND.coralSoft, color: BRAND.coral },
 ] as const;
 
-const LOGO_SIZE = 220;
+const LOGO_SIZE = 360;
+const HORIZONTAL_PADDING = 24;
+const WELCOME_TEXT_WIDTH = Dimensions.get('window').width - HORIZONTAL_PADDING * 2;
+const WELCOME_TEXT_HEIGHT = 188;
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -46,12 +50,20 @@ export default function WelcomeScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: background }]} edges={['top', 'bottom']}>
       <View style={[styles.screen, { backgroundColor: background }]}>
         <View style={styles.topSection}>
-          <View style={styles.logoRow}>
-            <View style={[styles.goldLine, { backgroundColor: BRAND.gold }]} />
+          <View style={styles.heroGroup}>
+            <Image
+              source={WELCOME_TEXT_SOURCE}
+              style={styles.welcomeTextImage}
+              contentFit="contain"
+              accessibilityLabel="Welcome to"
+              transition={0}
+            />
+
+            <View style={[styles.brandBlock, { width: LOGO_SIZE }]}>
             <View style={styles.logoWrap}>
               {logoFailed ? (
                 <View style={styles.logoFallback}>
-                  <MaterialIcons name="science" size={80} color={BRAND.coral} />
+                  <MaterialIcons name="science" size={96} color={BRAND.coral} />
                   <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>STEMM</Text>
                   <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>LAB</Text>
                 </View>
@@ -61,18 +73,14 @@ export default function WelcomeScreen() {
                   style={styles.logoImage}
                   contentFit="contain"
                   accessibilityLabel="STEMM Lab logo"
+                  transition={0}
                   onError={() => setLogoFailed(true)}
                 />
               )}
             </View>
-            <View style={[styles.goldLine, { backgroundColor: BRAND.gold }]} />
+            <Text style={[styles.slogan, { color: welcomeTitleColor }]}>learning made fun</Text>
+            </View>
           </View>
-
-          <Text style={[styles.welcomePrefix, { color: welcomeMutedColor }]}>Welcome to</Text>
-          <Text style={[styles.welcomeTitle, { color: welcomeTitleColor }]}>STEMM Lab</Text>
-          <Text style={[styles.welcomeSubtitle, { color: welcomeMutedColor }]}>
-            Explore science through hands-on experiments
-          </Text>
         </View>
 
         <View style={[styles.bottomSection, { backgroundColor: background }]}>
@@ -89,7 +97,7 @@ export default function WelcomeScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.primaryButton,
-              { backgroundColor: BRAND.purple, borderLeftColor: BRAND.gold },
+              { backgroundColor: BRAND.purple },
               pressed && styles.buttonPressed,
             ]}
             onPress={() => router.push('/signup')}>
@@ -131,18 +139,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 8,
   },
-  logoRow: {
-    flexDirection: 'row',
+  heroGroup: {
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    width: '100%',
-    maxWidth: 340,
+    gap: 0,
   },
-  goldLine: {
-    width: 48,
-    height: 2,
-    flexShrink: 0,
+  brandBlock: {
+    alignItems: 'center',
+    marginTop: -20,
   },
   logoWrap: {
     width: LOGO_SIZE,
@@ -165,24 +168,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 40,
   },
-  welcomePrefix: {
-    fontSize: 16,
-    fontWeight: '400',
-    marginTop: 28,
-  },
-  welcomeTitle: {
-    fontSize: 36,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+  welcomeTextImage: {
+    width: WELCOME_TEXT_WIDTH,
+    height: WELCOME_TEXT_HEIGHT,
     marginTop: 4,
+    marginBottom: -28,
   },
-  welcomeSubtitle: {
-    fontSize: 15,
-    fontWeight: '400',
+  slogan: {
+    fontSize: 20,
+    fontWeight: '600',
     textAlign: 'center',
     marginTop: 8,
-    paddingHorizontal: 32,
-    lineHeight: 22,
+    width: '100%',
+    lineHeight: 26,
+    letterSpacing: 0.3,
   },
   bottomSection: {
     flex: 0.45,
@@ -210,7 +209,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 56,
     borderRadius: 16,
-    borderLeftWidth: 4,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
