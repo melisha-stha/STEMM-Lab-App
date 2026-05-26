@@ -1,17 +1,29 @@
-import { ActivityCard } from '@/components/ui/activity-card';
-import { SectionHeading } from '@/components/ui/SectionHeading';
-import { FontSize, FontWeight, Radius, Shadow, Spacing } from '@/constants/design';
+import { ActivityCard, type ActivityCardColour } from '@/components/ui/activity-card';
+import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
 import { resolveAppRoute } from '@/hooks/app-routing';
 import { getTrials } from '@/hooks/database';
+import { usePixelFont } from '@/hooks/use-pixel-font';
 import { getTeamData } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { type Href, useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Alert,
+  Animated,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { auth } from '../../hooks/firebaseConfig';
+
+const TOTAL_ACTIVITIES = 7;
+const HORIZONTAL_PAD = 20;
 
 interface TeamData {
   name: string;
@@ -26,43 +38,86 @@ interface TrialRow {
   activity: string;
 }
 
-const ACTIVITIES = [
+type ActivityItem = {
+  title: string;
+  subtitle: string;
+  colour: ActivityCardColour;
+  badge: string;
+  route: Href;
+  icon: keyof typeof MaterialIcons.glyphMap;
+  activityKey: string;
+  comingSoon?: boolean;
+};
+
+const ACTIVITIES: ActivityItem[] = [
   {
     title: 'Parachute Drop',
     subtitle: 'Engineering · Physics',
-    colour: 'mint' as const,
+    colour: 'mint',
     badge: 'Engineering',
     route: '/parachute',
+    icon: 'flight-land',
+    activityKey: 'parachute',
   },
   {
     title: 'Sound Pollution Hunter',
     subtitle: 'Health · Physics',
-    colour: 'peach' as const,
+    colour: 'peach',
     badge: 'Health',
     route: '/sound',
+    icon: 'graphic-eq',
+    activityKey: 'sound',
   },
   {
     title: 'Earthquake Structure',
     subtitle: 'Engineering · Earth Science',
-    colour: 'lavender' as const,
+    colour: 'lavender',
     badge: 'Engineering',
     route: '/earthquake',
+    icon: 'domain',
+    activityKey: 'earthquake',
   },
   {
     title: 'Reaction Board',
     subtitle: 'Health · Neuroscience',
-    colour: 'yellow' as const,
+    colour: 'yellow',
     badge: 'Health',
     route: '/reaction',
+    icon: 'flash-on',
+    activityKey: 'reaction',
   },
   {
     title: 'Breathing Pace Trainer',
     subtitle: 'Health · Biology',
-    colour: 'sky' as const,
+    colour: 'sky',
     badge: 'Health',
     route: '/breathing',
+    icon: 'air',
+    activityKey: 'breathing',
+  },
+  {
+    title: 'Hand Fan Challenge',
+    subtitle: 'Engineering · Physics',
+    colour: 'orange',
+    badge: 'Engineering',
+    route: '/handfan',
+    icon: 'toys',
+    activityKey: 'handfan',
+    comingSoon: true,
+  },
+  {
+    title: 'Human Performance Lab',
+    subtitle: 'Health · Biology',
+    colour: 'pink',
+    badge: 'Health',
+    route: '/performance',
+    icon: 'directions-run',
+    activityKey: 'performance',
+    comingSoon: true,
   },
 ];
+
+const ACTIVITY_KEYS = ACTIVITIES.map((a) => a.activityKey);
 
 const MISSION_HOOK: Record<string, string> = {
   parachute: 'Film, time, and compare — like real engineers.',
@@ -70,6 +125,8 @@ const MISSION_HOOK: Record<string, string> = {
   earthquake: 'Build a structure that survives the shake.',
   reaction: 'How fast is your brain? Test all team members.',
   breathing: 'Track how exercise changes your breathing rate.',
+  handfan: 'Design the best hand fan and measure the airflow.',
+  performance: 'Track strength, speed, and endurance like a sports lab.',
 };
 
 const MISSION_ICON: Record<string, keyof typeof MaterialIcons.glyphMap> = {
@@ -78,6 +135,8 @@ const MISSION_ICON: Record<string, keyof typeof MaterialIcons.glyphMap> = {
   earthquake: 'domain',
   reaction: 'flash-on',
   breathing: 'air',
+  handfan: 'toys',
+  performance: 'directions-run',
 };
 
 const MISSION_ROUTE: Record<string, Href> = {
@@ -86,6 +145,8 @@ const MISSION_ROUTE: Record<string, Href> = {
   earthquake: '/earthquake',
   reaction: '/reaction',
   breathing: '/breathing',
+  handfan: '/handfan',
+  performance: '/performance',
 };
 
 const MISSION_HEADLINE: Record<string, { stream: string; action: string }> = {
@@ -94,39 +155,140 @@ const MISSION_HEADLINE: Record<string, { stream: string; action: string }> = {
   earthquake: { stream: 'Engineering', action: 'Structure Test' },
   reaction: { stream: 'Health', action: 'Reaction Board' },
   breathing: { stream: 'Health', action: 'Breathing Pace' },
+  handfan: { stream: 'Engineering', action: 'Fan Challenge' },
+  performance: { stream: 'Health', action: 'Performance Lab' },
 };
 
-const ACTIVITY_KEYS = ACTIVITIES.map((a) => a.route.replace('/', ''));
+const COMING_SOON_KEYS = new Set(
+  ACTIVITIES.filter((a) => a.comingSoon).map((a) => a.activityKey)
+);
+
+const getGreeting = (name: string) => {
+  const h = new Date().getHours();
+  const emoji = h < 12 ? '🌅' : h < 17 ? '⚗️' : '🌙';
+  const line1 = h < 12 ? 'Good morning,' : h < 17 ? 'Welcome back,' : 'Evening lab,';
+  return { emoji, line1, line2: name };
+};
+
+function DotGridBackground({ dotColor }: { dotColor: string }) {
+  const { width } = Dimensions.get('window');
+  const cols = Math.ceil(width / 24) + 1;
+  const rows = Math.ceil((Dimensions.get('window').height * 1.5) / 24);
+  return (
+    <View style={styles.dotGrid} pointerEvents="none">
+      {Array.from({ length: rows }, (_, row) => (
+        <View key={`dot-row-${row}`} style={styles.dotRow}>
+          {Array.from({ length: cols }, (_, col) => (
+            <View
+              key={`dot-${row}-${col}`}
+              style={[styles.dot, { backgroundColor: dotColor, marginRight: 24 - 5, marginBottom: 24 - 5 }]}
+            />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function MissionCornerSquares({ color }: { color: string }) {
+  const corners = [
+    styles.cornerTopLeft,
+    styles.cornerTopRight,
+    styles.cornerBottomLeft,
+    styles.cornerBottomRight,
+  ];
+  return (
+    <>
+      {corners.map((cornerStyle, index) => (
+        <View key={`corner-${index}`} style={[styles.cornerSquare, cornerStyle, { backgroundColor: color }]} />
+      ))}
+    </>
+  );
+}
+
+type StatCardProps = {
+  backgroundColor: string;
+  borderColor: string;
+  shadowColor: string;
+  textColor: string;
+  iconName: keyof typeof MaterialIcons.glyphMap;
+  value: number;
+  unit: string;
+  label: string;
+  iconBg: string;
+};
+
+function StatCard({
+  backgroundColor,
+  borderColor,
+  shadowColor,
+  textColor,
+  iconName,
+  value,
+  unit,
+  label,
+  iconBg,
+}: StatCardProps) {
+  return (
+    <View
+      style={[
+        styles.statCardOuter,
+        { borderColor, borderBottomColor: shadowColor, backgroundColor },
+      ]}>
+      <View style={[styles.statCardInner, { backgroundColor }]}>
+        <View style={[styles.statIconTile, { backgroundColor: iconBg }]}>
+          <MaterialIcons name={iconName} size={22} color={textColor} />
+        </View>
+        <Text style={[styles.statNumber, { color: textColor }]}>{value}</Text>
+        <Text style={[styles.statUnit, { color: textColor, opacity: 0.7 }]}>{unit}</Text>
+        <Text style={[styles.statLabel, { color: textColor }]}>{label}</Text>
+      </View>
+    </View>
+  );
+}
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const [team, setTeam] = useState<TeamData | null>(null);
   const [trials, setTrials] = useState<TrialRow[]>([]);
 
   const background = useThemeColor({}, 'background');
+  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   const text = useThemeColor({}, 'text');
+  const textSecondary = useThemeColor({}, 'textSecondary');
+  const onPrimary = useThemeColor({}, 'onPrimary');
   const primary = useThemeColor({}, 'primary');
-  const shadow = useThemeColor({}, 'shadow' as any) ?? '#000000';
+  const primarySoft = useThemeColor({}, 'primarySoft');
+  const primaryDark = useThemeColor({}, 'primaryDark');
+  const gold = useThemeColor({}, 'gold');
+  const onGold = useThemeColor({}, 'onGold');
+  const border = useThemeColor({}, 'border');
+  const cardLavender = useThemeColor({}, 'cardLavender');
+  const cardLavenderBorder = useThemeColor({}, 'cardLavenderBorder');
+  const cardLavenderShadow = useThemeColor({}, 'cardLavenderShadow');
+  const cardLavenderText = useThemeColor({}, 'cardLavenderText');
+  const cardLavenderDecor = useThemeColor({}, 'cardLavenderDecor');
+  const cardMint = useThemeColor({}, 'cardMint');
+  const cardMintBorder = useThemeColor({}, 'cardMintBorder');
+  const cardMintShadow = useThemeColor({}, 'cardMintShadow');
+  const cardMintText = useThemeColor({}, 'cardMintText');
+  const cardYellow = useThemeColor({}, 'cardYellow');
+  const cardYellowBorder = useThemeColor({}, 'cardYellowBorder');
+  const cardYellowShadow = useThemeColor({}, 'cardYellowShadow');
+  const cardYellowText = useThemeColor({}, 'cardYellowText');
+  const missionBadgeBg = useThemeColor({}, 'missionBadgeBg');
+  const missionIconBg = useThemeColor({}, 'missionIconBg');
+  const missionIconBorder = useThemeColor({}, 'missionIconBorder');
+  const cardIconBg = useThemeColor({}, 'cardIconBg');
 
-  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary' as any) ?? '#F5F5F7';
-  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';
-  const textInverse = useThemeColor({}, 'textInverse' as any) ?? '#FFFFFF';
-  const primarySoft = useThemeColor({}, 'primarySoft' as any) ?? 'rgba(0, 122, 255, 0.1)';
-  const warning = useThemeColor({}, 'warning' as any) ?? '#FF9500';
-
-  const cardLavender = useThemeColor({}, 'cardLavender' as any) ?? '#E8E7FA';
-  const cardMint = useThemeColor({}, 'cardMint' as any) ?? '#E2F4EE';
-  const cardMintText = useThemeColor({}, 'cardMintText' as any) ?? '#0D523C';
-  const cardYellow = useThemeColor({}, 'cardYellow' as any) ?? '#FFF6D6';
-  const cardYellowText = useThemeColor({}, 'cardYellowText' as any) ?? '#665200';
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       const destination = await resolveAppRoute(Boolean(user));
-      const onTabs = destination === '/(tabs)';
-
-      if (!onTabs) {
+      if (destination !== '/(tabs)') {
         router.replace(destination);
       }
     });
@@ -147,11 +309,21 @@ export default function HomeScreen() {
     }
   }, []);
 
-  const uniqueActivities = useMemo(
+  const activitiesExplored = useMemo(
     () => new Set(trials.map((t) => t.activity)).size,
     [trials]
   );
+  const progress = Math.min(activitiesExplored / TOTAL_ACTIVITIES, 1);
   const totalAttempts = trials.length;
+  const isComplete = activitiesExplored >= TOTAL_ACTIVITIES;
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: progress,
+      duration: 600,
+      useNativeDriver: false,
+    }).start();
+  }, [progress, progressAnim]);
 
   const featuredActivity = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -171,8 +343,10 @@ export default function HomeScreen() {
   const missionIcon = MISSION_ICON[featuredActivity] ?? MISSION_ICON.parachute;
   const missionHook = MISSION_HOOK[featuredActivity] ?? MISSION_HOOK.parachute;
   const missionRoute = MISSION_ROUTE[featuredActivity] ?? MISSION_ROUTE.parachute;
+  const missionComingSoon = COMING_SOON_KEYS.has(featuredActivity);
 
-  const teamInitial = (team?.name?.trim().charAt(0) || 'T').toUpperCase();
+  const teamName = team?.name?.trim() || 'Team';
+  const greeting = getGreeting(teamName);
   const yearLabel = team?.yearLevel ?? team?.grade ?? '—';
 
   const completedActivities = useMemo(() => {
@@ -181,171 +355,270 @@ export default function HomeScreen() {
     return done;
   }, [trials]);
 
+  const progressFillWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
+  const handleMissionStart = () => {
+    if (missionComingSoon) {
+      Alert.alert('Coming Soon', 'Coming Soon! This activity is being built. Check back soon!');
+      return;
+    }
+    router.push(missionRoute);
+  };
+
+  const handleActivityPress = (activity: ActivityItem) => {
+    if (activity.comingSoon) {
+      return;
+    }
+    router.push(activity.route);
+  };
+
   return (
-    <ScrollView
-      style={[styles.page, { backgroundColor: background }]}
-      contentContainerStyle={[
-        styles.content,
-        { paddingBottom: insets.bottom + Spacing.xxl + 80 },
-      ]}>
-      <View
-        style={[
-          styles.headerRow,
-          { paddingTop: insets.top + Spacing.md, paddingHorizontal: Spacing.lg },
-        ]}>
-        <View style={styles.headerLeft}>
-          <View style={[styles.avatar, { backgroundColor: primary }]}>
-            <Text style={[styles.avatarLetter, { color: textInverse }]}>{teamInitial}</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: background }]} edges={['top']}>
+      <View style={styles.page}>
+        <DotGridBackground dotColor={text} />
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
+          <View style={[styles.headerRow, { paddingTop: insets.top > 0 ? 8 : Spacing.md }]}>
+            <View style={styles.headerLeft}>
+              {pixelFontLoaded ? (
+                <Text style={[styles.greetingLine1, { color: textSecondary, fontFamily: pixelFamily }]}>
+                  {greeting.emoji} {greeting.line1}
+                </Text>
+              ) : null}
+              {pixelFontLoaded ? (
+                <Text style={[styles.greetingLine2, { color: text, fontFamily: pixelFamily }]}>
+                  {greeting.line2}
+                </Text>
+              ) : null}
+              <View style={[styles.yearPill, { backgroundColor: primarySoft }]}>
+                <Text style={[styles.yearPillText, { color: primary }]}>
+                  {yearLabel} · Lab Explorer
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Lab alerts"
+              onPress={() => Alert.alert('Lab Alerts', 'No new alerts')}
+              style={[styles.bellBtn, { backgroundColor: backgroundSecondary }]}>
+              <MaterialIcons name="notifications-none" size={24} color={textSecondary} />
+            </Pressable>
           </View>
-          <View style={styles.headerText}>
-            <Text style={[styles.greeting, { color: text }]}>
-              Hey, {team?.name || 'Team'}
-            </Text>
-            <Text style={[styles.greetingSub, { color: textSecondary }]}>
-              {yearLabel} · Lab Explorer
-            </Text>
-          </View>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Lab alerts"
-          onPress={() => Alert.alert('Lab Alerts', 'No new alerts')}
-          style={[styles.bellBtn, { backgroundColor: backgroundSecondary }]}>
-          <MaterialIcons name="notifications-none" size={24} color={textSecondary} />
-        </Pressable>
-      </View>
 
-      <View
-        style={[
-          styles.heroCard,
-          {
-            backgroundColor: cardLavender,
-            shadowColor: shadow,
-          },
-          Shadow.lg,
-        ]}>
-        <View style={[styles.missionBadge, { backgroundColor: primarySoft }]}>
-          <Text style={[styles.missionBadgeText, { color: primary }]}>THIS WEEK&apos;S MISSION</Text>
-        </View>
-
-        <Text style={[styles.heroStream, { color: text }]}>{missionHeadline.stream}</Text>
-        <Text style={[styles.heroAction, { color: text }]}>
-          <Text style={[styles.heroActionHighlight, { backgroundColor: warning, color: text }]}>
-            {missionHeadline.action}
-          </Text>
-        </Text>
-
-        <Text style={[styles.heroHook, { color: textSecondary }]}>{missionHook}</Text>
-
-        <View style={styles.heroFooter}>
-          <View style={styles.iconTile}>
-            <MaterialIcons name={missionIcon} size={28} color={primary} />
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Start mission"
-            onPress={() => router.push(missionRoute)}
-            style={[styles.startBtn, { backgroundColor: primary }]}>
-            <Text style={[styles.startBtnText, { color: textInverse }]}>Start →</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      <View style={[styles.statRow, { paddingHorizontal: Spacing.lg }]}>
-        <View
-          style={[
-            styles.statCard,
-            { backgroundColor: cardMint, shadowColor: shadow },
-            Shadow.sm,
-          ]}>
-          <View style={styles.statIconTile}>
-            <MaterialIcons name="science" size={24} color={cardMintText} />
-          </View>
-          <Text style={[styles.statNumber, { color: cardMintText }]}>{uniqueActivities}</Text>
-          <Text style={[styles.statUnit, { color: cardMintText }]}>experiments</Text>
-          <Text style={[styles.statLabel, { color: cardMintText }]}>Lab Sessions</Text>
-        </View>
-
-        <View
-          style={[
-            styles.statCard,
-            { backgroundColor: cardYellow, shadowColor: shadow },
-            Shadow.sm,
-          ]}>
-          <View style={styles.statIconTile}>
-            <MaterialIcons name="repeat" size={24} color={cardYellowText} />
-          </View>
-          <Text style={[styles.statNumber, { color: cardYellowText }]}>{totalAttempts}</Text>
-          <Text style={[styles.statUnit, { color: cardYellowText }]}>trials</Text>
-          <Text style={[styles.statLabel, { color: cardYellowText }]}>Total Attempts</Text>
-        </View>
-      </View>
-
-      <View style={[styles.catalogueSection, { paddingHorizontal: Spacing.lg }]}>
-        <SectionHeading
-          title="Your Activities"
-          subtitle="Record · Analyse · Improve"
-        />
-        <View style={styles.activityList}>
-          {ACTIVITIES.map((activity) => {
-            const activityKey = activity.route.replace('/', '');
-            return (
-              <ActivityCard
-                key={activity.route}
-                title={activity.title}
-                subtitle={activity.subtitle}
-                colour={activity.colour}
-                badge={activity.badge}
-                completed={completedActivities.has(activityKey)}
-                onPress={() => router.push(activity.route as Href)}
+          <View style={styles.progressSection}>
+            <View style={styles.progressLabelRow}>
+              <Text style={[styles.progressLabel, { color: textSecondary }]}>Lab Progress</Text>
+              <Text style={[styles.progressLabel, { color: textSecondary }]}>
+                {activitiesExplored} / {TOTAL_ACTIVITIES}
+              </Text>
+            </View>
+            <View style={[styles.progressTrack, { backgroundColor: border }]}>
+              <Animated.View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: progressFillWidth,
+                    backgroundColor: isComplete ? gold : primary,
+                  },
+                ]}
               />
-            );
-          })}
-        </View>
+            </View>
+            {isComplete ? (
+              <Text style={[styles.progressComplete, { color: gold }]}>⭐ Complete!</Text>
+            ) : null}
+          </View>
+
+          <View
+            style={[
+              styles.missionCard,
+              {
+                backgroundColor: cardLavender,
+                borderColor: cardLavenderBorder,
+                borderBottomColor: cardLavenderShadow,
+              },
+            ]}>
+            <MissionCornerSquares color={cardLavenderDecor} />
+            <View style={[styles.missionBadge, { backgroundColor: missionBadgeBg }]}>
+              {pixelFontLoaded ? (
+                <Text
+                  style={[
+                    styles.missionBadgeText,
+                    { color: cardLavenderText, fontFamily: pixelFamily },
+                  ]}>
+                  THIS WEEK&apos;S MISSION
+                </Text>
+              ) : null}
+            </View>
+
+            <Text style={[styles.missionStream, { color: cardLavenderText }]}>
+              {missionHeadline.stream}
+            </Text>
+            <View style={[styles.missionHighlight, { backgroundColor: gold }]}>
+              <Text style={[styles.missionHighlightText, { color: onGold }]}>
+                {missionHeadline.action}
+              </Text>
+            </View>
+            <Text style={[styles.missionHook, { color: cardLavenderText, opacity: 0.8 }]}>
+              {missionHook}
+            </Text>
+
+            <View style={styles.missionFooter}>
+              <View
+                style={[
+                  styles.missionIconTile,
+                  { backgroundColor: missionIconBg, borderColor: missionIconBorder },
+                ]}>
+                <MaterialIcons name={missionIcon} size={28} color={cardLavenderText} />
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Start mission"
+                onPress={handleMissionStart}
+                style={[
+                  styles.startButtonOuter,
+                  {
+                    borderColor: primary,
+                    borderBottomColor: primaryDark,
+                    backgroundColor: primary,
+                  },
+                ]}>
+                <View style={styles.startButtonInner}>
+                  <Text style={[styles.startButtonText, { color: onPrimary }]}>▶  START</Text>
+                </View>
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={styles.statRow}>
+            <StatCard
+              backgroundColor={cardMint}
+              borderColor={cardMintBorder}
+              shadowColor={cardMintShadow}
+              textColor={cardMintText}
+              iconName="science"
+              value={activitiesExplored}
+              unit="experiments"
+              label="Lab Sessions"
+              iconBg={cardIconBg}
+            />
+            <StatCard
+              backgroundColor={cardYellow}
+              borderColor={cardYellowBorder}
+              shadowColor={cardYellowShadow}
+              textColor={cardYellowText}
+              iconName="repeat"
+              value={totalAttempts}
+              unit="trials"
+              label="Total Attempts"
+              iconBg={cardIconBg}
+            />
+          </View>
+
+          <View style={styles.catalogueSection}>
+            <View style={styles.sectionHeaderRow}>
+              <View>
+                {pixelFontLoaded ? (
+                  <Text style={[styles.sectionTitle, { color: text, fontFamily: pixelFamily }]}>
+                    Your Activities
+                  </Text>
+                ) : null}
+                <Text style={[styles.sectionSubtitle, { color: textSecondary }]}>
+                  Record · Analyse · Improve
+                </Text>
+              </View>
+              <View style={[styles.counterPill, { backgroundColor: primarySoft }]}>
+                <Text style={[styles.counterPillText, { color: primary }]}>
+                  {activitiesExplored}/{TOTAL_ACTIVITIES}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.activityList}>
+              {ACTIVITIES.map((activity) => (
+                <ActivityCard
+                  key={activity.activityKey}
+                  title={activity.title}
+                  subtitle={activity.subtitle}
+                  colour={activity.colour}
+                  badge={activity.badge}
+                  icon={activity.icon}
+                  completed={completedActivities.has(activity.activityKey)}
+                  comingSoon={activity.comingSoon}
+                  onPress={() => handleActivityPress(activity)}
+                />
+              ))}
+            </View>
+          </View>
+        </ScrollView>
       </View>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1 },
+  safe: {
+    flex: 1,
+  },
+  page: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  scroll: {
+    flex: 1,
+  },
   content: {
-    gap: 0,
+    paddingBottom: 120,
+    paddingHorizontal: HORIZONTAL_PAD,
+  },
+  dotGrid: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.04,
+  },
+  dotRow: {
+    flexDirection: 'row',
+    height: 24,
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 0,
   },
   headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
     flex: 1,
+    gap: 4,
+    paddingRight: Spacing.md,
   },
-  avatar: {
-    width: 44,
-    height: 44,
+  greetingLine1: {
+    fontSize: 14,
+  },
+  greetingLine2: {
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  yearPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: Spacing.xs,
   },
-  avatarLetter: {
-    fontSize: 18,
-    fontWeight: FontWeight.bold,
-  },
-  headerText: {
-    flex: 1,
-    gap: 2,
-  },
-  greeting: {
-    fontSize: FontSize.xl,
-    fontWeight: FontWeight.bold,
-  },
-  greetingSub: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.regular,
+  yearPillText: {
+    fontSize: 11,
+    fontWeight: FontWeight.semibold,
   },
   bellBtn: {
     width: 40,
@@ -354,108 +627,188 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroCard: {
-    borderRadius: Radius.xl,
-    padding: Spacing.lg,
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.lg,
-    minHeight: 160,
-    gap: Spacing.xs,
+  progressSection: {
+    marginTop: 16,
+  },
+  progressLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  progressLabel: {
+    fontSize: 11,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 8,
+    borderRadius: 4,
+  },
+  progressComplete: {
+    fontSize: 11,
+    fontWeight: FontWeight.bold,
+    marginTop: 6,
+  },
+  missionCard: {
+    marginTop: 20,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderBottomWidth: 5,
+    padding: 20,
+    overflow: 'hidden',
+  },
+  cornerSquare: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+  },
+  cornerTopLeft: {
+    top: 8,
+    left: 8,
+  },
+  cornerTopRight: {
+    top: 8,
+    right: 8,
+  },
+  cornerBottomLeft: {
+    bottom: 8,
+    left: 8,
+  },
+  cornerBottomRight: {
+    bottom: 8,
+    right: 8,
   },
   missionBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Radius.full,
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   missionBadgeText: {
     fontSize: 10,
-    fontWeight: FontWeight.bold,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
-  heroStream: {
-    fontSize: FontSize.xxl,
-    fontWeight: FontWeight.extrabold,
+  missionStream: {
+    fontSize: 20,
+    fontWeight: '800',
   },
-  heroAction: {
-    fontSize: FontSize.xxl,
-    fontWeight: FontWeight.extrabold,
-    marginTop: -Spacing.xs,
-  },
-  heroActionHighlight: {
-    paddingHorizontal: 6,
+  missionHighlight: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
     borderRadius: 6,
-    overflow: 'hidden',
+    marginTop: 4,
   },
-  heroHook: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.regular,
-    lineHeight: 20,
-    marginTop: Spacing.xs,
+  missionHighlightText: {
+    fontSize: 20,
+    fontWeight: '800',
   },
-  heroFooter: {
+  missionHook: {
+    fontSize: 13,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  missionFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: Spacing.md,
+    marginTop: 16,
   },
-  iconTile: {
-    width: 48,
-    height: 48,
+  missionIconTile: {
+    width: 52,
+    height: 52,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  startBtn: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+  startButtonOuter: {
     borderRadius: Radius.full,
+    borderWidth: 2,
+    borderBottomWidth: 4,
   },
-  startBtnText: {
-    fontSize: FontSize.md,
-    fontWeight: FontWeight.bold,
+  startButtonInner: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  startButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 1.5,
   },
   statRow: {
     flexDirection: 'row',
     gap: Spacing.md,
-    marginTop: Spacing.lg,
+    marginTop: 20,
   },
-  statCard: {
+  statCardOuter: {
     flex: 1,
-    borderRadius: Radius.xl,
-    padding: Spacing.lg,
-    gap: Spacing.xs,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    overflow: 'hidden',
+  },
+  statCardInner: {
+    borderRadius: 18,
+    padding: 16,
   },
   statIconTile: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.xs,
   },
   statNumber: {
-    fontSize: 32,
-    fontWeight: FontWeight.extrabold,
+    fontSize: 40,
+    fontWeight: '900',
+    fontFamily: 'monospace',
+    marginTop: 8,
   },
   statUnit: {
-    fontSize: FontSize.xs,
-    fontWeight: FontWeight.medium,
-    opacity: 0.7,
-    marginTop: -Spacing.xs,
+    fontSize: 11,
+    marginTop: 2,
   },
   statLabel: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.semibold,
-    marginTop: Spacing.xs,
+    fontSize: 13,
+    fontWeight: FontWeight.bold,
+    marginTop: 4,
   },
   catalogueSection: {
     marginTop: Spacing.xl,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
     gap: Spacing.md,
   },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  counterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+  },
+  counterPillText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
   activityList: {
-    gap: Spacing.md,
+    marginTop: Spacing.xs,
   },
 });

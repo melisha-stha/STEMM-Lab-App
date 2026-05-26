@@ -4,33 +4,65 @@ import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+type TabIconName = keyof typeof MaterialIcons.glyphMap;
+
+function TabBarIcon({
+  name,
+  color,
+  focused,
+  activeColor,
+}: {
+  name: TabIconName;
+  color: string;
+  focused: boolean;
+  activeColor: string;
+}) {
+  return (
+    <View style={styles.tabIconWrap}>
+      <MaterialIcons name={name} size={24} color={color} />
+      {focused ? (
+        <View style={[styles.tabActiveDot, { backgroundColor: activeColor }]} />
+      ) : null}
+    </View>
+  );
+}
+
 export default function TabLayout() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+
+  const renderIcon = (name: TabIconName) =>
+    ({ color, focused }: { color: string; focused: boolean }) => (
+      <TabBarIcon
+        name={name}
+        color={color}
+        focused={focused}
+        activeColor={colors.tabBarActive}
+      />
+    );
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={styles.tabs}>
         <Tabs
           screenOptions={{
-            tabBarActiveTintColor: (colors as any).tabBarActive ?? '#007AFF',
-            tabBarInactiveTintColor: (colors as any).tabBarInactive ?? '#8E8E93',
+            tabBarActiveTintColor: colors.tabBarActive,
+            tabBarInactiveTintColor: colors.tabBarInactive,
             headerShown: false,
             tabBarButton: HapticTab,
             tabBarStyle: {
-              backgroundColor: (colors as any).tabBar ?? colors.background,
+              backgroundColor: colors.tabBar,
               borderTopWidth: 0,
               borderRadius: Radius.xl,
               marginHorizontal: Spacing.md,
               marginBottom: Spacing.md,
               height: 64,
               position: 'absolute',
-              shadowColor: (colors as any).shadow ?? '#000000',
+              shadowColor: colors.shadow,
               shadowOffset: { width: 0, height: -4 },
               shadowOpacity: 0.15,
               shadowRadius: 16,
@@ -51,35 +83,35 @@ export default function TabLayout() {
             name="index"
             options={{
               title: 'Home',
-              tabBarIcon: ({ color }) => <IconSymbol size={24} name="house.fill" color={color} />,
+              tabBarIcon: renderIcon('home'),
             }}
           />
           <Tabs.Screen
             name="explore"
             options={{
               title: 'Streams',
-              tabBarIcon: ({ color }) => <MaterialIcons name="category" size={24} color={color} />,
+              tabBarIcon: renderIcon('category'),
             }}
           />
           <Tabs.Screen
             name="leaderboard"
             options={{
               title: 'Ranks',
-              tabBarIcon: ({ color }) => <MaterialIcons name="leaderboard" size={24} color={color} />,
+              tabBarIcon: renderIcon('leaderboard'),
             }}
           />
           <Tabs.Screen
             name="map"
             options={{
               title: 'Map',
-              tabBarIcon: ({ color }) => <MaterialIcons name="map" size={24} color={color} />,
+              tabBarIcon: renderIcon('map'),
             }}
           />
           <Tabs.Screen
             name="team"
             options={{
               title: 'Team',
-              tabBarIcon: ({ color }) => <MaterialIcons name="groups" size={24} color={color} />,
+              tabBarIcon: renderIcon('groups'),
             }}
           />
           <Tabs.Screen name="earthquake" options={{ href: null }} />
@@ -97,5 +129,13 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flex: 1,
+  },
+  tabIconWrap: {
+    alignItems: 'center',
+  },
+  tabActiveDot: {
+    width: 4,
+    height: 4,
+    marginTop: 2,
   },
 });
