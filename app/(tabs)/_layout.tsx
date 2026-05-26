@@ -109,7 +109,6 @@ export default function TabLayout() {
             }}
           />
           <Tabs.Screen name="earthquake" options={{ href: null }} />
-          <Tabs.Screen name="reaction" options={{ href: null }} />
           <Tabs.Screen name="breathing" options={{ href: null }} />
         </Tabs>
       </View>
