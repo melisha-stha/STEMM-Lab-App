@@ -1,3 +1,8 @@
+import {
+  AuthScreenBackground,
+  authScreenSafeBackground,
+  useAuthScreenBackground,
+} from '@/components/ui/auth-screen-background';
 import { Input } from '@/components/ui/input';
 import { PixelButton } from '@/components/ui/pixel-button';
 import { PixelHeading } from '@/components/ui/pixel-heading';
@@ -15,8 +20,8 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { overlayColor, imageOpacity } = useAuthScreenBackground();
 
-  const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
 
   const handleSignUp = async () => {
@@ -34,8 +39,9 @@ export default function SignUpScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: background }]} edges={['top', 'bottom']}>
-      <View style={[styles.container, { backgroundColor: background }]}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <AuthScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+      <View style={styles.container}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color={text} />
         </TouchableOpacity>
@@ -72,12 +78,14 @@ export default function SignUpScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    backgroundColor: authScreenSafeBackground,
   },
   container: {
     flex: 1,
     padding: Spacing.lg,
     justifyContent: 'center',
     gap: Spacing.md,
+    zIndex: 1,
   },
   backButton: {
     alignSelf: 'flex-start',
@@ -85,7 +93,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: Spacing.lg,
     left: Spacing.lg,
-    zIndex: 1,
+    zIndex: 2,
   },
   actions: {
     marginTop: Spacing.md,

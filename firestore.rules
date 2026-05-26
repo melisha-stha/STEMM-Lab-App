@@ -115,6 +115,16 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // Collection: teamProfiles
+    // One document per user (doc id = auth uid). Stores onboarding team setup
+    // so returning users can skip setup on a new device after login.
+    // -------------------------------------------------------------------------
+    match /teamProfiles/{userId} {
+      allow read, create, update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // -------------------------------------------------------------------------
     // Default deny — explicit catch-all for any collection/document path not
     // matched above. Firestore's implicit default is already deny, but stating
     // this explicitly documents intent and protects against future regressions.

@@ -2,7 +2,8 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/input';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
-import { saveTeamData } from '@/hooks/storage';
+import { saveTeamProfile } from '@/hooks/team-profile';
+import { getTeamData, saveTeamData } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -71,6 +72,16 @@ export default function SetupTeamScreen() {
     await saveTeamData(teamName.trim(), cleanedMembers, yearLabel, {
       learningLevel: level === 'lower_secondary' ? 'lower_secondary' : 'upper_primary',
       yearLevel: year,
+    });
+
+    const saved = await getTeamData();
+    await saveTeamProfile({
+      name: teamName.trim(),
+      members: cleanedMembers,
+      grade: yearLabel,
+      yearLevel: year,
+      learningLevel: level === 'lower_secondary' ? 'lower_secondary' : 'upper_primary',
+      id: saved?.id,
     });
 
     router.replace('/(tabs)');
