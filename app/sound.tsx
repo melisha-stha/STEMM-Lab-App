@@ -1,18 +1,48 @@
+import {
+  ColorPanel,
+  PanelMuted,
+  PanelTitle,
+  usePanelTableTokens,
+  usePanelTheme,
+} from '@/components/ui/activity-color-panel';
+import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
-import { SectionCard } from '@/components/ui/section-card';
-import { Radius, Spacing, Typography } from '@/constants/design';
+import {
+  SoundScreenBackground,
+  useSoundScreenBackground,
+} from '@/components/ui/sound-screen-background';
+import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { insertTrial } from '@/hooks/database';
+import { usePixelFont } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Audio } from 'expo-av';
+import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadSoundResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
+
+export const options = {
+  headerShown: false,
+};
+
+const SOUND_DIAGRAM = require('@/assets/images/sound-diagram.jpeg');
+const SOUND_DIAGRAM_ASPECT = 650 / 556;
+const MAX_MEASUREMENTS = 3;
 
 type ScreenTab = 'overview' | 'experiment' | 'writeup' | 'discussion';
 
@@ -24,63 +54,59 @@ const SCREEN_TAB_LABELS: Record<ScreenTab, string> = {
   discussion: 'Discussion',
 };
 
-function getDbRisk(db: number): { label: string; color: string } {
-  if (db < 30) return { label: 'No Risk', color: '#2E7D32' }; //
-  if (db < 60) return { label: 'Safe', color: '#558B2F' }; //
-  if (db < 85) return { label: 'Long Exposure Risk', color: '#F9A825' }; //
-  if (db < 90) return { label: 'Hearing Damage Possible', color: '#EF6C00' }; //
-  if (db < 100) return { label: 'Hearing Damage Likely', color: '#E53935' }; //
-  if (db < 110) return { label: 'Serious Damage', color: '#B71C1C' }; //
-  if (db < 120) return { label: 'Painful', color: '#880E4F' }; //
-  if (db < 130) return { label: 'Severe Damage', color: '#4A148C' }; //
-  return { label: 'Instant Permanent Damage', color: '#000000' }; //
-}
+const EQUIPMENT_ITEMS = ['Mobile phone with STEMM Lab app'];
+
+const INSTRUCTION_STEPS = [
+  'Measure sounds from different actions (e.g. dropping a pen or book, talking, walking, stamping).',
+  'Log the peak decibel level and label each action clearly.',
+  'Compare readings across your classroom to find loud and quiet zones.',
+];
 
 const SOUND_LEVEL_TABLE_ROWS = [
-  { level: '0–30 dB', examples: 'Whisper, quiet library', risk: 'No risk', color: '#2E7D32' }, //
-  { level: '30–60 dB', examples: 'Normal conversation, classroom noise', risk: 'Safe for long periods', color: '#558B2F' }, //
+  { level: '0–30 dB', examples: 'Whisper, quiet library', risk: 'No risk', color: '#2E7D32' },
+  { level: '30–60 dB', examples: 'Normal conversation, classroom noise', risk: 'Safe for long periods', color: '#558B2F' },
   {
     level: '60–85 dB',
     examples: 'Busy traffic, vacuum cleaner',
     risk: 'Generally safe, but long exposure can cause fatigue',
     color: '#F9A825',
-  }, //
+  },
   {
     level: '85–90 dB',
     examples: 'Lawn mower, loud classroom, heavy traffic',
     risk: 'Hearing damage possible after long exposure',
     color: '#EF6C00',
-  }, //
+  },
   {
     level: '90–100 dB',
     examples: 'Motorbike, power tools, loud music',
     risk: 'Hearing damage likely after short exposure',
     color: '#E53935',
-  }, //
+  },
   {
     level: '100–110 dB',
     examples: 'Nightclub, rock concert, chainsaw',
     risk: 'Serious hearing damage in minutes',
     color: '#B71C1C',
-  }, //
+  },
   {
     level: '110–120 dB',
     examples: 'Siren close by, car horn at 1 m',
     risk: 'Painful; immediate damage possible',
     color: '#880E4F',
-  }, //
+  },
   {
     level: '120–130 dB',
     examples: 'Jet engine at close range',
     risk: 'Immediate and severe hearing damage',
     color: '#4A148C',
-  }, //
+  },
   {
     level: '140+ dB',
     examples: 'Explosion, gunshot',
     risk: 'Instant, permanent hearing damage',
     color: '#000000',
-  }, //
+  },
 ] as const;
 
 function meterToDb(meter: number): number {
@@ -88,12 +114,166 @@ function meterToDb(meter: number): number {
   return Math.round(((clamped + 160) / 160) * 120);
 }
 
+function useDbRisk(db: number) {
+  const success = useThemeColor({}, 'success');
+  const warning = useThemeColor({}, 'warning');
+  const error = useThemeColor({}, 'error');
+  const text = useThemeColor({}, 'text');
+
+  if (db < 30) return { label: 'No Risk', color: success };
+  if (db < 60) return { label: 'Safe', color: success };
+  if (db < 85) return { label: 'Long Exposure Risk', color: warning };
+  if (db < 90) return { label: 'Hearing Damage Possible', color: warning };
+  if (db < 100) return { label: 'Hearing Damage Likely', color: error };
+  if (db < 110) return { label: 'Serious Damage', color: error };
+  if (db < 120) return { label: 'Painful', color: error };
+  if (db < 130) return { label: 'Severe Damage', color: text };
+  return { label: 'Instant Permanent Damage', color: text };
+}
+
+function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
+  const { textColor } = usePanelTheme();
+  return (
+    <Text style={[styles.heroTitle, { color: textColor, fontFamily: pixelFamily }]}>
+      Sound Pollution Hunter
+    </Text>
+  );
+}
+
+function OverviewDiagramFrame() {
+  const { borderColor, cardIconBg } = usePanelTheme();
+  return (
+    <View style={[styles.heroImageWrap, { borderColor, backgroundColor: cardIconBg }]}>
+      <Image
+        source={SOUND_DIAGRAM}
+        style={styles.heroImage}
+        contentFit="contain"
+        accessibilityLabel="Diagram showing phone placement 30 cm from a sound source on a table"
+      />
+    </View>
+  );
+}
+
+function OverviewInstructionList() {
+  const { textColor, cardIconBg, borderColor } = usePanelTheme();
+  return (
+    <>
+      {INSTRUCTION_STEPS.map((step, index) => (
+        <View key={step} style={styles.instructionRow}>
+          <View style={[styles.instructionNum, { backgroundColor: cardIconBg }]}>
+            <Text style={[styles.instructionNumText, { color: borderColor }]}>{index + 1}</Text>
+          </View>
+          <Text style={[styles.instructionText, { color: textColor, opacity: 0.85 }]}>{step}</Text>
+        </View>
+      ))}
+    </>
+  );
+}
+
+function OverviewEquipmentList() {
+  const { textColor, borderColor } = usePanelTheme();
+  return (
+    <View style={styles.listContainer}>
+      {EQUIPMENT_ITEMS.map((item) => (
+        <View key={item} style={styles.listRow}>
+          <MaterialIcons name="check-circle" size={16} color={borderColor} />
+          <Text style={[styles.listItem, { color: textColor, opacity: 0.85 }]}>{item}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function WriteupWorksheetTable() {
+  const { textColor, borderColor } = usePanelTableTokens();
+  const mutedCell = { color: textColor, opacity: 0.65, fontStyle: 'italic' as const };
+
+  return (
+    <>
+      <ScrollView horizontal showsHorizontalScrollIndicator>
+        <View style={[styles.matrixTableGrid, { borderColor }]}>
+          <View style={[styles.matrixHeaderRow, { borderBottomColor: borderColor }]}>
+            <Text style={[styles.tableHeaderCell, { color: textColor, width: 140 }]}>Action</Text>
+            <Text style={[styles.tableHeaderCell, { color: textColor, width: 150 }]}>
+              Prediction (Louder / Softer)
+            </Text>
+            <Text style={[styles.tableHeaderCell, { color: textColor, width: 110 }]}>Result (dB)</Text>
+            <Text style={[styles.tableHeaderCell, { color: textColor, width: 110 }]}>
+              Hypothesis correct?
+            </Text>
+          </View>
+          {[
+            { id: '1', label: 'Action 1: Drop book on table' },
+            { id: '2', label: 'Action 2' },
+            { id: '3', label: 'Action 3' },
+          ].map((row, idx) => (
+            <View
+              key={row.id}
+              style={[
+                styles.matrixDataRow,
+                { borderBottomWidth: idx === 2 ? 0 : 1, borderBottomColor: borderColor },
+              ]}>
+              <Text style={[styles.tableBodyCell, { color: textColor, fontWeight: '600', width: 140 }]}>
+                {row.label}
+              </Text>
+              <Text style={[styles.tableBodyCell, mutedCell, { width: 150 }]}>Fill on paper...</Text>
+              <Text style={[styles.tableBodyCell, mutedCell, { width: 110 }]}>Fill on paper...</Text>
+              <Text style={[styles.tableBodyCell, mutedCell, { width: 110 }]}>[  ] Yes / [  ] No</Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+      <PanelMuted style={[styles.fieldSubHintText, { marginTop: Spacing.xs }]}>
+        Fill these cells on your physical worksheet during classroom testing.
+      </PanelMuted>
+    </>
+  );
+}
+
+function HearingDamageTable() {
+  const { textColor, borderColor } = usePanelTableTokens();
+
+  return (
+    <View style={[styles.hearingTable, { borderColor }]}>
+      <View style={[styles.matrixHeaderRow, { borderBottomColor: borderColor }]}>
+        <Text style={[styles.tableHeaderCell, styles.hearingColLevel, { color: textColor }]}>
+          Sound level
+        </Text>
+        <Text style={[styles.tableHeaderCell, styles.hearingColExamples, { color: textColor }]}>
+          Example sounds
+        </Text>
+        <Text style={[styles.tableHeaderCell, styles.hearingColRisk, { color: textColor }]}>
+          Risk to hearing
+        </Text>
+      </View>
+      {SOUND_LEVEL_TABLE_ROWS.map((row, index) => (
+        <View
+          key={row.level}
+          style={[
+            styles.hearingTableRow,
+            { borderBottomColor: borderColor, borderBottomWidth: index === SOUND_LEVEL_TABLE_ROWS.length - 1 ? 0 : 1 },
+          ]}>
+          <Text style={[styles.tableBodyCell, styles.hearingColLevel, { color: row.color, fontWeight: '700' }]}>
+            {row.level}
+          </Text>
+          <Text style={[styles.tableBodyCell, styles.hearingColExamples, { color: textColor, opacity: 0.85 }]}>
+            {row.examples}
+          </Text>
+          <Text style={[styles.tableBodyCell, styles.hearingColRisk, { color: row.color, fontWeight: '600' }]}>
+            {row.risk}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function SoundScreen() {
   const router = useRouter();
-  
-  // Navigation View State Configuration
+  const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
+  const { overlayColor, imageOpacity } = useSoundScreenBackground();
+
   const [screenTab, setScreenTab] = useState<ScreenTab>('overview');
-  
   const [isRecording, setIsRecording] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [liveDb, setLiveDb] = useState(0);
@@ -104,18 +284,24 @@ export default function SoundScreen() {
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
-  const mutedText = useThemeColor({}, 'mutedText');
   const border = useThemeColor({}, 'border');
-  const card = useThemeColor({}, 'card');
   const primary = useThemeColor({}, 'primary');
+  const primaryDark = useThemeColor({}, 'primaryDark');
+  const primarySoft = useThemeColor({}, 'primarySoft');
   const onPrimary = useThemeColor({}, 'onPrimary');
+  const cardIconBg = useThemeColor({}, 'cardIconBg');
+
+  const risk = useDbRisk(liveDb);
+  const loudest = measurements.length ? Math.max(...measurements.map((m) => m.db)) : null;
 
   useEffect(() => {
-    return () => { stopRecording(); };
+    return () => {
+      void stopRecording();
+    };
   }, []);
 
   const startRecording = async () => {
-    if (measurements.length >= 3) return;
+    if (measurements.length >= MAX_MEASUREMENTS) return;
     if (!actionLabel.trim()) {
       Alert.alert('Add a label', 'Describe the action first (e.g. "dropping a book").');
       return;
@@ -159,15 +345,15 @@ export default function SoundScreen() {
     setIsRecording(false);
 
     const peakDb = peakDbRef.current;
-    if (peakDb > 0 && measurements.length < 3) {
-      setMeasurements(prev => [...prev, { db: peakDb, label: actionLabel.trim() }]);
+    if (peakDb > 0 && measurements.length < MAX_MEASUREMENTS) {
+      setMeasurements((prev) => [...prev, { db: peakDb, label: actionLabel.trim() }]);
       setActionLabel('');
       setLiveDb(0);
     }
   };
 
   const resetAll = () => {
-    stopRecording();
+    void stopRecording();
     setMeasurements([]);
     setActionLabel('');
     setLiveDb(0);
@@ -188,18 +374,20 @@ export default function SoundScreen() {
       }
 
       const teamData = await getTeamData();
-      const peakDb = Math.max(...measurements.map(m => m.db));
+      const peakDb = Math.max(...measurements.map((m) => m.db));
 
       await Promise.all([
         uploadSoundResult(user.uid, teamData, measurements, locationData),
-        Promise.resolve(insertTrial(
-          teamData?.name || 'unknown',
-          'sound',
-          peakDb,
-          '',
-          locationData?.latitude || null,
-          locationData?.longitude || null
-        ))
+        Promise.resolve(
+          insertTrial(
+            teamData?.name || 'unknown',
+            'sound',
+            peakDb,
+            '',
+            locationData?.latitude || null,
+            locationData?.longitude || null
+          )
+        ),
       ]);
 
       await Notifications.scheduleNotificationAsync({
@@ -212,9 +400,8 @@ export default function SoundScreen() {
       });
 
       Alert.alert('Saved!', 'Your sound measurements have been saved.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') }
+        { text: 'OK', onPress: () => router.replace('/(tabs)') },
       ]);
-
     } catch (error) {
       console.error('Sound Save Error:', error);
       Alert.alert('Save Error', "We couldn't save your data. Please check your connection.");
@@ -223,339 +410,527 @@ export default function SoundScreen() {
     }
   };
 
-  const risk = getDbRisk(liveDb);
-  const loudest = measurements.length ? Math.max(...measurements.map(m => m.db)) : null;
-
   return (
-    <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <MaterialIcons name="arrow-back" size={24} color={text} />
-      </TouchableOpacity>
+    <View style={[styles.root, { backgroundColor: background }]}>
+      <SoundScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
+          <TouchableOpacity
+            accessibilityLabel="Go back"
+            onPress={() => router.back()}
+            style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={24} color={text} />
+          </TouchableOpacity>
 
-      {/* Synchronized Segmented Layout Switcher Row */}
-      <View style={styles.tabRow}>
-        {SCREEN_TABS.map((tab) => {
-          const isSelected = screenTab === tab;
-          return (
-            <Pressable
-              key={tab}
-              onPress={() => setScreenTab(tab)}
-              style={[styles.tabPill, { backgroundColor: isSelected ? primary : card, borderColor: isSelected ? primary : border }]}
-            >
-              <Text style={[styles.tabPillText, { color: isSelected ? onPrimary : text }]}>
-                {SCREEN_TAB_LABELS[tab]}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {/* ==================== TAB 1: OVERVIEW ==================== */}
-      {screenTab === 'overview' && (
-        <View style={{ gap: Spacing.md }}>
-          <SectionCard>
-            <Text style={[styles.title, { color: text }]}>Sound Pollution Hunter</Text>
-            <Text style={[styles.subtitle, { color: mutedText, fontWeight: '600', marginTop: 2 }]}>
-              Environmental Science
-            </Text>
-            <Text style={[styles.body, { color: text, marginTop: Spacing.sm, lineHeight: 20 }]}>
-              Students measure and compare sound intensity levels produced across various localized classroom activities.
-            </Text>
-          </SectionCard>
-
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Equipment</Text>
-            <View style={styles.bullets}>
-              <Text style={[styles.bullet, { color: text }]}>• Mobile phone fitted with STEMM Lab app</Text>
-            </View>
-          </SectionCard>
-
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Instructions</Text>
-            <View style={styles.bullets}>
-              <Text style={[styles.bullet, { color: text, lineHeight: 19 }]}>
-                1. Measure acoustics generated from distinct systemic actions (e.g., dropping objects like pens or books, talking, walking, or stamping your feet).
-              </Text>
-              <Text style={[styles.bullet, { color: text, lineHeight: 19 }]}>
-                2. Explicitly log maximum sound pressure outputs alongside exact physical room location tags.
-              </Text>
-              <Text style={[styles.bullet, { color: text, lineHeight: 19 }]}>
-                3. Chart dynamic variations across your school space to map isolated loud and quiet operational zones.
-              </Text>
-            </View>
-
-            <View style={[styles.diagramPlaceholderBox, { backgroundColor: card, borderColor: border }]}>
-              <Text style={[styles.diagramText, { color: mutedText }]}>
-                [Diagram Reference: Dropping object (e.g. book) on table/floor. Position phone exactly 30 cm from the baseline source node].
-              </Text>
-            </View>
-          </SectionCard>
-        </View>
-      )}
-
-      {/* ==================== TAB 2: EXPERIMENT ==================== */}
-      {screenTab === 'experiment' && (
-        <View style={{ gap: Spacing.md }}>
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Data Acquisition Instructions</Text>
-            <View style={styles.bullets}>
-              <Text style={[styles.bullet, { color: mutedText }]}>• Label the action before recording (e.g. "dropping a book").</Text>
-              <Text style={[styles.bullet, { color: mutedText }]}>• Tap Start and perform the action exactly 30cm near the phone.</Text>
-              <Text style={[styles.bullet, { color: mutedText }]}>• Tap Stop to record the peak amplitude level.</Text>
-              <Text style={[styles.bullet, { color: mutedText }]}>• Record up to 3 distinct physical actions to populate your baseline baseline stack.</Text>
-            </View>
-          </SectionCard>
-
-          {/* Core Hardware Level Meter Component Canvas */}
-          <View style={[styles.meterPanel, { borderColor: border, backgroundColor: card }]}>
-            <Text style={[styles.timerLabel, { color: mutedText }]}>Live Sensor Sound Level</Text>
-            <Text style={[styles.dbValue, { color: risk.color }]}>{liveDb} dB</Text>
-            <View style={[styles.riskBadge, { backgroundColor: risk.color + '18', borderColor: risk.color }]}>
-              <Text style={[styles.riskLabel, { color: risk.color }]}>{risk.label}</Text>
-            </View>
-
-            <Text style={[styles.inputLabel, { color: mutedText }]}>Action Label Description</Text>
-            <TextInput
-              style={[styles.input, { borderColor: border, color: text, backgroundColor: background }]}
-              placeholder='e.g. dropping a textbook on desk'
-              placeholderTextColor={mutedText}
-              value={actionLabel}
-              onChangeText={setActionLabel}
-              editable={!isRecording && measurements.length < 3}
-            />
-
-            <View style={styles.buttons}>
-              <PrimaryButton
-                label={isRecording ? 'Stop & Record Node' : 'Start Microphone Capture'}
-                variant={isRecording ? 'danger' : 'primary'}
-                disabled={measurements.length >= 3 || isSyncing}
-                onPress={() => isRecording ? stopRecording() : startRecording()}
-              />
-              <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
-                <View style={{ flex: 1 }}>
-                  <PrimaryButton
-                    label='Reset Stack'
-                    variant='secondary'
-                    onPress={resetAll}
-                    disabled={isSyncing || (measurements.length === 0 && !isRecording)}
-                  />
-                </View>
-                <View style={{ flex: 1.3 }}>
-                  <PrimaryButton
-                    label={isSyncing ? 'Syncing...' : 'Upload Lab Matrix'}
-                    variant='secondary'
-                    onPress={finishAndSave}
-                    disabled={measurements.length === 0 || isRecording || isSyncing}
-                    style={{ borderColor: primary }}
-                  />
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.helperRow}>
-              <Text style={[styles.helper, { color: mutedText }]}>Trial Stack Count: {measurements.length}/3</Text>
-              {loudest !== null && (
-                <Text style={[styles.helper, { color: primary, fontWeight: '700' }]}>Peak Intensity: {loudest} dB</Text>
-              )}
-            </View>
-          </View>
-
-          {/* Captured Array Measurements Monitor List */}
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Logged Trial Matrices</Text>
-            {measurements.length === 0 ? (
-              <Text style={[styles.placeholder, { color: mutedText, fontStyle: 'italic' }]}>Awaiting micro-sensor hardware updates.</Text>
-            ) : (
-              <View style={styles.measureList}>
-                {measurements.map((m, i) => {
-                  const r = getDbRisk(m.db);
-                  const isLoudest = m.db === loudest;
-                  return (
-                    <View key={i} style={[styles.measureRow, { borderColor: isLoudest ? r.color : border, backgroundColor: card }]}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.measureAction, { color: text }]}>Action {i + 1}: {m.label}</Text>
-                        <Text style={[styles.measureDb, { color: r.color }]}>{m.db} dB</Text>
-                      </View>
-                      <View style={[styles.riskBadge, { backgroundColor: r.color + '15', borderColor: r.color }]}>
-                        <Text style={[styles.riskLabel, { color: r.color }]}>
-                          {isLoudest ? '🔊 Peak Value' : r.label}
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </SectionCard>
-        </View>
-      )}
-
-      {/* ==================== TAB 3: WRITE-UP ==================== */}
-      {screenTab === 'writeup' && (
-        <View style={{ gap: Spacing.md }}>
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Write-up Reference Prompts</Text>
-            <Text style={[styles.body, { color: mutedText, fontStyle: 'italic', marginBottom: Spacing.sm }]}>
-              Use these inquiry steps as a guideline for your physical paper curriculum worksheets:
-            </Text>
-            <View style={styles.promptListContainer}>
-              <Text style={[styles.bulletPrompt, { color: text }]}>• Predict which isolated school action creates the highest acoustic sound intensity.</Text>
-              <Text style={[styles.bulletPrompt, { color: text }]}>• Document and safely log the recorded decibel metrics into your worksheet ledger.</Text>
-              <Text style={[styles.bulletPrompt, { color: text }]}>• Were your physical hypotheses correct when verified against sensor outcomes?</Text>
-              <Text style={[styles.bulletPrompt, { color: text }]}>• Did you encounter any abnormal spike deviations or unexpected data surprises?</Text>
-              <Text style={[styles.bulletPrompt, { color: text, fontWeight: '600' }]}>• Critical Safety Analysis: Should students or teachers wear protective earmuffs inside your active classroom?</Text>
-            </View>
-          </SectionCard>
-
-          {/* Paper Worksheet Log Layout Table */}
-          <SectionCard>
-            <Text style={[styles.bodyHeading, { color: text, marginBottom: Spacing.xs }]}>Worksheet Reference Table</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-              <View style={[styles.matrixTableGrid, { borderColor: border }]}>
-                <View style={[styles.matrixHeaderRow, { backgroundColor: card, borderBottomColor: border }]}>
-                  <Text style={[styles.tableHeaderCell, { color: text, width: 140 }]}>Action Sequence</Text>
-                  <Text style={[styles.tableHeaderCell, { color: text, width: 150 }]}>Prediction (Louder / Softer)</Text>
-                  <Text style={[styles.tableHeaderCell, { color: text, width: 110 }]}>Outcome (dB)</Text>
-                  <Text style={[styles.tableHeaderCell, { color: text, width: 110 }]}>Hypothesis Correct?</Text>
-                </View>
-
-                {[
-                  { id: '1', label: 'Action 1: Drop Book on Table' },
-                  { id: '2', label: 'Action 2: Guided Entry' },
-                  { id: '3', label: 'Action 3: Guided Entry' }
-                ].map((row, idx) => (
-                  <View key={row.id} style={[styles.matrixDataRow, { borderBottomWidth: idx === 2 ? 0 : 1, borderBottomColor: border }]}>
-                    <Text style={[styles.tableBodyCell, { color: text, fontWeight: '600', width: 140 }]}>{row.label}</Text>
-                    <Text style={[styles.tableBodyCell, { color: mutedText, fontStyle: 'italic', width: 150 }]}>Fill on worksheet paper...</Text>
-                    <Text style={[styles.tableBodyCell, { color: mutedText, fontStyle: 'italic', width: 110 }]}>Fill on worksheet paper...</Text>
-                    <Text style={[styles.tableBodyCell, { color: mutedText, fontStyle: 'italic', width: 110 }]}>[  ] Yes  /  [  ] No</Text>
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
-            <Text style={[styles.fieldSubHintText, { color: mutedText, marginTop: Spacing.xs, textAlign: 'center' }]}>
-              All cell sectors match physical print sheets—fill out completely during classroom testing loops.
-            </Text>
-          </SectionCard>
-        </View>
-      )}
-
-      {/* ==================== TAB 4: DISCUSSION ==================== */}
-      {screenTab === 'discussion' && (
-        <View style={{ gap: Spacing.md }}>
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Acoustic Mechanics & Threshold Property Analysis</Text>
-            <Text style={[styles.body, { color: text, lineHeight: 19 }]}>
-              Sound intensity measurements vary depending directly on the mechanical kinetic energy input of the collision source and the physical density profile of contact surface structures. Prolonged exposure to severe noise pollution can heavily impact overall health, mental concentration, and auditory performance loops.
-            </Text>
-          </SectionCard>
-
-          {/* Reference Injury Risk Matrix Guide Table */}
-          <SectionCard>
-            <Text style={[styles.bodyHeading, { color: text, marginBottom: Spacing.xs }]}>Hearing Damage Safety Grid</Text>
-            <View style={[styles.table, { borderColor: border }]}>
-              <View style={[styles.tableHeaderRow, { backgroundColor: card, borderBottomColor: border }]}>
-                <Text style={[styles.tableHeaderCell, styles.tableColLevel, { color: text }]}>Sound Level</Text>
-                <Text style={[styles.tableHeaderCell, styles.tableColExamples, { color: text }]}>Example Sounds</Text>
-                <Text style={[styles.tableHeaderCell, styles.tableColRisk, { color: text }]}>Risk to Hearing</Text>
-              </View>
-              {SOUND_LEVEL_TABLE_ROWS.map((row, i) => (
-                <View
-                  key={row.level}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabRow}>
+            {SCREEN_TABS.map((tab) => {
+              const isSelected = screenTab === tab;
+              return (
+                <Pressable
+                  key={tab}
+                  onPress={() => setScreenTab(tab)}
                   style={[
-                    styles.tableRow,
+                    styles.tabPill,
                     {
-                      backgroundColor: i % 2 === 0 ? background : card,
-                      borderBottomColor: border,
-                      borderBottomWidth: i < SOUND_LEVEL_TABLE_ROWS.length - 1 ? 1 : 0,
+                      backgroundColor: isSelected ? primary : primarySoft,
+                      borderColor: isSelected ? primary : border,
                     },
                   ]}>
-                  <Text style={[styles.tableCell, styles.tableColLevel, { color: row.color, fontWeight: '700' }]}>
-                    {row.level}
+                  <Text style={[styles.tabPillText, { color: isSelected ? onPrimary : primary }]}>
+                    {SCREEN_TAB_LABELS[tab]}
                   </Text>
-                  <Text style={[styles.tableCell, styles.tableColExamples, { color: text }]}>
-                    {row.examples}
-                  </Text>
-                  <Text style={[styles.tableCell, styles.tableColRisk, { color: row.color, fontWeight: '600' }]}>
-                    {row.risk}
-                  </Text>
-                </View>
-              ))}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {screenTab === 'overview' && (
+            <View style={styles.tabContent}>
+              <ColorPanel colour="peach">
+                {pixelFontLoaded ? <OverviewHeroTitle pixelFamily={pixelFamily} /> : null}
+                <PanelMuted style={styles.heroSubtitle}>Health · Physics</PanelMuted>
+                <PanelMuted style={styles.heroBody}>
+                  Measure and compare sound intensity levels from different actions in your classroom.
+                </PanelMuted>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setScreenTab('experiment')}
+                  style={[
+                    styles.heroCta,
+                    {
+                      backgroundColor: primary,
+                      borderColor: primary,
+                      borderBottomColor: primaryDark,
+                    },
+                  ]}>
+                  <Text style={[styles.heroCtaText, { color: onPrimary }]}>▶  Start experiment</Text>
+                </Pressable>
+              </ColorPanel>
+
+              <ColorPanel colour="sky">
+                <PanelTitle>How to conduct the experiment</PanelTitle>
+                <PanelMuted style={styles.diagramCaption}>
+                  Place the phone 30 cm from the sound source. Use the same distance for every
+                  measurement.
+                </PanelMuted>
+                <OverviewDiagramFrame />
+              </ColorPanel>
+
+              <ColorPanel colour="lavender">
+                <PanelTitle>Equipment</PanelTitle>
+                <OverviewEquipmentList />
+              </ColorPanel>
+
+              <ColorPanel colour="peach">
+                <PanelTitle>How it works</PanelTitle>
+                <OverviewInstructionList />
+              </ColorPanel>
             </View>
-          </SectionCard>
+          )}
 
-          {/* Educational Framework Curriculum Trackers */}
-          <SectionCard>
-            <Text style={[styles.bodyHeading, { color: text, fontSize: 13, marginBottom: 4 }]}>Curriculum Links Reference</Text>
-            <Text style={[styles.bullet, { color: text, fontSize: 12 }]}>• Science (Physics): ACSSU073 – Wave mechanics, sound intensity, and kinetic energy properties.</Text>
-            <Text style={[styles.bullet, { color: text, fontSize: 12, marginTop: 2 }]}>• Health & Safety: ACPPS053 – Environmental hazard controls and auditory wellbeing.</Text>
-          </SectionCard>
-        </View>
-      )}
+          {screenTab === 'experiment' && (
+            <View style={styles.tabContent}>
+              <ColorPanel colour="sky">
+                <PanelTitle>Recording instructions</PanelTitle>
+                <PanelMuted>• Label the action before recording (e.g. &quot;dropping a book&quot;).</PanelMuted>
+                <PanelMuted>• Tap Start and perform the action with the phone 30 cm away.</PanelMuted>
+                <PanelMuted>• Tap Stop to save the peak decibel level.</PanelMuted>
+                <PanelMuted>• Record up to 3 different actions.</PanelMuted>
+              </ColorPanel>
 
-      <PrimaryButton label='Back to dashboard' variant='secondary' onPress={() => router.back()} disabled={isSyncing} style={{ marginTop: Spacing.xs }} />
-    </ScrollView>
+              <ColorPanel colour="lavender">
+                <PanelTitle>Live sound level</PanelTitle>
+                <Text style={[styles.dbValue, { color: risk.color }]}>{liveDb} dB</Text>
+                <View style={[styles.riskBadge, { backgroundColor: cardIconBg, borderColor: risk.color }]}>
+                  <Text style={[styles.riskLabel, { color: risk.color }]}>{risk.label}</Text>
+                </View>
+
+                <Input
+                  label="Action label"
+                  placeholder='e.g. dropping a textbook on desk'
+                  value={actionLabel}
+                  onChangeText={setActionLabel}
+                  editable={!isRecording && measurements.length < MAX_MEASUREMENTS}
+                />
+
+                <View style={styles.buttons}>
+                  <PrimaryButton
+                    label={isRecording ? 'Stop & save reading' : 'Start microphone'}
+                    variant={isRecording ? 'danger' : 'primary'}
+                    disabled={measurements.length >= MAX_MEASUREMENTS || isSyncing}
+                    onPress={() => (isRecording ? void stopRecording() : void startRecording())}
+                  />
+                  <View style={styles.buttonRow}>
+                    <View style={styles.buttonHalf}>
+                      <PrimaryButton
+                        label="Reset"
+                        variant="secondary"
+                        onPress={resetAll}
+                        disabled={isSyncing || (measurements.length === 0 && !isRecording)}
+                      />
+                    </View>
+                    <View style={styles.buttonWide}>
+                      <PrimaryButton
+                        label={isSyncing ? 'Syncing...' : 'Upload results'}
+                        variant="secondary"
+                        onPress={() => void finishAndSave()}
+                        disabled={measurements.length === 0 || isRecording || isSyncing}
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.helperRow}>
+                  <PanelMuted style={styles.helper}>
+                    Measurements: {measurements.length}/{MAX_MEASUREMENTS}
+                  </PanelMuted>
+                  {loudest !== null ? (
+                    <Text style={[styles.helperPeak, { color: primary }]}>Peak: {loudest} dB</Text>
+                  ) : null}
+                </View>
+              </ColorPanel>
+
+              <ColorPanel colour="sky">
+                <PanelTitle>Your measurements</PanelTitle>
+                {measurements.length === 0 ? (
+                  <PanelMuted style={styles.placeholder}>No readings yet — start a recording above.</PanelMuted>
+                ) : (
+                  <View style={styles.measureList}>
+                    {measurements.map((m, i) => (
+                      <MeasurementRow
+                        key={`${m.label}-${i}`}
+                        index={i}
+                        measurement={m}
+                        isLoudest={m.db === loudest}
+                      />
+                    ))}
+                  </View>
+                )}
+              </ColorPanel>
+            </View>
+          )}
+
+          {screenTab === 'writeup' && (
+            <View style={styles.tabContent}>
+              <ColorPanel colour="lavender">
+                <PanelTitle>Write-up prompts</PanelTitle>
+                <PanelMuted style={styles.softPanelHint}>
+                  Use these questions as a guide for your physical worksheet:
+                </PanelMuted>
+                <PanelMuted style={styles.bulletPrompt}>
+                  • Predict which school action creates the highest sound intensity.
+                </PanelMuted>
+                <PanelMuted style={styles.bulletPrompt}>
+                  • Record the decibel readings on your worksheet.
+                </PanelMuted>
+                <PanelMuted style={styles.bulletPrompt}>
+                  • Were your predictions correct?
+                </PanelMuted>
+                <PanelMuted style={styles.bulletPrompt}>
+                  • Did any readings surprise you?
+                </PanelMuted>
+                <PanelMuted style={[styles.bulletPrompt, { fontWeight: FontWeight.bold }]}>
+                  • Should students or teachers wear ear protection in your classroom?
+                </PanelMuted>
+              </ColorPanel>
+
+              <ColorPanel colour="sky">
+                <PanelTitle>Worksheet reference table</PanelTitle>
+                <WriteupWorksheetTable />
+              </ColorPanel>
+            </View>
+          )}
+
+          {screenTab === 'discussion' && (
+            <View style={styles.tabContent}>
+              <ColorPanel colour="peach">
+                <PanelTitle>Sound, energy & health</PanelTitle>
+                <PanelMuted style={styles.body}>
+                  Sound intensity depends on the energy of the source and the surfaces it hits. Prolonged
+                  exposure to loud noise can affect concentration, wellbeing, and hearing.
+                </PanelMuted>
+              </ColorPanel>
+
+              <ColorPanel colour="lavender">
+                <PanelTitle>Hearing damage safety grid</PanelTitle>
+                <HearingDamageTable />
+              </ColorPanel>
+
+              <ColorPanel colour="sky">
+                <PanelTitle>Curriculum links</PanelTitle>
+                <PanelMuted style={styles.bullet}>
+                  • Science (Physics): wave mechanics, sound intensity, and energy transfer.
+                </PanelMuted>
+                <PanelMuted style={[styles.bullet, { marginTop: 2 }]}>
+                  • Health: environmental hazards and auditory wellbeing.
+                </PanelMuted>
+              </ColorPanel>
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+type MeasurementRowProps = {
+  index: number;
+  measurement: { db: number; label: string };
+  isLoudest: boolean;
+};
+
+function MeasurementRow({ index, measurement, isLoudest }: MeasurementRowProps) {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const { color: riskColor, label: riskLabel } = useDbRisk(measurement.db);
+
+  return (
+    <View
+      style={[
+        styles.measureRow,
+        {
+          borderColor: isLoudest ? riskColor : borderColor,
+          backgroundColor: cardIconBg,
+        },
+      ]}>
+      <View style={styles.measureRowMain}>
+        <Text style={[styles.measureAction, { color: textColor }]}>
+          Action {index + 1}: {measurement.label}
+        </Text>
+        <Text style={[styles.measureDb, { color: riskColor }]}>{measurement.db} dB</Text>
+      </View>
+      <View style={[styles.riskBadge, { backgroundColor: cardIconBg, borderColor: riskColor }]}>
+        <Text style={[styles.riskLabel, { color: riskColor }]}>
+          {isLoudest ? 'Peak' : riskLabel}
+        </Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1 },
-  content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
-  backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
-  
-  // Segmented View Controllers
-  tabRow: { flexDirection: 'row', gap: Spacing.xs },
-  tabPill: { flex: 1, minHeight: 40, borderRadius: Radius.pill, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  tabPillText: { ...Typography.small, fontWeight: '700', fontSize: 11 },
-  
-  header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
-  title: { ...Typography.hero, fontSize: 26 },
-  subtitle: { marginTop: Spacing.xs, ...Typography.body },
-  sectionTitle: { ...Typography.section, marginBottom: Spacing.sm },
-  bullets: { gap: 6 },
-  bullet: { ...Typography.body, fontSize: 13, lineHeight: 19 },
-
-  body: { ...Typography.body, fontSize: 13, lineHeight: 18 },
-  
-  // Meter Layout Deck
-  meterPanel: { borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.lg, gap: Spacing.sm },
-  timerLabel: { ...Typography.small, textTransform: 'uppercase', letterSpacing: 1.2 },
-  dbValue: { fontSize: 64, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  riskBadge: { borderWidth: 1, borderRadius: Radius.pill, paddingHorizontal: Spacing.sm, paddingVertical: 4, alignSelf: 'flex-start', justifyContent: 'center' },
-  riskLabel: { ...Typography.small, fontWeight: '700', fontSize: 11 },
-  inputLabel: { ...Typography.small, marginTop: Spacing.xs },
-  input: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm, ...Typography.body, marginTop: 4 },
-  buttons: { gap: Spacing.xs, marginTop: Spacing.xs },
-  helperRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
-  helper: { ...Typography.small },
-  placeholder: { ...Typography.body, fontSize: 13 },
-  
-  // Measurement Rows
-  measureList: { gap: Spacing.xs },
-  measureRow: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  measureAction: { ...Typography.small, fontWeight: '700' },
-  measureDb: { fontSize: 24, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  
-  // Multi-column Grid Vectors
-  matrixTableGrid: { borderWidth: 1, borderRadius: Radius.md, overflow: 'hidden' },
-  matrixHeaderRow: { flexDirection: 'row', borderBottomWidth: 1, paddingVertical: 10, paddingHorizontal: Spacing.sm },
-  matrixDataRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: Spacing.sm, borderBottomWidth: 1, alignItems: 'center' },
-  promptListContainer: { gap: 6, marginVertical: Spacing.xs },
-  bulletPrompt: { ...Typography.body, fontSize: 13, lineHeight: 18 },
-  
-  // Base Tables
-  table: { borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden' },
-  tableHeaderRow: { flexDirection: 'row', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, borderBottomWidth: 1, alignItems: 'center' },
-  tableHeaderCell: { ...Typography.small, fontWeight: '800', fontSize: 11 },
-  tableRow: { flexDirection: 'row', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, alignItems: 'flex-start', gap: Spacing.xs },
-  tableBodyCell: { ...Typography.small, fontSize: 11, lineHeight: 16 },
-  tableCell: { ...Typography.small, fontSize: 11, lineHeight: 16 },
-  tableColLevel: { width: 72 },
-  tableColExamples: { flex: 1 },
-  tableColRisk: { flex: 1 },
-  
-  diagramPlaceholderBox: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, marginTop: Spacing.md, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
-  diagramText: { fontSize: 12, fontStyle: 'italic', textAlign: 'center', lineHeight: 17 },
-  bodyHeading: { ...Typography.section, fontSize: 14, fontWeight: '700' },
-  fieldSubHintText: { ...Typography.small, fontSize: 10 }
+  root: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  safe: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  content: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: SCREEN_BOTTOM_INSET,
+    gap: Spacing.md,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    padding: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingBottom: Spacing.sm,
+  },
+  tabPill: {
+    minHeight: 40,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabPillText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+  },
+  tabContent: {
+    gap: Spacing.lg,
+  },
+  heroImageWrap: {
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginTop: Spacing.sm,
+    padding: Spacing.sm,
+    width: '100%',
+  },
+  heroImage: {
+    width: '100%',
+    aspectRatio: SOUND_DIAGRAM_ASPECT,
+  },
+  diagramCaption: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  heroTitle: {
+    fontSize: FontSize.xxl,
+    fontWeight: '800',
+  },
+  heroSubtitle: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+  },
+  heroBody: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  heroCta: {
+    alignSelf: 'flex-start',
+    marginTop: Spacing.sm,
+    borderRadius: Radius.full,
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm + 2,
+  },
+  heroCtaText: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
+  },
+  listContainer: {
+    gap: Spacing.xs,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
+  listItem: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  instructionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  instructionNum: {
+    width: 24,
+    height: 24,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  instructionNumText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+  },
+  instructionText: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  dbValue: {
+    fontSize: 56,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    marginTop: Spacing.xs,
+  },
+  riskBadge: {
+    borderWidth: 1,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  riskLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+  },
+  buttons: {
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  buttonHalf: {
+    flex: 1,
+  },
+  buttonWide: {
+    flex: 1.3,
+  },
+  helperRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Spacing.xs,
+  },
+  helper: {
+    fontSize: FontSize.xs,
+  },
+  helperPeak: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+  },
+  placeholder: {
+    fontStyle: 'italic',
+  },
+  measureList: {
+    gap: Spacing.sm,
+  },
+  measureRow: {
+    borderWidth: 2,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  measureRowMain: {
+    flex: 1,
+    gap: 2,
+  },
+  measureAction: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
+  },
+  measureDb: {
+    fontSize: 24,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  matrixTableGrid: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+  },
+  matrixHeaderRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.sm,
+  },
+  matrixDataRow: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.sm,
+    alignItems: 'center',
+  },
+  tableHeaderCell: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+  },
+  tableBodyCell: {
+    fontSize: FontSize.xs,
+    lineHeight: 16,
+  },
+  hearingTable: {
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+  },
+  hearingTableRow: {
+    flexDirection: 'row',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    alignItems: 'flex-start',
+    gap: Spacing.xs,
+  },
+  hearingColLevel: {
+    width: 72,
+  },
+  hearingColExamples: {
+    flex: 1,
+  },
+  hearingColRisk: {
+    flex: 1,
+  },
+  softPanelHint: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    fontStyle: 'italic',
+  },
+  bulletPrompt: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  fieldSubHintText: {
+    fontSize: FontSize.xs,
+    lineHeight: 14,
+    textAlign: 'center',
+  },
+  body: {
+    fontSize: FontSize.sm,
+    lineHeight: 19,
+  },
+  bullet: {
+    fontSize: FontSize.sm,
+    lineHeight: 19,
+  },
 });

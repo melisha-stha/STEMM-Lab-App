@@ -1,7 +1,11 @@
+import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
 import {
-  type ActivityCardColour,
-  useActivityCardColours,
-} from '@/components/ui/activity-card';
+  ColorPanel,
+  PanelMuted,
+  PanelTitle,
+  usePanelTableTokens,
+  usePanelTheme,
+} from '@/components/ui/activity-color-panel';
 import { AttemptRow } from '@/components/ui/attempt-row';
 import { Input } from '@/components/ui/input';
 import {
@@ -28,9 +32,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  type StyleProp,
-  type TextStyle,
-  type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { insertTrial } from '@/hooks/database';
@@ -94,59 +95,6 @@ const INSTRUCTION_STEPS = [
   'Redesign and test up to three prototypes within 20 minutes.',
   'Upload videos, results, and team reflections.',
 ];
-
-type PanelTheme = ReturnType<typeof useActivityCardColours>;
-
-const PanelThemeContext = React.createContext<PanelTheme | null>(null);
-
-function usePanelTheme(): PanelTheme {
-  const ctx = React.useContext(PanelThemeContext);
-  if (!ctx) {
-    throw new Error('usePanelTheme must be used within ColorPanel');
-  }
-  return ctx;
-}
-
-type ColorPanelProps = {
-  colour?: ActivityCardColour;
-  children: React.ReactNode;
-  style?: ViewStyle;
-};
-
-function ColorPanel({ colour = 'lavender', children, style }: ColorPanelProps) {
-  const panel = useActivityCardColours(colour);
-
-  return (
-    <PanelThemeContext.Provider value={panel}>
-      <View
-        style={[
-          styles.colorPanelOuter,
-          { borderColor: panel.borderColor, borderBottomColor: panel.shadowColor },
-          style,
-        ]}>
-        <View style={[styles.colorPanelInner, { backgroundColor: panel.backgroundColor }]}>
-          {children}
-        </View>
-      </View>
-    </PanelThemeContext.Provider>
-  );
-}
-
-function PanelTitle({ children }: { children: React.ReactNode }) {
-  const { textColor } = usePanelTheme();
-  return <Text style={[styles.softPanelTitle, { color: textColor }]}>{children}</Text>;
-}
-
-function PanelMuted({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: StyleProp<TextStyle>;
-}) {
-  const { textColor } = usePanelTheme();
-  return <Text style={[{ color: textColor, opacity: 0.78 }, style]}>{children}</Text>;
-}
 
 type StepPanelProps = {
   step: number;
@@ -236,11 +184,6 @@ const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = [
   'lavender',
   'sky',
 ];
-
-function usePanelTableTokens() {
-  const { textColor, borderColor } = usePanelTheme();
-  return { textColor, borderColor };
-}
 
 function DiscussionForcesPanel({ primary }: { primary: string }) {
   return (
@@ -983,16 +926,6 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     gap: Spacing.lg,
-  },
-  colorPanelOuter: {
-    borderWidth: 2,
-    borderBottomWidth: 4,
-    borderRadius: Radius.xl,
-  },
-  colorPanelInner: {
-    borderRadius: Radius.xl - 2,
-    padding: Spacing.lg,
-    gap: Spacing.sm,
   },
   heroImageWrap: {
     borderRadius: Radius.lg,
