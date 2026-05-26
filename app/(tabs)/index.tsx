@@ -20,7 +20,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../../hooks/firebaseConfig';
 
 const TOTAL_ACTIVITIES = 7;
@@ -163,9 +163,8 @@ const COMING_SOON_KEYS = new Set(ACTIVITIES.filter((a) => a.comingSoon).map((a) 
 
 const getGreeting = (name: string) => {
   const h = new Date().getHours();
-  const emoji = h < 12 ? '🌅' : h < 17 ? '⚗️' : '🌙';
   const line1 = h < 12 ? 'Good morning,' : h < 17 ? 'Welcome back,' : 'Evening lab,';
-  return { emoji, line1, line2: name };
+  return { line1, line2: name };
 };
 
 function DotGridBackground({ dotColor }: { dotColor: string }) {
@@ -247,7 +246,6 @@ function StatCard({
 
 export default function HomeScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const [team, setTeam] = useState<TeamData | null>(null);
   const [trials, setTrials] = useState<TrialRow[]>([]);
@@ -385,11 +383,11 @@ export default function HomeScreen() {
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <View style={[styles.headerRow, { paddingTop: insets.top > 0 ? 8 : Spacing.md }]}>
+          <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
               {pixelFontLoaded ? (
                 <Text style={[styles.greetingLine1, { color: textSecondary, fontFamily: pixelFamily }]}>
-                  {greeting.emoji} {greeting.line1}
+                  {greeting.line1}
                 </Text>
               ) : null}
               {pixelFontLoaded ? (
@@ -598,6 +596,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   headerLeft: {
     flex: 1,
