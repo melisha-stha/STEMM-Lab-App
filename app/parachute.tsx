@@ -29,8 +29,8 @@ import { auth } from '../hooks/firebaseConfig';
 import { uploadParachuteResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
 
-const GRAVITY = 9.8; //
-const MAX_ATTEMPTS = 3; //
+const GRAVITY = 9.8;
+const MAX_ATTEMPTS = 3;
 
 type ScreenTab = 'overview' | 'experiment' | 'writeup' | 'discussion';
 type BounceMode = 'no_bounce' | 'bounced';
@@ -156,7 +156,6 @@ export default function ParachuteScreen() {
       return;
     }
 
-    // time = delta_frames / FPS
     const dropTime = (frameImpact - frameRelease) / videoFps;
     const contactTime = (frameStop - frameImpact) / videoFps;
 
@@ -165,12 +164,11 @@ export default function ParachuteScreen() {
       return;
     }
 
-    // User Spec Step-by-Step Physics Mappings
-    const finalVelocity = height / dropTime; // Step 3
-    const acceleration = finalVelocity / dropTime; // Step 4
-    const netForce = mass * acceleration; // Step 5
-    const weight = mass * GRAVITY; // Step 6
-    const dragForce = weight - netForce; // Step 6
+    const finalVelocity = height / dropTime;
+    const acceleration = finalVelocity / dropTime;
+    const netForce = mass * acceleration;
+    const weight = mass * GRAVITY;
+    const dragForce = weight - netForce;
 
     const calcs: ParachuteCalculations = {
       finalVelocity: Math.round(finalVelocity * 100) / 100,
@@ -183,18 +181,17 @@ export default function ParachuteScreen() {
     let gForce = 0;
     let bounceTime: number | null = null;
 
-    // Case 1 vs Case 2 User Spec Routing
     if (bounceMode === 'no_bounce') {
-      gForce = finalVelocity / contactTime / GRAVITY; // Case 1 formula
+      gForce = finalVelocity / contactTime / GRAVITY;
     } else {
       if (frameMaxBounce === null) {
         Alert.alert('Missing Data', 'Please toggle Kinetic Bounce in the scrubber and mark the peak bounce frame.');
         return;
       }
       bounceTime = (frameMaxBounce - frameImpact) / videoFps;
-      const vUp = GRAVITY * bounceTime; // Upward velocity calculation
-      const deltaV = finalVelocity + vUp; // Δv = v_down + v_up
-      gForce = deltaV / contactTime / GRAVITY; // Case 2 formula
+      const vUp = GRAVITY * bounceTime;
+      const deltaV = finalVelocity + vUp;
+      gForce = deltaV / contactTime / GRAVITY;
     }
 
     setCalculatedOutputs({
@@ -286,9 +283,9 @@ export default function ParachuteScreen() {
   };
 
   const getGForceRiskColor = (g: number): string => {
-    if (g <= 5) return '#2E7D32'; // Secure
-    if (g <= 10) return '#F57F17'; // Caution
-    return '#D32F2F'; // Severe risk
+    if (g <= 5) return '#2E7D32';
+    if (g <= 10) return '#F57F17';
+    return '#D32F2F';
   };
 
   return (
@@ -297,6 +294,7 @@ export default function ParachuteScreen() {
         <MaterialIcons name="arrow-back" size={24} color={text} />
       </TouchableOpacity>
 
+      {/* Segmented Top Tab Controller Stack */}
       <View style={styles.tabRow}>
         {SCREEN_TABS.map((tab) => {
           const isSelected = screenTab === tab;
@@ -314,15 +312,64 @@ export default function ParachuteScreen() {
         })}
       </View>
 
+      {/* ==================== TAB 1: OVERVIEW ==================== */}
       {screenTab === 'overview' && (
         <SectionCard>
           <Text style={[styles.heroTitle, { color: text }]}>Parachute Drop Challenge</Text>
-          <Text style={[styles.body, { color: mutedText, marginTop: Spacing.sm }]}>
-            Design, construct, and measure a landing parachute solution to minimize impact terminal speed and reduce destruction G-forces.
+          <Text style={[styles.subtitle, { color: mutedText, marginBottom: Spacing.md }]}>
+            Engineering + Physics
           </Text>
+
+          <Text style={[styles.body, { color: text, lineHeight: 20 }]}>
+            Students design, build, and test a parachute for a small toy to reduce its landing speed and impact force. Teams iterate their designs under time and material constraints, aiming to achieve the slowest and safest landing within a target area.
+          </Text>
+
+          <View style={[styles.divider, { backgroundColor: border }]} />
+
+          <Text style={[styles.sectionHeading, { color: text }]}>Equipment</Text>
+          <View style={styles.listContainer}>
+            <Text style={[styles.listItem, { color: text }]}>• Mobile phone with STEMM Lab app</Text>
+            <Text style={[styles.listItem, { color: text }]}>• Small toy (e.g. army toy soldier)</Text>
+            <Text style={[styles.listItem, { color: text }]}>• Table or elevated surface</Text>
+            <Text style={[styles.listItem, { color: text }]}>• Paper or plastic</Text>
+            <Text style={[styles.listItem, { color: text }]}>• String</Text>
+            <Text style={[styles.listItem, { color: text }]}>• Scissors</Text>
+            <Text style={[styles.listItem, { color: text }]}>• Tape</Text>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: border }]} />
+
+          <Text style={[styles.sectionHeading, { color: text }]}>Instructions</Text>
+          <View style={styles.listContainer}>
+            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
+              1. Drop the toy without a parachute and record the fall (baseline test).
+            </Text>
+            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
+              2. Build a parachute using provided materials.
+            </Text>
+            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
+              3. Drop the toy from the same height and record the fall.
+            </Text>
+            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
+              4. Review speed and landing accuracy results in the app.
+            </Text>
+            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
+              5. Redesign and test up to three prototypes within 20 minutes.
+            </Text>
+            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
+              6. Upload videos, results, and team reflections.
+            </Text>
+          </View>
+
+          <View style={[styles.diagramPlaceholderBox, { backgroundColor: card, borderColor: border }]}>
+            <Text style={[styles.diagramText, { color: mutedText }]}>
+              [Diagram: Toy attached to parachute, drop height marked, target landing zone shown on floor]
+            </Text>
+          </View>
         </SectionCard>
       )}
 
+      {/* ==================== TAB 2: EXPERIMENT ==================== */}
       {screenTab === 'experiment' && (
         <View style={{ gap: Spacing.md }}>
           <View style={[styles.infoCard, { borderColor: border, backgroundColor: card }]}>
@@ -348,7 +395,6 @@ export default function ParachuteScreen() {
           {currentVideoUri && (
             <SectionCard>
               <Text style={[styles.sectionTitle, { color: text }]}>Slow-Motion Frame Analyzer</Text>
-              
               <VideoScrubber
                 uri={currentVideoUri}
                 onMarkersChange={(m, mode) => {
@@ -360,33 +406,27 @@ export default function ParachuteScreen() {
                   setCalculatedOutputs(null);
                 }}
               />
-
               <PrimaryButton label="Execute Physics Calculations" variant="primary" style={{ marginTop: Spacing.md }} onPress={processFrameMathematics} />
             </SectionCard>
           )}
 
-          {/* Output Display of Current Physics Calculations matching User Spec perfectly */}
           {calculatedOutputs && (
             <SectionCard>
               <Text style={[styles.sectionTitle, { color: text }]}>Kinematic Engineering Analysis</Text>
               <View style={styles.calcOutputBox}>
-                {/* Time Metrics */}
                 <Text style={{ color: text, fontSize: 13 }}>Drop Time: {calculatedOutputs.dropTime}s</Text>
                 <Text style={{ color: text, fontSize: 13 }}>Contact Time: {calculatedOutputs.contactTime}s</Text>
                 {calculatedOutputs.bounceTime !== null && (
                   <Text style={{ color: text, fontSize: 13 }}>Time to Max Bounce Height (t_up): {calculatedOutputs.bounceTime}s</Text>
                 )}
                 
-                {/* Kinematics Progression */}
                 <Text style={{ color: text, fontSize: 13, marginTop: 4 }}>Final Velocity (v): {calculatedOutputs.calcs.finalVelocity} m/s</Text>
                 <Text style={{ color: text, fontSize: 13 }}>Acceleration (a): {calculatedOutputs.calcs.acceleration} m/s²</Text>
                 
-                {/* Dynamic Forces Stack */}
                 <Text style={{ color: text, fontSize: 13, marginTop: 4 }}>Downward Force (Weight): {calculatedOutputs.calcs.weight} N</Text>
                 <Text style={{ color: text, fontSize: 13 }}>Net Force (F_net): {calculatedOutputs.calcs.netForce} N</Text>
                 <Text style={{ color: text, fontSize: 13 }}>Upward Force (Drag Force): {calculatedOutputs.calcs.dragForce} N</Text>
                 
-                {/* Final Target Metric */}
                 <Text style={[styles.gForceText, { color: getGForceRiskColor(calculatedOutputs.gForce) }]}>
                   Impact G-Force: {calculatedOutputs.gForce} g
                 </Text>
@@ -412,69 +452,7 @@ export default function ParachuteScreen() {
         </View>
       )}
 
-      {screenTab === 'overview' && (
-        <SectionCard>
-          {/* Main Title and Subject Subtitle */}
-          <Text style={[styles.heroTitle, { color: text }]}>Parachute Drop Challenge</Text>
-          <Text style={[styles.subtitle, { color: mutedText, marginBottom: Spacing.md }]}>
-            Engineering + Physics
-          </Text>
-
-          {/* Intro Description */}
-          <Text style={[styles.body, { color: text, lineHeight: 20 }]}>
-            Students design, build, and test a parachute for a small toy to reduce its landing speed and impact force. Teams iterate their designs under time and material constraints, aiming to achieve the slowest and safest landing within a target area.
-          </Text>
-
-          {/* Divider Line */}
-          <View style={[styles.divider, { backgroundColor: border }]} />
-
-          {/* Equipment List Section */}
-          <Text style={[styles.sectionHeading, { color: text }]}>Equipment</Text>
-          <View style={styles.listContainer}>
-            <Text style={[styles.listItem, { color: text }]}>• Mobile phone with STEMM Lab app</Text>
-            <Text style={[styles.listItem, { color: text }]}>• Small toy (e.g. army toy soldier)</Text>
-            <Text style={[styles.listItem, { color: text }]}>• Table or elevated surface</Text>
-            <Text style={[styles.listItem, { color: text }]}>• Paper or plastic</Text>
-            <Text style={[styles.listItem, { color: text }]}>• String</Text>
-            <Text style={[styles.listItem, { color: text }]}>• Scissors</Text>
-            <Text style={[styles.listItem, { color: text }]}>• Tape</Text>
-          </View>
-
-          {/* Divider Line */}
-          <View style={[styles.divider, { backgroundColor: border }]} />
-
-          {/* Instructions List Section */}
-          <Text style={[styles.sectionHeading, { color: text }]}>Instructions</Text>
-          <View style={styles.listContainer}>
-            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
-              1. Drop the toy without a parachute and record the fall (baseline test).
-            </Text>
-            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
-              2. Build a parachute using provided materials.
-            </Text>
-            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
-              3. Drop the toy from the same height and record the fall.
-            </Text>
-            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
-              4. Review speed and landing accuracy results in the app.
-            </Text>
-            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
-              5. Redesign and test up to three prototypes within 20 minutes.
-            </Text>
-            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>
-              6. Upload videos, results, and team reflections.
-            </Text>
-          </View>
-
-          {/* Interactive Graphic Box Placeholder */}
-          <View style={[styles.diagramPlaceholderBox, { backgroundColor: card, borderColor: border }]}>
-            <Text style={[styles.diagramText, { color: mutedText }]}>
-              [Diagram: Toy attached to parachute, drop height marked, target landing zone shown on floor]
-            </Text>
-          </View>
-        </SectionCard>
-      )}
-
+      {/* ==================== TAB 3: WRITE-UP ==================== */}
       {screenTab === 'writeup' && (
         <View style={{ gap: Spacing.md }}>
           <SectionCard>
@@ -483,7 +461,6 @@ export default function ParachuteScreen() {
               Use these questions as a guide for your physical paper lesson worksheet:
             </Text>
             
-            {/* Core Worksheet Lab Prompts */}
             <View style={styles.promptListContainer}>
               <Text style={[styles.bulletPrompt, { color: text }]}>• Predict which parachute design will perform the best.</Text>
               <Text style={[styles.bulletPrompt, { color: text }]}>• Sketch each distinctive prototype layout design on paper.</Text>
@@ -493,12 +470,10 @@ export default function ParachuteScreen() {
             </View>
           </SectionCard>
 
-          {/* Render Scrollable Data Grid Matrix for Field Entry */}
           <SectionCard>
             <Text style={[styles.bodyHeading, { color: text, marginBottom: Spacing.xs }]}>Worksheet Reference Table</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={true}>
               <View style={[styles.matrixTableGrid, { borderColor: border }]}>
-                {/* Header Row */}
                 <View style={[styles.matrixHeaderRow, { backgroundColor: card, borderBottomColor: border }]}>
                   <Text style={[styles.tableHeaderCell, { color: text, width: 140 }]}>Configuration Profile</Text>
                   <Text style={[styles.tableHeaderCell, { color: text, width: 100 }]}>Predicted Time</Text>
@@ -507,7 +482,6 @@ export default function ParachuteScreen() {
                   <Text style={[styles.tableHeaderCell, { color: text, width: 140 }]}>Contact Stop Time (Slow-Mo)</Text>
                 </View>
 
-                {/* Data Columns mapped directly to brief text matrix keys */}
                 {[
                   { id: '1', label: 'Action 1: Baseline (No Parachute)' },
                   { id: '2', label: 'Action 2: 4-Corner Plastic Canopy' },
@@ -529,6 +503,8 @@ export default function ParachuteScreen() {
           </SectionCard>
         </View>
       )}
+
+      {/* ==================== TAB 4: DISCUSSION ==================== */}
       {screenTab === 'discussion' && (
         <View style={{ gap: Spacing.md }}>
           <SectionCard>
@@ -541,7 +517,6 @@ export default function ParachuteScreen() {
             </Text>
           </SectionCard>
 
-          {/* Mathematical Forces Mapping Matrix */}
           <SectionCard>
             <Text style={[styles.bodyHeading, { color: text, marginBottom: Spacing.xs }]}>Forces Acting on the Toy</Text>
             <View style={[styles.matrixTableGrid, { borderColor: border }]}>
@@ -567,7 +542,6 @@ export default function ParachuteScreen() {
             </Text>
           </SectionCard>
 
-          {/* G-Force Threshold Table */}
           <SectionCard>
             <Text style={[styles.bodyHeading, { color: text }]}>G-Force and Injury Risk Analysis</Text>
             <Text style={[styles.body, { color: mutedText, fontSize: 12, marginBottom: Spacing.sm }]}>
@@ -595,8 +569,15 @@ export default function ParachuteScreen() {
               ))}
             </View>
           </SectionCard>
+
+          <SectionCard>
+            <Text style={[styles.bodyHeading, { color: text, fontSize: 13, marginBottom: 4 }]}>Curriculum Links Reference</Text>
+            <Text style={[styles.bullet, { color: text }]}>• Science (Physics): ACSSU073 – Wave mechanics, sound intensity, and kinetic energy properties.</Text>
+            <Text style={[styles.bullet, { color: text, marginTop: 2 }]}>• Health & Safety: ACPPS053 – Environmental hazard controls and auditory wellbeing.</Text>
+          </SectionCard>
         </View>
-      )}    </ScrollView>
+      )}   
+    </ScrollView>
   );
 }
 
@@ -633,6 +614,8 @@ const styles = StyleSheet.create({
   divider: { height: 1, marginVertical: Spacing.md, opacity: 0.6 },
   listContainer: { gap: 8, marginBottom: Spacing.md },
   listItem: { ...Typography.body, fontSize: 14, paddingLeft: 4 },
+  bullets: { gap: 6 },
+  bullet: { ...Typography.body, fontSize: 13, lineHeight: 19 },
   diagramPlaceholderBox: {
     borderWidth: 1,
     borderRadius: Radius.lg,
