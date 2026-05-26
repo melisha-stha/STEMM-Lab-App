@@ -36,6 +36,7 @@ interface TeamData {
 
 interface TrialRow {
   activity: string;
+  teamName?: string;
 }
 
 type ActivityItem = {
@@ -103,7 +104,6 @@ const ACTIVITIES: ActivityItem[] = [
     route: '/handfan',
     icon: 'toys',
     activityKey: 'handfan',
-    comingSoon: true,
   },
   {
     title: 'Human Performance Lab',
@@ -113,7 +113,6 @@ const ACTIVITIES: ActivityItem[] = [
     route: '/performance',
     icon: 'directions-run',
     activityKey: 'performance',
-    comingSoon: true,
   },
 ];
 
@@ -159,9 +158,7 @@ const MISSION_HEADLINE: Record<string, { stream: string; action: string }> = {
   performance: { stream: 'Health', action: 'Performance Lab' },
 };
 
-const COMING_SOON_KEYS = new Set(
-  ACTIVITIES.filter((a) => a.comingSoon).map((a) => a.activityKey)
-);
+const COMING_SOON_KEYS = new Set(ACTIVITIES.filter((a) => a.comingSoon).map((a) => a.activityKey));
 
 const getGreeting = (name: string) => {
   const h = new Date().getHours();
@@ -309,12 +306,19 @@ export default function HomeScreen() {
     }
   }, []);
 
+  const teamName = team?.name?.trim() || 'Team';
+  const teamTrials = useMemo(() => {
+    const name = team?.name?.trim();
+    if (!name) return [];
+    return trials.filter((t) => t.teamName === name);
+  }, [team?.name, trials]);
+
   const activitiesExplored = useMemo(
-    () => new Set(trials.map((t) => t.activity)).size,
-    [trials]
+    () => new Set(teamTrials.map((t) => t.activity)).size,
+    [teamTrials]
   );
   const progress = Math.min(activitiesExplored / TOTAL_ACTIVITIES, 1);
-  const totalAttempts = trials.length;
+  const totalAttempts = teamTrials.length;
   const isComplete = activitiesExplored >= TOTAL_ACTIVITIES;
 
   useEffect(() => {
@@ -330,30 +334,28 @@ export default function HomeScreen() {
     ACTIVITY_KEYS.forEach((key) => {
       counts[key] = 0;
     });
-    trials.forEach((t) => {
+    teamTrials.forEach((t) => {
       if (counts[t.activity] !== undefined) {
         counts[t.activity]++;
       }
     });
     const least = Object.entries(counts).sort((a, b) => a[1] - b[1])[0];
     return least?.[0] ?? 'parachute';
-  }, [trials]);
+  }, [teamTrials]);
 
   const missionHeadline = MISSION_HEADLINE[featuredActivity] ?? MISSION_HEADLINE.parachute;
   const missionIcon = MISSION_ICON[featuredActivity] ?? MISSION_ICON.parachute;
   const missionHook = MISSION_HOOK[featuredActivity] ?? MISSION_HOOK.parachute;
   const missionRoute = MISSION_ROUTE[featuredActivity] ?? MISSION_ROUTE.parachute;
   const missionComingSoon = COMING_SOON_KEYS.has(featuredActivity);
-
-  const teamName = team?.name?.trim() || 'Team';
   const greeting = getGreeting(teamName);
   const yearLabel = team?.yearLevel ?? team?.grade ?? '—';
 
   const completedActivities = useMemo(() => {
     const done = new Set<string>();
-    trials.forEach((t) => done.add(t.activity));
+    teamTrials.forEach((t) => done.add(t.activity));
     return done;
-  }, [trials]);
+  }, [teamTrials]);
 
   const progressFillWidth = progressAnim.interpolate({
     inputRange: [0, 1],
@@ -369,9 +371,6 @@ export default function HomeScreen() {
   };
 
   const handleActivityPress = (activity: ActivityItem) => {
-    if (activity.comingSoon) {
-      return;
-    }
     router.push(activity.route);
   };
 
@@ -547,8 +546,8 @@ export default function HomeScreen() {
                   colour={activity.colour}
                   badge={activity.badge}
                   icon={activity.icon}
-                  completed={completedActivities.has(activity.activityKey)}
-                  comingSoon={activity.comingSoon}
+                  completed={false}
+                  comingSoon={false}
                   onPress={() => handleActivityPress(activity)}
                 />
               ))}
