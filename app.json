@@ -60,7 +60,8 @@
           "androidAppId": "ca-app-pub-1472940621207668~5718257345",
           "iosAppId": "ca-app-pub-1472940621207668~5718257345"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
