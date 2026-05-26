@@ -40,6 +40,7 @@ export default function RootLayout() {
         <Stack.Screen name="setup-team" options={{ headerShown: false }} />
         <Stack.Screen name="parachute" options={{ headerShown: false }} />
         <Stack.Screen name="sound" options={{ headerShown: false }} />
+        <Stack.Screen name="earthquake" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />

@@ -1,20 +1,50 @@
+import {
+  ColorPanel,
+  PanelMuted,
+  PanelTitle,
+  usePanelTableTokens,
+  usePanelTheme,
+} from '@/components/ui/activity-color-panel';
 import { AttemptRow } from '@/components/ui/attempt-row';
+import {
+  EarthquakeScreenBackground,
+  useEarthquakeScreenBackground,
+} from '@/components/ui/earthquake-screen-background';
 import { PrimaryButton } from '@/components/ui/primary-button';
-import { SectionCard } from '@/components/ui/section-card';
-import { Radius, Spacing, Typography } from '@/constants/design';
+import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { insertTrial } from '@/hooks/database';
+import { usePixelFont } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { Accelerometer, Gyroscope } from 'expo-sensors';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  Vibration,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadEarthquakeResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
+
+export const options = {
+  headerShown: false,
+};
+
+const EARTHQUAKE_DIAGRAM = require('@/assets/images/earthquake-diagram.jpeg');
+const EARTHQUAKE_DIAGRAM_ASPECT = 680 / 382;
 
 const ACTIVITY_EARTHQUAKE = 'earthquake';
 const MAX_ATTEMPTS = 3;
@@ -53,6 +83,18 @@ const DESIGN_CONFIGURATIONS = [
   'Design 3 (e.g. 3 folds and 6 pillars)',
 ] as const;
 
+const EQUIPMENT_ITEMS = [
+  'Cardboard, paper, scissors, sticky tape, plastic or paper cups',
+  'Mobile phone with vibration sensor (STEMM Lab app)',
+];
+
+const INSTRUCTION_STEPS = [
+  'Build an anti-vibration layer by folding paper or cardboard.',
+  'Place a flat cardboard platform on top.',
+  'Place the phone in the centre and start the shaker test in the app.',
+  'Modify the structure to reduce movement (more pillars, more folds, etc.).',
+];
+
 const calculateStabilityScore = (gyro: SensorVector, accel: SensorVector): number => {
   const gyroMagnitude = Math.sqrt(gyro.x ** 2 + gyro.y ** 2 + gyro.z ** 2);
   const accelMagnitude = Math.sqrt(accel.x ** 2 + accel.y ** 2 + accel.z ** 2);
@@ -62,17 +104,14 @@ const calculateStabilityScore = (gyro: SensorVector, accel: SensorVector): numbe
   return Math.round(score);
 };
 
-const getStabilityColor = (score: number): string => {
-  if (score >= 70) return '#2E7D32';
-  if (score >= 40) return '#F57F17';
-  return '#C62828';
-};
-
-const getStabilityLabel = (score: number): string => {
-  if (score >= 70) return 'Stable';
-  if (score >= 40) return 'Moderate';
-  return 'Unstable';
-};
+function useStabilityPresentation(score: number) {
+  const success = useThemeColor({}, 'success');
+  const warning = useThemeColor({}, 'warning');
+  const error = useThemeColor({}, 'error');
+  if (score >= 70) return { color: success, label: 'Stable' };
+  if (score >= 40) return { color: warning, label: 'Moderate' };
+  return { color: error, label: 'Unstable' };
+}
 
 const formatTime = (ms: number): string => {
   const seconds = Math.floor((ms % 60000) / 1000);
@@ -81,10 +120,146 @@ const formatTime = (ms: number): string => {
 };
 
 const formatAttemptValue = (attempt: EarthquakeAttempt): string =>
-  `[${attempt.designName}] ${attempt.score} pts · ${formatTime(attempt.duration)}s`;
+  `${attempt.designName} · ${attempt.score} pts · ${formatTime(attempt.duration)}s`;
+
+function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
+  const { textColor } = usePanelTheme();
+  return (
+    <Text style={[styles.heroTitle, { color: textColor, fontFamily: pixelFamily }]}>
+      Earthquake-Resistant Structure
+    </Text>
+  );
+}
+
+function OverviewDiagramFrame() {
+  const { borderColor, cardIconBg } = usePanelTheme();
+  return (
+    <View style={[styles.heroImageWrap, { borderColor, backgroundColor: cardIconBg }]}>
+      <Image
+        source={EARTHQUAKE_DIAGRAM}
+        style={styles.heroImage}
+        contentFit="contain"
+        accessibilityLabel="Diagram showing earthquake-resistant structure assembly with phone on platform"
+      />
+    </View>
+  );
+}
+
+function OverviewEquipmentList() {
+  const { textColor, borderColor } = usePanelTheme();
+  return (
+    <View style={styles.listContainer}>
+      {EQUIPMENT_ITEMS.map((item) => (
+        <View key={item} style={styles.listRow}>
+          <MaterialIcons name="check-circle" size={16} color={borderColor} />
+          <Text style={[styles.listItem, { color: textColor, opacity: 0.85 }]}>{item}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function OverviewInstructionList() {
+  const { textColor, cardIconBg, borderColor } = usePanelTheme();
+  return (
+    <>
+      {INSTRUCTION_STEPS.map((step, index) => (
+        <View key={step} style={styles.instructionRow}>
+          <View style={[styles.instructionNum, { backgroundColor: cardIconBg }]}>
+            <Text style={[styles.instructionNumText, { color: borderColor }]}>{index + 1}</Text>
+          </View>
+          <Text style={[styles.instructionText, { color: textColor, opacity: 0.85 }]}>{step}</Text>
+        </View>
+      ))}
+    </>
+  );
+}
+
+type StructureDesignsPanelProps = {
+  designName: string;
+  attempts: EarthquakeAttempt[];
+  primary: string;
+  success: string;
+};
+
+function StructureDesignsPanel({ designName, attempts, primary, success }: StructureDesignsPanelProps) {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+
+  return (
+    <>
+      <PanelTitle>Structure designs</PanelTitle>
+      <PanelMuted style={styles.designIntro}>
+        Test each design in order. Build the structure, then run the shaker test for that design.
+      </PanelMuted>
+      {DESIGN_CONFIGURATIONS.map((label) => {
+        const isCurrent = designName === label;
+        const isComplete = attempts.some((a) => a.designName === label);
+        return (
+          <View
+            key={label}
+            style={[
+              styles.designRow,
+              {
+                borderColor: isCurrent ? primary : borderColor,
+                backgroundColor: isCurrent ? `${primary}14` : cardIconBg,
+              },
+            ]}>
+            <MaterialIcons
+              name={
+                isComplete ? 'check-circle' : isCurrent ? 'radio-button-checked' : 'radio-button-unchecked'
+              }
+              size={20}
+              color={isComplete ? success : isCurrent ? primary : borderColor}
+            />
+            <Text style={[styles.designRowLabel, { color: textColor, fontWeight: isCurrent ? '700' : '500' }]}>
+              {label}
+            </Text>
+          </View>
+        );
+      })}
+    </>
+  );
+}
+
+function WriteupWorksheetTable() {
+  const { textColor, borderColor } = usePanelTableTokens();
+  const mutedCell = { color: textColor, opacity: 0.65, fontStyle: 'italic' as const };
+
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator>
+      <View style={[styles.matrixTableGrid, { borderColor }]}>
+        <View style={[styles.matrixHeaderRow, { borderBottomColor: borderColor }]}>
+          <Text style={[styles.tableHeaderCell, { color: textColor, width: 180 }]}>Design</Text>
+          <Text style={[styles.tableHeaderCell, { color: textColor, width: 120 }]}>Phone moves (cm)</Text>
+          <Text style={[styles.tableHeaderCell, { color: textColor, width: 140 }]}>Outcome (degrees)</Text>
+          <Text style={[styles.tableHeaderCell, { color: textColor, width: 120 }]}>Correct?</Text>
+        </View>
+        {DESIGN_CONFIGURATIONS.map((label, idx) => (
+          <View
+            key={label}
+            style={[
+              styles.matrixDataRow,
+              { borderBottomWidth: idx === DESIGN_CONFIGURATIONS.length - 1 ? 0 : 1, borderBottomColor: borderColor },
+            ]}>
+            <Text style={[styles.tableBodyCell, { color: textColor, fontWeight: '600', width: 180 }]}>{label}</Text>
+            <Text style={[styles.tableBodyCell, mutedCell, { width: 120 }]}>
+              {idx === 0 ? 'e.g. ±1 cm' : 'Fill on paper...'}
+            </Text>
+            <Text style={[styles.tableBodyCell, mutedCell, { width: 140 }]}>
+              {idx === 0 ? 'e.g. 4°' : 'Fill on paper...'}
+            </Text>
+            <Text style={[styles.tableBodyCell, mutedCell, { width: 120 }]}>[  ] Y / [  ] N</Text>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
 
 export default function EarthquakeScreen() {
   const router = useRouter();
+  const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
+  const { overlayColor, imageOpacity } = useEarthquakeScreenBackground();
 
   const [screenTab, setScreenTab] = useState<ScreenTab>('overview');
   const [isActive, setIsActive] = useState(false);
@@ -108,15 +283,15 @@ export default function EarthquakeScreen() {
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
-  const mutedText = useThemeColor({}, 'mutedText');
   const border = useThemeColor({}, 'border');
   const primary = useThemeColor({}, 'primary');
-  const card = useThemeColor({}, 'card');
-  const onPrimary = useThemeColor({}, 'onPrimary' as any) ?? '#FFFFFF';
+  const primaryDark = useThemeColor({}, 'primaryDark');
+  const primarySoft = useThemeColor({}, 'primarySoft');
+  const onPrimary = useThemeColor({}, 'onPrimary');
   const success = useThemeColor({}, 'success');
+  const cardIconBg = useThemeColor({}, 'cardIconBg');
 
-  const stabilityColor = getStabilityColor(liveScore);
-  const stabilityLabel = getStabilityLabel(liveScore);
+  const { color: stabilityColor, label: stabilityLabel } = useStabilityPresentation(liveScore);
   const bestScore =
     attempts.length > 0 ? Math.max(...attempts.map((attempt) => attempt.score)) : null;
 
@@ -341,311 +516,368 @@ export default function EarthquakeScreen() {
   };
 
   return (
-    <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <MaterialIcons name="arrow-back" size={24} color={text} />
-      </TouchableOpacity>
+    <View style={[styles.root, { backgroundColor: background }]}>
+      <EarthquakeScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
+          <TouchableOpacity
+            accessibilityLabel="Go back"
+            onPress={() => router.back()}
+            style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={24} color={text} />
+          </TouchableOpacity>
 
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: text }]}>Earthquake-Resistant Structure</Text>
-        <Text style={[styles.subtitle, { color: mutedText }]}>Engineering + Earth Science</Text>
-      </View>
-
-      <View style={styles.tabRow}>
-        {SCREEN_TABS.map((tab) => {
-          const isSelected = screenTab === tab;
-          return (
-            <Pressable
-              key={tab}
-              onPress={() => setScreenTab(tab)}
-              style={[styles.tabPill, { backgroundColor: isSelected ? primary : card, borderColor: isSelected ? primary : border }]}
-            >
-              <Text style={[styles.tabPillText, { color: isSelected ? onPrimary : text }]}>
-                {SCREEN_TAB_LABELS[tab]}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {/* ==================== TAB 1: OVERVIEW ==================== */}
-      {screenTab === 'overview' && (
-        <SectionCard>
-          <Text style={[styles.sectionHeading, { color: text }]}>Overview</Text>
-          <Text style={[styles.body, { color: text, lineHeight: 20 }]}>
-            Students design structures that withstand vibration, simulating real-world tectonic earthquakes. Teams work inside a controlled design loop to find how material manipulation can isolate lateral energy.
-          </Text>
-          <View style={[styles.divider, { backgroundColor: border }]} />
-          <Text style={[styles.sectionHeading, { color: text }]}>Equipment</Text>
-          <View style={styles.listContainer}>
-            <Text style={[styles.listItem, { color: text }]}>• Cardboard, paper, scissors, sticky tape, plastic/paper cups.</Text>
-            <Text style={[styles.listItem, { color: text }]}>• Mobile phone with vibration sensor</Text>
-          </View>
-          <View style={[styles.divider, { backgroundColor: border }]} />
-          <Text style={[styles.sectionHeading, { color: text }]}>Instructions</Text>
-          <View style={styles.listContainer}>
-            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>1. Build an anti-vibration layer, by folding paper/cardboard.</Text>
-            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>2. Place a flat cardboard platform on top.</Text>
-            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>3. Place the phone in the centre and activate vibration mode on the STEMM App.</Text>
-            <Text style={[styles.listItem, { color: text, lineHeight: 20 }]}>4. Modify the structure to reduce movement (e.g. more pillars, more folds, etc)</Text>
-          </View>
-          <View style={[styles.divider, { backgroundColor: border }]} />
-          <Text style={[styles.sectionHeading, { color: text }]}>Experiment Diagram Layout</Text>
-          <View style={[styles.diagramBox, { backgroundColor: card, borderColor: border }]}>
-            <Text style={[styles.diagramHeading, { color: text }]}>[ Structural Assembly Reference ]</Text>
-            <Text style={[styles.diagramBody, { color: mutedText }]}>
-              • Mobile Phone (Centred on top platform) {"\n"}
-              • Flat Cardboard Deck Support Layer {"\n"}
-              • Interstitial Corrugated Accordion Folded Paper {"\n"}
-              • Plastic / Paper Cup Base Anchor Columns (Pillars)
-            </Text>
-          </View>
-        </SectionCard>
-      )}
-
-      {/* ==================== TAB 2: EXPERIMENT ==================== */}
-      {screenTab === 'experiment' && (
-        <View style={{ gap: Spacing.md }}>
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Structure designs</Text>
-            <Text style={[styles.body, { color: mutedText, marginBottom: Spacing.sm }]}>
-              Test each design in order. Build the structure, then run the shaker test for that design.
-            </Text>
-            {DESIGN_CONFIGURATIONS.map((label) => {
-              const isCurrent = designName === label;
-              const isComplete = attempts.some((a) => a.designName === label);
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabRow}>
+            {SCREEN_TABS.map((tab) => {
+              const isSelected = screenTab === tab;
               return (
-                <View
-                  key={label}
+                <Pressable
+                  key={tab}
+                  onPress={() => setScreenTab(tab)}
                   style={[
-                    styles.designRow,
+                    styles.tabPill,
                     {
-                      borderColor: isCurrent ? primary : border,
-                      backgroundColor: isCurrent ? `${primary}14` : card,
+                      backgroundColor: isSelected ? primary : primarySoft,
+                      borderColor: isSelected ? primary : border,
                     },
                   ]}>
-                  <MaterialIcons
-                    name={isComplete ? 'check-circle' : isCurrent ? 'radio-button-checked' : 'radio-button-unchecked'}
-                    size={20}
-                    color={isComplete ? success : isCurrent ? primary : mutedText}
-                  />
-                  <Text
-                    style={[
-                      styles.designRowLabel,
-                      { color: text, fontWeight: isCurrent ? '700' : '500' },
-                    ]}>
-                    {label}
+                  <Text style={[styles.tabPillText, { color: isSelected ? onPrimary : primary }]}>
+                    {SCREEN_TAB_LABELS[tab]}
                   </Text>
-                </View>
+                </Pressable>
               );
             })}
-          </SectionCard>
+          </ScrollView>
 
-          <View style={[styles.instrumentPanel, { borderColor: border, backgroundColor: card }]}>
-            <Text style={[styles.panelLabel, { color: mutedText }]}>Stability Monitor</Text>
+          {screenTab === 'overview' && (
+            <View style={styles.tabContent}>
+              <ColorPanel colour="lavender">
+                {pixelFontLoaded ? <OverviewHeroTitle pixelFamily={pixelFamily} /> : null}
+                <PanelMuted style={styles.heroSubtitle}>Engineering · Earth Science</PanelMuted>
+                <PanelMuted style={styles.heroBody}>
+                  Design structures that withstand vibration, like real earthquakes. Test how folds and
+                  pillars reduce movement across three prototypes.
+                </PanelMuted>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setScreenTab('experiment')}
+                  style={[
+                    styles.heroCta,
+                    {
+                      backgroundColor: primary,
+                      borderColor: primary,
+                      borderBottomColor: primaryDark,
+                    },
+                  ]}>
+                  <Text style={[styles.heroCtaText, { color: onPrimary }]}>▶  Start experiment</Text>
+                </Pressable>
+              </ColorPanel>
 
-            {Platform.OS === 'web' ? (
-              <Text style={[styles.webFallback, { color: mutedText }]}>
-                Gyroscope and accelerometer are not available on web. Use a physical device to run this activity.
-              </Text>
-            ) : (
-              <>
-                <Text style={[styles.scoreValue, { color: stabilityColor }]}>{liveScore}</Text>
-                <Text style={[styles.scoreLabel, { color: stabilityColor }]}>{stabilityLabel}</Text>
-                <Text style={[styles.timerValue, { color: text }]}>{formatTime(time)}s</Text>
+              <ColorPanel colour="sky">
+                <PanelTitle>How to conduct the experiment</PanelTitle>
+                <PanelMuted style={styles.diagramCaption}>
+                  Place the phone in the centre of the platform before each shaker test.
+                </PanelMuted>
+                <OverviewDiagramFrame />
+              </ColorPanel>
 
-                {/* ✅ Inverted SVG Waveform Graph */}
-                <View style={[styles.graphContainer, { borderColor: border }]}>
-                  <Svg height="80" width="100%">
-                    <Path d={generateGraphPath()} fill="none" stroke={stabilityColor} strokeWidth="3" />
-                  </Svg>
+              <ColorPanel colour="peach">
+                <PanelTitle>Equipment</PanelTitle>
+                <OverviewEquipmentList />
+              </ColorPanel>
+
+              <ColorPanel colour="lavender">
+                <PanelTitle>How it works</PanelTitle>
+                <OverviewInstructionList />
+              </ColorPanel>
+            </View>
+          )}
+
+          {screenTab === 'experiment' && (
+            <View style={styles.tabContent}>
+              <ColorPanel colour="sky">
+                <StructureDesignsPanel
+                  designName={designName}
+                  attempts={attempts}
+                  primary={primary}
+                  success={success}
+                />
+              </ColorPanel>
+
+              <ColorPanel colour="lavender">
+                <PanelTitle>Stability monitor</PanelTitle>
+
+                {Platform.OS === 'web' ? (
+                  <PanelMuted style={styles.webFallback}>
+                    Gyroscope and accelerometer are not available on web. Use a physical device to run
+                    this activity.
+                  </PanelMuted>
+                ) : (
+                  <>
+                    <Text style={[styles.scoreValue, { color: stabilityColor }]}>{liveScore}</Text>
+                    <Text style={[styles.scoreLabel, { color: stabilityColor }]}>{stabilityLabel}</Text>
+                    <Text style={[styles.timerValue, { color: primary }]}>{formatTime(time)}s</Text>
+
+                    <View style={[styles.graphContainer, { borderColor: primary, backgroundColor: cardIconBg }]}>
+                      <Svg height="80" width="100%">
+                        <Path d={generateGraphPath()} fill="none" stroke={stabilityColor} strokeWidth="3" />
+                      </Svg>
+                    </View>
+
+                    <PanelMuted style={styles.fieldLabel}>Current design</PanelMuted>
+                    <View style={[styles.currentDesignValue, { borderColor: primary, backgroundColor: cardIconBg }]}>
+                      <Text style={[styles.currentDesignText, { color: primary }]}>{designName}</Text>
+                    </View>
+
+                    <PanelMuted style={styles.sensorLine}>
+                      Gyro: x {gyroData.x.toFixed(3)} · y {gyroData.y.toFixed(3)} · z {gyroData.z.toFixed(3)}{' '}
+                      rad/s
+                    </PanelMuted>
+                    <PanelMuted style={styles.sensorLine}>
+                      Accel: x {accelData.x.toFixed(2)} · y {accelData.y.toFixed(2)} · z{' '}
+                      {accelData.z.toFixed(2)} g
+                    </PanelMuted>
+                    <PanelMuted style={styles.sensorLine}>Location: {locationStatus}</PanelMuted>
+                  </>
+                )}
+
+                <View style={styles.panelButtons}>
+                  <PrimaryButton
+                    label={isActive ? 'Stop & record' : 'Start shaker test'}
+                    variant={isActive ? 'danger' : 'primary'}
+                    disabled={
+                      Platform.OS === 'web' || (!isActive && attempts.length >= MAX_ATTEMPTS) || isSyncing
+                    }
+                    onPress={() => (isActive ? stopAttempt() : startAttempt())}
+                  />
+                  <PrimaryButton
+                    label="Reset"
+                    variant="secondary"
+                    onPress={resetAll}
+                    disabled={(time === 0 && attempts.length === 0) || isSyncing}
+                  />
+                  <PrimaryButton
+                    label={isSyncing ? 'Syncing...' : 'Finish & save'}
+                    variant="secondary"
+                    onPress={() => void finishAndSave()}
+                    disabled={attempts.length < MAX_ATTEMPTS || isActive || isSyncing}
+                  />
                 </View>
 
-                {/* ✅ New Configuration Field Input Box */}
-                <Text style={[styles.inputLabel, { color: text }]}>Current design</Text>
-                <Text style={[styles.currentDesignValue, { color: text, borderColor: border, backgroundColor: background }]}>
-                  {designName}
-                </Text>
-                
-                <View style={styles.sensorDataRow}>
-                  <Text style={[styles.helper, { color: mutedText }]}>
-                    Gyro: x {gyroData.x.toFixed(3)} · y {gyroData.y.toFixed(3)} · z {gyroData.z.toFixed(3)} rad/s
+                <View style={styles.helperRow}>
+                  <PanelMuted style={styles.helper}>
+                    Attempts: {attempts.length}/{MAX_ATTEMPTS}
+                  </PanelMuted>
+                  <Text style={[styles.helperPeak, { color: primary }]}>
+                    Best: {bestScore !== null ? `${bestScore} pts` : '—'}
                   </Text>
                 </View>
-                <View style={styles.sensorDataRow}>
-                  <Text style={[styles.helper, { color: mutedText }]}>
-                    Accel: x {accelData.x.toFixed(2)} · y {accelData.y.toFixed(2)} · z {accelData.z.toFixed(2)} g
-                  </Text>
-                </View>
-                <View style={styles.sensorDataRow}>
-                  <Text style={[styles.helper, { color: mutedText }]}>GPS Status: {locationStatus}</Text>
-                </View>
-              </>
-            )}
+              </ColorPanel>
 
-            <View style={styles.panelButtons}>
-              <PrimaryButton
-                label={isActive ? 'Stop & record' : 'Start Shaker Test'}
-                variant={isActive ? 'danger' : 'primary'}
-                disabled={Platform.OS === 'web' || (!isActive && attempts.length >= MAX_ATTEMPTS) || isSyncing}
-                onPress={() => (isActive ? stopAttempt() : startAttempt())}
-              />
-              <PrimaryButton
-                label="Reset"
-                variant="secondary"
-                onPress={resetAll}
-                disabled={(time === 0 && attempts.length === 0) || isSyncing}
-              />
-              <PrimaryButton
-                label={isSyncing ? 'Syncing...' : 'Finish & Save'}
-                variant="secondary"
-                onPress={() => void finishAndSave()}
-                disabled={attempts.length < MAX_ATTEMPTS || isActive || isSyncing}
-                style={{ borderColor: primary }}
-              />
+              <ColorPanel colour="sky">
+                <PanelTitle>Results</PanelTitle>
+                {attempts.length === 0 ? (
+                  <PanelMuted style={styles.placeholder}>No stability trials recorded yet.</PanelMuted>
+                ) : (
+                  <View style={styles.attemptsWrap}>
+                    {attempts.map((attempt, index) => (
+                      <AttemptRow
+                        key={`${index}-${attempt.duration}`}
+                        index={index + 1}
+                        value={formatAttemptValue(attempt)}
+                        isLast={index === attempts.length - 1}
+                      />
+                    ))}
+                  </View>
+                )}
+              </ColorPanel>
             </View>
-            
-            <View style={styles.helperRow}>
-              <Text style={[styles.helper, { color: mutedText }]}>Attempts Complete: {attempts.length}/{MAX_ATTEMPTS}</Text>
-              <Text style={[styles.helper, { color: primary }]}>Best: {bestScore !== null ? `${bestScore} pts` : '—'}</Text>
+          )}
+
+          {screenTab === 'writeup' && (
+            <View style={styles.tabContent}>
+              <ColorPanel colour="lavender">
+                <PanelTitle>Write-up prompts</PanelTitle>
+                <PanelMuted style={styles.softPanelHint}>
+                  Answer these on your physical lab worksheet:
+                </PanelMuted>
+                <PanelMuted style={styles.bulletPrompt}>
+                  • Predict which fold design makes the phone move the least.
+                </PanelMuted>
+                <PanelMuted style={styles.bulletPrompt}>
+                  • Record the structural results after each shaker test.
+                </PanelMuted>
+                <PanelMuted style={styles.bulletPrompt}>
+                  • Were your engineering predictions correct?
+                </PanelMuted>
+                <PanelMuted style={styles.bulletPrompt}>
+                  • Did you discover any structural surprises while testing?
+                </PanelMuted>
+              </ColorPanel>
+
+              <ColorPanel colour="sky">
+                <PanelTitle>Worksheet reference table</PanelTitle>
+                <WriteupWorksheetTable />
+              </ColorPanel>
             </View>
-          </View>
+          )}
 
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Results</Text>
-            {attempts.length === 0 ? (
-              <Text style={[styles.placeholder, { color: mutedText }]}>No stability trials recorded yet.</Text>
-            ) : (
-              <View style={[styles.attemptsWrap, { borderTopColor: border }]}>
-                {attempts.map((attempt, index) => (
-                  <AttemptRow key={`${index}-${attempt.duration}`} index={index + 1} value={formatAttemptValue(attempt)} isLast={index === attempts.length - 1} />
-                ))}
-              </View>
-            )}
-          </SectionCard>
-        </View>
-      )}
+          {screenTab === 'discussion' && (
+            <View style={styles.tabContent}>
+              <ColorPanel colour="lavender">
+                <PanelTitle>Earthquakes & structures</PanelTitle>
+                <PanelMuted style={styles.body}>
+                  Earthquakes cause fast ground vibrations that can damage poorly designed buildings.
+                  Engineers design structures to absorb, redirect, and spread energy safely.
+                </PanelMuted>
+              </ColorPanel>
 
-      {/* ==================== TAB 3: WRITE-UP ==================== */}
-      {screenTab === 'writeup' && (
-        <View style={{ gap: Spacing.md }}>
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Write-up (on paper)</Text>
-            <Text style={[styles.body, { color: mutedText, fontStyle: 'italic', marginBottom: Spacing.sm }]}>
-              Answer these evaluation prompts on your physical printed lab sheets:
-            </Text>
-            <View style={styles.promptListContainer}>
-              <Text style={[styles.bulletPrompt, { color: text }]}>• Predict which fold design makes the phone move the least.</Text>
-              <Text style={[styles.bulletPrompt, { color: text }]}>• Record the structural results after manual shaking sequence loops.</Text>
-              <Text style={[styles.bulletPrompt, { color: text }]}>• Were your engineering predictions right upon live execution?</Text>
-              <Text style={[styles.bulletPrompt, { color: text }]}>• Did you discover any structural surprises while shaking components?</Text>
+              <ColorPanel colour="sky">
+                <PanelTitle>Curriculum links</PanelTitle>
+                <PanelMuted style={styles.bullet}>
+                  • ACSSU096 – Earth processes and tectonic activity.
+                </PanelMuted>
+                <PanelMuted style={[styles.bullet, { marginTop: Spacing.xs }]}>
+                  • ACTDEP036 – Testing and improving designs with evidence.
+                </PanelMuted>
+              </ColorPanel>
             </View>
-          </SectionCard>
-
-          <SectionCard>
-            <Text style={[styles.bodyHeading, { color: text, marginBottom: Spacing.xs }]}>Data Entry Reference Table</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-              <View style={[styles.matrixTableGrid, { borderColor: border }]}>
-                <View style={[styles.matrixHeaderRow, { backgroundColor: card, borderBottomColor: border }]}>
-                  <Text style={[styles.tableHeaderCell, { color: text, width: 180 }]}>Design Configuration</Text>
-                  <Text style={[styles.tableHeaderCell, { color: text, width: 120 }]}>Phone Moves (cm)</Text>
-                  <Text style={[styles.tableHeaderCell, { color: text, width: 140 }]}>Outcome (in degrees)</Text>
-                  <Text style={[styles.tableHeaderCell, { color: text, width: 120 }]}>Were you right?</Text>
-                </View>
-                <View style={[styles.matrixDataRow, { borderBottomColor: border }]}>
-                  <Text style={[styles.tableBodyCell, { color: text, fontWeight: '600', width: 180 }]}>Design 1 (4 folds + 4 pillars)</Text>
-                  <Text style={[styles.tableBodyCell, { color: text, fontStyle: 'italic', width: 120 }]}>e.g. +/- 1cm</Text>
-                  <Text style={[styles.tableBodyCell, { color: text, fontStyle: 'italic', width: 140 }]}>4cm</Text>
-                  <Text style={[styles.tableBodyCell, { color: mutedText, width: 120 }]}>[  ] Y / [  ] N</Text>
-                </View>
-                <View style={[styles.matrixDataRow, { borderBottomColor: border }]}>
-                  <Text style={[styles.tableBodyCell, { color: text, fontWeight: '600', width: 180 }]}>Design 2 (10 folds + 4 pillars)</Text>
-                  <Text style={[styles.tableBodyCell, { color: mutedText, fontStyle: 'italic', width: 120 }]}>Fill on paper...</Text>
-                  <Text style={[styles.tableBodyCell, { color: mutedText, fontStyle: 'italic', width: 140 }]}>Fill on paper...</Text>
-                  <Text style={[styles.tableBodyCell, { color: mutedText, width: 120 }]}>[  ] Y / [  ] N</Text>
-                </View>
-                <View style={[styles.matrixDataRow, { borderBottomWidth: 0 }]}>
-                  <Text style={[styles.tableBodyCell, { color: text, fontWeight: '600', width: 180 }]}>Design 3 (3 folds + 6 pillars)</Text>
-                  <Text style={[styles.tableBodyCell, { color: mutedText, fontStyle: 'italic', width: 120 }]}>Fill on paper...</Text>
-                  <Text style={[styles.tableBodyCell, { color: mutedText, fontStyle: 'italic', width: 140 }]}>Fill on paper...</Text>
-                  <Text style={[styles.tableBodyCell, { color: mutedText, width: 120 }]}>[  ] Y / [  ] N</Text>
-                </View>
-              </View>
-            </ScrollView>
-          </SectionCard>
-        </View>
-      )}
-
-      {/* ==================== TAB 4: DISCUSSION ==================== */}
-      {screenTab === 'discussion' && (
-        <View style={{ gap: Spacing.md }}>
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Discussion</Text>
-            <Text style={[styles.body, { color: text, lineHeight: 20 }]}>
-              Earthquakes cause fast, destructive ground vibrations that can crack, snap, and collapse poorly designed structures. Structural engineers utilize specialized physics patterns to ensure buildings absorb, redirect, and distribute lateral kinetic energy safely.
-            </Text>
-          </SectionCard>
-
-          <SectionCard>
-            <Text style={[styles.bodyHeading, { color: text, marginBottom: Spacing.xs }]}>Curriculum Links Reference</Text>
-            <View style={styles.curriculumContainer}>
-              <Text style={[styles.bullet, { color: text }]}>• ACSSU096 – Earth processes and tectonic shifting occurrences.</Text>
-              <Text style={[styles.bullet, { color: text, marginTop: 4 }]}>• ACTDEP036 – Testing and iteratively improving designs with evidence variables.</Text>
-            </View>
-          </SectionCard>
-        </View>
-      )}
-
-      <PrimaryButton label="Back to dashboard" variant="secondary" onPress={() => router.back()} disabled={isSyncing} />
-    </ScrollView>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1 },
-  content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
-  backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
-  header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
-  title: { ...Typography.hero, fontSize: 26 },
-  subtitle: { marginTop: Spacing.xs, ...Typography.body },
-  sectionTitle: { ...Typography.section, marginBottom: Spacing.sm },
-  tabRow: { flexDirection: 'row', gap: Spacing.sm, marginVertical: Spacing.xs },
-  tabPill: { flex: 1, minHeight: 40, borderRadius: Radius.pill, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  tabPillText: { ...Typography.small, fontWeight: '700' },
-  sectionHeading: { ...Typography.section, fontSize: 16, fontWeight: '700', marginBottom: Spacing.xs },
-  body: { ...Typography.body, fontSize: 13, lineHeight: 18 },
-  divider: { height: 1, marginVertical: Spacing.md, opacity: 0.4 },
-  listContainer: { gap: 6, marginTop: Spacing.xs },
-  listItem: { ...Typography.body, fontSize: 13 },
-  bullets: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: 6 },
-  bullet: { ...Typography.body, fontSize: 13, lineHeight: 19 },
-  instrumentPanel: { borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.lg },
-  panelLabel: { ...Typography.small, textTransform: 'uppercase', letterSpacing: 1.2 },
-  scoreValue: { marginTop: Spacing.sm, fontSize: 64, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  scoreLabel: { ...Typography.section, fontSize: 16, marginTop: Spacing.xs },
-  timerValue: { marginTop: Spacing.md, fontSize: 28, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  panelButtons: { marginTop: Spacing.md, gap: Spacing.sm },
-  helperRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.md },
-  helper: { ...Typography.small },
-  attemptsWrap: { borderTopWidth: 1, paddingTop: Spacing.xs },
-  placeholder: { ...Typography.body, fontSize: 13, lineHeight: 19 },
-  sensorDataRow: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.xs, paddingHorizontal: Spacing.xs, gap: 4 },
-  webFallback: { ...Typography.body, fontSize: 13, lineHeight: 19, marginTop: Spacing.sm },
-  promptListContainer: { gap: 6, marginVertical: Spacing.xs },
-  bulletPrompt: { ...Typography.body, fontSize: 13, lineHeight: 18 },
-  bodyHeading: { ...Typography.section, fontSize: 14, marginTop: Spacing.xs },
-  matrixTableGrid: { borderWidth: 1, borderRadius: Radius.md, overflow: 'hidden', marginTop: Spacing.xs },
-  matrixHeaderRow: { flexDirection: 'row', borderBottomWidth: 1, paddingVertical: 10, paddingHorizontal: Spacing.sm },
-  matrixDataRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: Spacing.sm, borderBottomWidth: 1, alignItems: 'center' },
-  tableHeaderCell: { ...Typography.small, fontWeight: 'bold' },
-  tableBodyCell: { ...Typography.small, fontSize: 12 },
-  curriculumContainer: { gap: 4, marginTop: Spacing.xs },
-  diagramBox: { borderWidth: 1, padding: Spacing.md, borderRadius: Radius.lg, marginTop: Spacing.xs, borderStyle: 'dashed' },
-  diagramHeading: { fontSize: 13, fontWeight: '700', marginBottom: 4 },
-  diagramBody: { fontSize: 12, lineHeight: 18 },
-  graphContainer: { height: 85, borderWidth: 1, borderStyle: 'dotted', borderRadius: Radius.md, marginVertical: Spacing.md, padding: Spacing.xs, backgroundColor: 'rgba(0,0,0,0.02)', justifyContent: 'center' },
-  // ✅ New styles for the input identifier fields
-  inputLabel: { ...Typography.small, fontWeight: '700', marginTop: Spacing.md, marginBottom: 4 },
+  root: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  safe: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  content: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: SCREEN_BOTTOM_INSET,
+    gap: Spacing.md,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    padding: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingBottom: Spacing.sm,
+  },
+  tabPill: {
+    minHeight: 40,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabPillText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+  },
+  tabContent: {
+    gap: Spacing.lg,
+  },
+  heroImageWrap: {
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginTop: Spacing.sm,
+    padding: Spacing.sm,
+    width: '100%',
+  },
+  heroImage: {
+    width: '100%',
+    aspectRatio: EARTHQUAKE_DIAGRAM_ASPECT,
+  },
+  diagramCaption: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  heroTitle: {
+    fontSize: FontSize.xxl,
+    fontWeight: '800',
+  },
+  heroSubtitle: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+  },
+  heroBody: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  heroCta: {
+    alignSelf: 'flex-start',
+    marginTop: Spacing.sm,
+    borderRadius: Radius.full,
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm + 2,
+  },
+  heroCtaText: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
+  },
+  listContainer: {
+    gap: Spacing.xs,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
+  listItem: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  instructionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  instructionNum: {
+    width: 24,
+    height: 24,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  instructionNumText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+  },
+  instructionText: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  designIntro: {
+    marginBottom: Spacing.sm,
+  },
   designRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -657,15 +889,122 @@ const styles = StyleSheet.create({
   },
   designRowLabel: {
     flex: 1,
-    fontSize: 13,
+    fontSize: FontSize.sm,
     lineHeight: 18,
+  },
+  scoreValue: {
+    marginTop: Spacing.sm,
+    fontSize: 56,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  scoreLabel: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    marginTop: Spacing.xs,
+  },
+  timerValue: {
+    marginTop: Spacing.md,
+    fontSize: 28,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  graphContainer: {
+    height: 85,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    marginVertical: Spacing.md,
+    padding: Spacing.xs,
+    justifyContent: 'center',
+  },
+  fieldLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+    marginBottom: 4,
   },
   currentDesignValue: {
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.sm,
-    fontSize: 13,
+    marginBottom: Spacing.sm,
+  },
+  currentDesignText: {
+    fontSize: FontSize.sm,
     lineHeight: 18,
+    fontWeight: FontWeight.semibold,
+  },
+  sensorLine: {
+    fontSize: FontSize.xs,
+    lineHeight: 16,
+  },
+  panelButtons: {
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  helperRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Spacing.md,
+  },
+  helper: {
+    fontSize: FontSize.xs,
+  },
+  helperPeak: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+  },
+  attemptsWrap: {
+    gap: Spacing.xs,
+  },
+  placeholder: {
+    fontStyle: 'italic',
+  },
+  webFallback: {
+    lineHeight: 20,
+  },
+  softPanelHint: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    fontStyle: 'italic',
+  },
+  bulletPrompt: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  body: {
+    fontSize: FontSize.sm,
+    lineHeight: 19,
+  },
+  bullet: {
+    fontSize: FontSize.sm,
+    lineHeight: 19,
+  },
+  matrixTableGrid: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    marginTop: Spacing.xs,
+  },
+  matrixHeaderRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.sm,
+  },
+  matrixDataRow: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.sm,
+    alignItems: 'center',
+  },
+  tableHeaderCell: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+  },
+  tableBodyCell: {
+    fontSize: FontSize.xs,
+    lineHeight: 16,
   },
 });
