@@ -65,7 +65,7 @@ const COLOUR_TOKEN: Record<
 const COMING_SOON_MESSAGE =
   'Coming Soon! This activity is being built. Check back soon!';
 
-function useActivityCardColours(colour: ActivityCardColour) {
+export function useActivityCardColours(colour: ActivityCardColour) {
   const keys = COLOUR_TOKEN[colour];
   const backgroundColor = useThemeColor({}, keys.bg);
   const borderColor = useThemeColor({}, keys.border);
