@@ -2,8 +2,8 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/input';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import { saveTeamData } from '@/hooks/storage';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -45,11 +45,10 @@ export default function SetupTeamScreen() {
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
-  const textSecondary = useThemeColor({}, 'textSecondary');
-  const primary = useThemeColor({}, 'primary');
-  const primarySoft = useThemeColor({}, 'primarySoft');
-  const textInverse = useThemeColor({}, 'textInverse');
-  const error = useThemeColor({}, 'error');
+  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';  const primary = useThemeColor({}, 'primary');
+  const primarySoft = useThemeColor({}, 'primarySoft' as any) ?? 'rgba(0, 122, 255, 0.1)';
+  const textInverse = useThemeColor({}, 'textInverse' as any) ?? '#FFFFFF';
+  const error = useThemeColor({}, 'error' as any) ?? '#FF3B30';
 
   const yearLabel = year ? `Year ${year}` : '—';
   const learningLevel =
