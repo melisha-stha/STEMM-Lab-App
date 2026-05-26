@@ -87,13 +87,6 @@ export default function TabLayout() {
             }}
           />
           <Tabs.Screen
-            name="explore"
-            options={{
-              title: 'Streams',
-              tabBarIcon: renderIcon('category'),
-            }}
-          />
-          <Tabs.Screen
             name="leaderboard"
             options={{
               title: 'Ranks',
