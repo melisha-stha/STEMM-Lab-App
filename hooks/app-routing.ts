@@ -1,10 +1,9 @@
 import { type Href } from 'expo-router';
 
-import { getTeamData } from './storage';
+import { hasTeamProfile } from './team-profile';
 
 export async function hasTeamSaved(): Promise<boolean> {
-  const team = await getTeamData();
-  return Boolean(team?.name) && Array.isArray(team?.members) && team.members.length > 0;
+  return hasTeamProfile();
 }
 
 export async function resolveAppRoute(hasAuth: boolean): Promise<Href> {

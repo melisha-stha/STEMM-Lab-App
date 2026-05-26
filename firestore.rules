@@ -9,6 +9,7 @@ rules_version = '2';
 //     (a doc is "owned" when its `userId` field equals request.auth.uid).
 //   • Document creation must stamp the creator's uid as the `userId`,
 //     preventing impersonation at write time.
+//   • teamProfiles uses the auth uid as the document id (no userId field).
 //   • Everything outside of explicitly-matched collections is denied.
 // =============================================================================
 
@@ -112,6 +113,42 @@ service cloud.firestore {
                     && request.resource.data.userId == request.auth.uid;
 
       allow update, delete: if isOwner(resource.data.userId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: handfanResults — Hand Fan Challenge activity results
+    // -------------------------------------------------------------------------
+    match /handfanResults/{docId} {
+
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: performanceResults — Human Performance Lab activity results
+    // -------------------------------------------------------------------------
+    match /performanceResults/{docId} {
+
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: teamProfiles
+    // One document per user (doc id = auth uid). Stores onboarding team setup
+    // so returning users can skip setup on a new device after login.
+    // -------------------------------------------------------------------------
+    match /teamProfiles/{userId} {
+      allow read, create, update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // -------------------------------------------------------------------------

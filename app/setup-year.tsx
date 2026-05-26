@@ -1,11 +1,20 @@
-import { Card } from '@/components/ui/Card';
-import { SectionHeading } from '@/components/ui/SectionHeading';
-import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
+import {
+  SetupScreenBackground,
+  setupScreenSafeBackground,
+  useSetupScreenBackground,
+} from '@/components/ui/setup-screen-background';
+import { PixelBox } from '@/components/ui/pixel-box';
+import { PixelButton } from '@/components/ui/pixel-button';
+import { PixelChoiceButton } from '@/components/ui/pixel-choice-button';
+import { PixelHeading } from '@/components/ui/pixel-heading';
+import { PixelText } from '@/components/ui/pixel-text';
+import { PIXEL_BRAND } from '@/constants/pixel-brand';
+import { Spacing } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const UPPER_YEARS = ['4', '5', '6'] as const;
@@ -14,15 +23,16 @@ const LOWER_YEARS = ['7', '8', '9'] as const;
 export default function SetupYearScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
   const { level } = useLocalSearchParams<{ level?: string }>();
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
+  const { overlayColor, imageOpacity } = useSetupScreenBackground();
 
-  const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
-  const textSecondary = useThemeColor({}, 'textSecondary');
-  const primary = useThemeColor({}, 'primary');
-  const primarySoft = useThemeColor({}, 'primarySoft');
-  const textInverse = useThemeColor({}, 'textInverse');
+  const isDark = colorScheme === 'dark';
+  const pixelShadow = isDark ? '#000000' : PIXEL_BRAND.purpleBorder;
+  const helperBg = isDark ? 'rgba(28, 28, 30, 0.92)' : 'rgba(243, 232, 255, 0.94)';
+  const helperBorder = isDark ? '#9CA3AF' : PIXEL_BRAND.purpleBorder;
 
   const years = useMemo(
     () => (level === 'lower_secondary' ? LOWER_YEARS : UPPER_YEARS),
@@ -30,71 +40,79 @@ export default function SetupYearScreen() {
   );
 
   const learningLevel = level === 'lower_secondary' ? 'lower_secondary' : 'upper_primary';
+  const hasSelection = selectedYear !== null;
 
   return (
-    <ScrollView
-      style={[styles.page, { backgroundColor: background }]}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: insets.top + Spacing.sm, paddingBottom: insets.bottom + Spacing.xl },
-      ]}>
-      <TouchableOpacity
-        accessibilityLabel="Go back"
-        onPress={() => router.back()}
-        style={styles.backButton}>
-        <MaterialIcons name="arrow-back" size={24} color={text} />
-      </TouchableOpacity>
-
-      <View style={[styles.stepPill, { backgroundColor: primarySoft }]}>
-        <Text style={[styles.stepText, { color: primary }]}>Step 2 of 3</Text>
-      </View>
-
-      <SectionHeading
-        title="Select your year level"
-        subtitle="This helps STEMM Lab show the right level of explanation."
-      />
-
-      <View style={styles.yearGrid}>
-        {years.map((year) => {
-          const isSelected = selectedYear === year;
-          return (
-            <Card
-              key={year}
-              colour="sky"
-              selected={isSelected}
-              onPress={() => setSelectedYear(year)}
-              style={styles.yearCard}>
-              <Text style={[styles.yearText, { color: text }]}>Year {year}</Text>
-            </Card>
-          );
-        })}
-      </View>
-
-      <Card colour="lavender">
-        <Text style={[styles.helperText, { color: textSecondary }]}>
-          For younger students, the app focuses on observation and simple measurements. For older
-          students, it also shows deeper science calculations.
-        </Text>
-      </Card>
-
-      <TouchableOpacity
-        accessibilityRole="button"
-        disabled={!selectedYear}
-        onPress={() =>
-          router.push(`/setup-team?level=${learningLevel}&year=${selectedYear ?? ''}` as Href)
-        }
-        style={[
-          styles.continueBtn,
-          { backgroundColor: primary, opacity: selectedYear ? 1 : 0.45 },
+    <View style={styles.root}>
+      <SetupScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+      <ScrollView
+        style={styles.page}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + Spacing.sm, paddingBottom: insets.bottom + Spacing.xl },
         ]}>
-        <Text style={[styles.continueText, { color: textInverse }]}>Continue</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity
+          accessibilityLabel="Go back"
+          onPress={() => router.back()}
+          style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={24} color={text} />
+        </TouchableOpacity>
+
+        <PixelText variant="step" style={styles.stepLabel}>
+          step 2 of 3
+        </PixelText>
+
+        <View style={styles.headingBlock}>
+          <PixelHeading align="left">select your year level</PixelHeading>
+          <PixelText style={styles.subtitle}>
+            this helps stemm lab show the right level of explanation.
+          </PixelText>
+        </View>
+
+        <View style={styles.yearList}>
+          {years.map((year, index) => (
+            <PixelChoiceButton
+              key={year}
+              label={`year ${year}`}
+              variant={index === 0 ? 'primary' : 'secondary'}
+              selected={selectedYear === year}
+              hasSelection={hasSelection}
+              onPress={() => setSelectedYear(year)}
+              style={index < years.length - 1 ? styles.yearSpacing : undefined}
+            />
+          ))}
+        </View>
+
+        <PixelBox shadowColor={pixelShadow} style={styles.helperOuter}>
+          <View style={[styles.helperBox, { backgroundColor: helperBg, borderColor: helperBorder }]}>
+            <PixelText variant="caption">
+              younger students focus on observation and simple measurements. older students also
+              see deeper science calculations.
+            </PixelText>
+          </View>
+        </PixelBox>
+
+        <PixelButton
+          label="continue"
+          disabled={!selectedYear}
+          onPress={() =>
+            router.push(`/setup-team?level=${learningLevel}&year=${selectedYear ?? ''}` as Href)
+          }
+          style={styles.continueBtn}
+        />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1 },
+  root: {
+    flex: 1,
+    backgroundColor: setupScreenSafeBackground,
+  },
+  page: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
@@ -105,46 +123,33 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
-  stepPill: {
-    alignSelf: 'flex-start',
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+  stepLabel: {
+    marginTop: Spacing.xs,
   },
-  stepText: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.semibold,
+  headingBlock: {
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
   },
-  yearGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.md,
+  subtitle: {
+    marginTop: -4,
   },
-  yearCard: {
-    minWidth: '30%',
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 72,
+  yearList: {
+    marginTop: Spacing.sm,
+    width: '100%',
   },
-  yearText: {
-    fontSize: FontSize.lg,
-    fontWeight: FontWeight.semibold,
+  yearSpacing: {
+    marginBottom: 12,
   },
-  helperText: {
-    fontSize: FontSize.md,
-    fontWeight: FontWeight.regular,
-    lineHeight: 22,
+  helperOuter: {
+    width: '100%',
+  },
+  helperBox: {
+    borderRadius: 8,
+    borderWidth: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   continueBtn: {
     marginTop: Spacing.sm,
-    minHeight: 56,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  continueText: {
-    fontSize: FontSize.md,
-    fontWeight: FontWeight.bold,
   },
 });

@@ -1,12 +1,19 @@
+import {
+  AuthScreenBackground,
+  authScreenSafeBackground,
+  useAuthScreenBackground,
+} from '@/components/ui/auth-screen-background';
 import { Input } from '@/components/ui/input';
-import { PrimaryButton } from '@/components/ui/primary-button';
-import { Spacing, Typography } from '@/constants/design';
+import { PixelButton } from '@/components/ui/pixel-button';
+import { PixelHeading } from '@/components/ui/pixel-heading';
+import { Spacing } from '@/constants/design';
+import { resolvePostLoginRoute } from '@/hooks/app-routing';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { resolvePostLoginRoute } from '@/hooks/app-routing';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { login } from '../hooks/authService';
 
 export default function LoginScreen() {
@@ -14,8 +21,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { overlayColor, imageOpacity } = useAuthScreenBackground();
 
-  const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
 
   const handleLogin = async () => {
@@ -25,30 +32,68 @@ export default function LoginScreen() {
       const destination = await resolvePostLoginRoute();
       router.replace(destination);
     } catch (err: any) {
-      Alert.alert("Login Failed", err);
+      Alert.alert('Login Failed', err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: background }]}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <MaterialIcons name="arrow-back" size={24} color={text} />
-      </TouchableOpacity>
-      <Text style={[styles.title, { color: text }]}>Team Login</Text>
-      <Input label="Email" value={email} onChangeText={setEmail} placeholder="Enter team email" />
-      <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry />
-      <View style={{ marginTop: Spacing.md }}>
-        <PrimaryButton label={loading ? "Logging in..." : "Login"} onPress={handleLogin} disabled={loading} />
-        <PrimaryButton label="New team? Sign Up" variant="secondary" onPress={() => router.push('/signup')} />
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <AuthScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+      <View style={styles.container}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={24} color={text} />
+        </TouchableOpacity>
+
+        <PixelHeading>team login</PixelHeading>
+
+        <Input label="Email" value={email} onChangeText={setEmail} placeholder="Enter team email" />
+        <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry />
+
+        <View style={styles.actions}>
+          <PixelButton
+            label={loading ? 'Logging in...' : 'Login'}
+            onPress={handleLogin}
+            disabled={loading}
+            style={styles.buttonSpacing}
+          />
+          <PixelButton
+            label="New team? Sign Up"
+            variant="secondary"
+            onPress={() => router.push('/signup')}
+          />
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: Spacing.lg, justifyContent: 'center', gap: Spacing.md },
-  backButton: { alignSelf: 'flex-start', padding: Spacing.xs, position: 'absolute', top: Spacing.lg, left: Spacing.lg },
-  title: { ...Typography.hero, textAlign: 'center', marginBottom: Spacing.lg }
+  safe: {
+    flex: 1,
+    backgroundColor: authScreenSafeBackground,
+  },
+  container: {
+    flex: 1,
+    padding: Spacing.lg,
+    justifyContent: 'center',
+    gap: Spacing.md,
+    zIndex: 1,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    padding: Spacing.xs,
+    position: 'absolute',
+    top: Spacing.lg,
+    left: Spacing.lg,
+    zIndex: 2,
+  },
+  actions: {
+    marginTop: Spacing.md,
+    width: '100%',
+  },
+  buttonSpacing: {
+    marginBottom: 12,
+  },
 });

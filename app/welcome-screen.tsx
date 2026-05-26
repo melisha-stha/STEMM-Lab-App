@@ -1,3 +1,8 @@
+import {
+  AuthScreenBackground,
+  authScreenSafeBackground,
+  useAuthScreenBackground,
+} from '@/components/ui/auth-screen-background';
 import { usePixelFont } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -85,8 +90,8 @@ export default function WelcomeScreen() {
   const [logoFailed, setLogoFailed] = useState(false);
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
 
-  const background = useThemeColor({}, 'background');
-  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';  const surface = useThemeColor({}, 'surface');
+  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';
+  const surface = useThemeColor({}, 'surface');
   const isDark = colorScheme === 'dark';
   const welcomeTitleColor = isDark ? BRAND.white : BRAND.purple;
   const welcomeMutedColor = isDark ? textSecondary : BRAND.textMuted;
@@ -100,17 +105,23 @@ export default function WelcomeScreen() {
   const secondaryBorder = isDark ? '#9CA3AF' : BRAND.purpleBorder;
   const secondaryText = isDark ? BRAND.white : BRAND.purple;
 
+  const { overlayColor, imageOpacity } = useAuthScreenBackground();
+
   if (!pixelFontLoaded) {
     return (
-      <SafeAreaView style={[styles.safe, styles.loading, { backgroundColor: background }]}>
-        <ActivityIndicator size="large" color={primaryBg} />
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <AuthScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color={primaryBg} />
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: background }]} edges={['top', 'bottom']}>
-      <View style={[styles.screen, { backgroundColor: background }]}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <AuthScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+      <View style={styles.screen}>
         <View style={styles.topSection}>
           <View style={[styles.brandBlock, { width: LOGO_SIZE }]}>
             <Text
@@ -143,7 +154,7 @@ export default function WelcomeScreen() {
           </View>
         </View>
 
-        <View style={[styles.bottomSection, { backgroundColor: background }]}>
+        <View style={styles.bottomSection}>
           <View style={styles.pillsRow}>
             {FEATURE_PILLS.map((pill) => (
               <PixelBox key={pill.label} shadowColor={pixelShadow} style={styles.pillOuter}>
@@ -233,13 +244,17 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-  },
-  loading: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: authScreenSafeBackground,
   },
   screen: {
     flex: 1,
+    zIndex: 1,
+  },
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
   },
   topSection: {
     flex: 1,

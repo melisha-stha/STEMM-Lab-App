@@ -1,8 +1,16 @@
-import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/input';
-import { SectionHeading } from '@/components/ui/SectionHeading';
-import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
-import { saveTeamData } from '@/hooks/storage';
+import { PixelBox } from '@/components/ui/pixel-box';
+import { PixelButton } from '@/components/ui/pixel-button';
+import { PixelHeading } from '@/components/ui/pixel-heading';
+import { PixelText } from '@/components/ui/pixel-text';
+import {
+  TeamSetupScreenBackground,
+  useTeamSetupScreenBackground,
+} from '@/components/ui/team-setup-screen-background';
+import { PIXEL_BRAND } from '@/constants/pixel-brand';
+import { Spacing } from '@/constants/design';
+import { saveTeamProfile } from '@/hooks/team-profile';
+import { getTeamData, saveTeamData } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -12,14 +20,19 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MAX_MEMBERS = 5;
 const INITIAL_MEMBER_FIELDS = 2;
+
+export const options = {
+  headerShown: false,
+  contentStyle: { backgroundColor: 'transparent' },
+};
 
 function memberFieldLabel(index: number): string {
   if (index === 0) return 'Team member first name';
@@ -31,7 +44,9 @@ function memberFieldLabel(index: number): string {
 export default function SetupTeamScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
   const { level, year } = useLocalSearchParams<{ level?: string; year?: string }>();
+  const { overlayColor, imageOpacity } = useTeamSetupScreenBackground();
 
   const [teamName, setTeamName] = useState('');
   const [members, setMembers] = useState<string[]>(
@@ -43,16 +58,15 @@ export default function SetupTeamScreen() {
     year?: string;
   }>({});
 
-  const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
-  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';  const primary = useThemeColor({}, 'primary');
-  const primarySoft = useThemeColor({}, 'primarySoft' as any) ?? 'rgba(0, 122, 255, 0.1)';
-  const textInverse = useThemeColor({}, 'textInverse' as any) ?? '#FFFFFF';
-  const error = useThemeColor({}, 'error' as any) ?? '#FF3B30';
+  const isDark = colorScheme === 'dark';
+  const pixelShadow = isDark ? '#000000' : PIXEL_BRAND.purpleBorder;
+  const panelBg = isDark ? 'rgba(28, 28, 30, 0.92)' : 'rgba(243, 232, 255, 0.94)';
+  const panelBorder = isDark ? '#9CA3AF' : PIXEL_BRAND.purpleBorder;
 
   const yearLabel = year ? `Year ${year}` : '—';
-  const learningLevel =
-    level === 'lower_secondary' ? 'Lower Secondary' : 'Upper Primary';
+  const learningLevelLabel =
+    level === 'lower_secondary' ? 'lower secondary' : 'upper primary';
 
   const cleanedMembers = useMemo(
     () => members.map((m) => m.trim()).filter((m) => m.length > 0),
@@ -73,6 +87,16 @@ export default function SetupTeamScreen() {
       yearLevel: year,
     });
 
+    const saved = await getTeamData();
+    await saveTeamProfile({
+      name: teamName.trim(),
+      members: cleanedMembers,
+      grade: yearLabel,
+      yearLevel: year,
+      learningLevel: level === 'lower_secondary' ? 'lower_secondary' : 'upper_primary',
+      id: saved?.id,
+    });
+
     router.replace('/(tabs)');
   };
 
@@ -90,96 +114,96 @@ export default function SetupTeamScreen() {
   const canAddMember = members.length < MAX_MEMBERS;
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.page, { backgroundColor: background }]}
-      behavior={Platform.select({ ios: 'padding', default: undefined })}>
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + Spacing.sm, paddingBottom: insets.bottom + Spacing.xl },
-        ]}>
-        <TouchableOpacity
-          accessibilityLabel="Go back"
-          onPress={() => router.back()}
-          style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color={text} />
-        </TouchableOpacity>
-
-        <View style={[styles.stepPill, { backgroundColor: primarySoft }]}>
-          <Text style={[styles.stepText, { color: primary }]}>Step 3 of 3</Text>
-        </View>
-
-        <SectionHeading
-          title="Create your team"
-          subtitle="Only first names are used, and your team gets a private Team ID."
-        />
-
-        <Card colour="lavender">
-          <Text style={[styles.readOnlyLabel, { color: textSecondary }]}>Year Level</Text>
-          <Text style={[styles.readOnlyValue, { color: text }]}>{yearLabel}</Text>
-          <Text style={[styles.readOnlyHint, { color: textSecondary }]}>{learningLevel}</Text>
-          {errors.year ? (
-            <Text style={[styles.inlineError, { color: error }]}>{errors.year}</Text>
-          ) : null}
-        </Card>
-
-        <Input
-          label="Team name"
-          placeholder="e.g. Falcon Engineers"
-          value={teamName}
-          onChangeText={(v) => {
-            setTeamName(v);
-            if (errors.teamName) setErrors((e) => ({ ...e, teamName: undefined }));
-          }}
-          error={errors.teamName}
-        />
-
-        {members.map((member, index) => (
-          <Input
-            key={`member-${index}`}
-            label={memberFieldLabel(index)}
-            placeholder="First name"
-            value={member}
-            onChangeText={(v) => updateMember(index, v)}
-            error={index === 0 ? errors.member : undefined}
-          />
-        ))}
-
-        {canAddMember ? (
+    <TeamSetupScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity}>
+      <KeyboardAvoidingView
+        style={styles.page}
+        behavior={Platform.select({ ios: 'padding', default: undefined })}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + Spacing.sm, paddingBottom: insets.bottom + Spacing.xl },
+          ]}>
           <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Add another team member"
-            onPress={addMemberField}
-            style={[styles.addMemberBtn, { backgroundColor: primarySoft, borderColor: primary }]}>
-            <MaterialIcons name="person-add" size={20} color={primary} />
-            <Text style={[styles.addMemberText, { color: primary }]}>Add another team member</Text>
+            accessibilityLabel="Go back"
+            onPress={() => router.back()}
+            style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={24} color={text} />
           </TouchableOpacity>
-        ) : null}
 
-        <Card colour="sky">
-          <View style={styles.privacyRow}>
-            <MaterialIcons name="privacy-tip" size={22} color={primary} />
-            <Text style={[styles.privacyText, { color: textSecondary }]}>
-              Privacy friendly: STEMM Lab only uses first names and a team ID for results. Do not
-              enter full names.
-            </Text>
+          <View style={styles.titleWrap}>
+            <PixelHeading>create your team!</PixelHeading>
+            <PixelText style={styles.subtitle}>first names only · private team id</PixelText>
           </View>
-        </Card>
 
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => void handleSubmit()}
-          style={[styles.continueBtn, { backgroundColor: primary }]}>
-          <Text style={[styles.continueText, { color: textInverse }]}>Enter STEMM Lab</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <PixelBox shadowColor={pixelShadow} style={styles.panelOuter}>
+            <View style={[styles.panel, { backgroundColor: panelBg, borderColor: panelBorder }]}>
+              <PixelText variant="caption">year level</PixelText>
+              <PixelText style={styles.yearValue}>{yearLabel.toLowerCase()}</PixelText>
+              <PixelText variant="caption">{learningLevelLabel}</PixelText>
+              {errors.year ? (
+                <PixelText style={styles.errorText}>{errors.year}</PixelText>
+              ) : null}
+            </View>
+          </PixelBox>
+
+          <Input
+            label="Team name"
+            placeholder="e.g. Falcon Engineers"
+            value={teamName}
+            onChangeText={(v) => {
+              setTeamName(v);
+              if (errors.teamName) setErrors((e) => ({ ...e, teamName: undefined }));
+            }}
+            error={errors.teamName}
+          />
+
+          {members.map((member, index) => (
+            <Input
+              key={`member-${index}`}
+              label={memberFieldLabel(index)}
+              placeholder="First name"
+              value={member}
+              onChangeText={(v) => updateMember(index, v)}
+              error={index === 0 ? errors.member : undefined}
+            />
+          ))}
+
+          {canAddMember ? (
+            <PixelButton
+              label="add team member"
+              variant="secondary"
+              onPress={addMemberField}
+              style={styles.addMemberBtn}
+            />
+          ) : null}
+
+          <PixelBox shadowColor={pixelShadow} style={styles.panelOuter}>
+            <View style={[styles.panel, { backgroundColor: panelBg, borderColor: panelBorder }]}>
+              <PixelText variant="caption">
+                privacy friendly: only first names and a team id are used. do not enter full
+                names.
+              </PixelText>
+            </View>
+          </PixelBox>
+
+          <PixelButton label="enter stemm lab" onPress={() => void handleSubmit()} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </TeamSetupScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1 },
+  page: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   content: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
@@ -190,70 +214,35 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
-  stepPill: {
-    alignSelf: 'flex-start',
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+  titleWrap: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xs,
+    gap: Spacing.sm,
   },
-  stepText: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.semibold,
+  subtitle: {
+    textAlign: 'center',
   },
-  readOnlyLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: FontWeight.medium,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+  panelOuter: {
+    width: '100%',
   },
-  readOnlyValue: {
-    fontSize: FontSize.xxl,
-    fontWeight: FontWeight.bold,
-    marginTop: Spacing.xs,
+  panel: {
+    borderRadius: 8,
+    borderWidth: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 6,
   },
-  readOnlyHint: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.regular,
-    marginTop: Spacing.xs,
+  yearValue: {
+    fontSize: 14,
+    lineHeight: 20,
   },
-  inlineError: {
-    fontSize: FontSize.sm,
-    marginTop: Spacing.sm,
+  errorText: {
+    marginTop: 4,
+    color: '#FF3B30',
   },
   addMemberBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    minHeight: 48,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.lg,
-  },
-  addMemberText: {
-    fontSize: FontSize.md,
-    fontWeight: FontWeight.semibold,
-  },
-  privacyRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    alignItems: 'flex-start',
-  },
-  privacyText: {
-    fontSize: FontSize.md,
-    fontWeight: FontWeight.regular,
-    lineHeight: 22,
-    flex: 1,
-  },
-  continueBtn: {
-    minHeight: 56,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.sm,
-  },
-  continueText: {
-    fontSize: FontSize.md,
-    fontWeight: FontWeight.bold,
+    marginTop: Spacing.xs,
   },
 });
