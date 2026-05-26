@@ -91,27 +91,27 @@ export function PixelChoiceButton({
 const styles = StyleSheet.create({
   button: {
     width: '100%',
-    minHeight: 72,
+    minHeight: 84,
     borderRadius: PIXEL_RADIUS + 2,
     borderWidth: PIXEL_BORDER,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   textWrap: {
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     width: '100%',
   },
   label: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 16,
+    lineHeight: 22,
     textAlign: 'center',
   },
   description: {
-    fontSize: 9,
-    lineHeight: 13,
+    fontSize: 12,
+    lineHeight: 17,
     textAlign: 'center',
   },
   pressed: {

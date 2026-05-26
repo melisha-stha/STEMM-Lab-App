@@ -1,3 +1,8 @@
+import {
+  SetupScreenBackground,
+  setupScreenSafeBackground,
+  useSetupScreenBackground,
+} from '@/components/ui/setup-screen-background';
 import { PixelBox } from '@/components/ui/pixel-box';
 import { PixelButton } from '@/components/ui/pixel-button';
 import { PixelChoiceButton } from '@/components/ui/pixel-choice-button';
@@ -21,12 +26,12 @@ export default function SetupYearScreen() {
   const colorScheme = useColorScheme();
   const { level } = useLocalSearchParams<{ level?: string }>();
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
+  const { overlayColor, imageOpacity } = useSetupScreenBackground();
 
-  const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
   const isDark = colorScheme === 'dark';
   const pixelShadow = isDark ? '#000000' : PIXEL_BRAND.purpleBorder;
-  const helperBg = isDark ? '#1C1C1E' : PIXEL_BRAND.purpleSoft;
+  const helperBg = isDark ? 'rgba(28, 28, 30, 0.92)' : 'rgba(243, 232, 255, 0.94)';
   const helperBorder = isDark ? '#9CA3AF' : PIXEL_BRAND.purpleBorder;
 
   const years = useMemo(
@@ -38,67 +43,76 @@ export default function SetupYearScreen() {
   const hasSelection = selectedYear !== null;
 
   return (
-    <ScrollView
-      style={[styles.page, { backgroundColor: background }]}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: insets.top + Spacing.sm, paddingBottom: insets.bottom + Spacing.xl },
-      ]}>
-      <TouchableOpacity
-        accessibilityLabel="Go back"
-        onPress={() => router.back()}
-        style={styles.backButton}>
-        <MaterialIcons name="arrow-back" size={24} color={text} />
-      </TouchableOpacity>
+    <View style={styles.root}>
+      <SetupScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+      <ScrollView
+        style={styles.page}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + Spacing.sm, paddingBottom: insets.bottom + Spacing.xl },
+        ]}>
+        <TouchableOpacity
+          accessibilityLabel="Go back"
+          onPress={() => router.back()}
+          style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={24} color={text} />
+        </TouchableOpacity>
 
-      <PixelText variant="step" style={styles.stepLabel}>
-        step 2 of 3
-      </PixelText>
-
-      <View style={styles.headingBlock}>
-        <PixelHeading align="left">select your year level</PixelHeading>
-        <PixelText style={styles.subtitle}>
-          this helps stemm lab show the right level of explanation.
+        <PixelText variant="step" style={styles.stepLabel}>
+          step 2 of 3
         </PixelText>
-      </View>
 
-      <View style={styles.yearList}>
-        {years.map((year, index) => (
-          <PixelChoiceButton
-            key={year}
-            label={`year ${year}`}
-            variant={index === 0 ? 'primary' : 'secondary'}
-            selected={selectedYear === year}
-            hasSelection={hasSelection}
-            onPress={() => setSelectedYear(year)}
-            style={index < years.length - 1 ? styles.yearSpacing : undefined}
-          />
-        ))}
-      </View>
-
-      <PixelBox shadowColor={pixelShadow} style={styles.helperOuter}>
-        <View style={[styles.helperBox, { backgroundColor: helperBg, borderColor: helperBorder }]}>
-          <PixelText variant="caption">
-            younger students focus on observation and simple measurements. older students also
-            see deeper science calculations.
+        <View style={styles.headingBlock}>
+          <PixelHeading align="left">select your year level</PixelHeading>
+          <PixelText style={styles.subtitle}>
+            this helps stemm lab show the right level of explanation.
           </PixelText>
         </View>
-      </PixelBox>
 
-      <PixelButton
-        label="continue"
-        disabled={!selectedYear}
-        onPress={() =>
-          router.push(`/setup-team?level=${learningLevel}&year=${selectedYear ?? ''}` as Href)
-        }
-        style={styles.continueBtn}
-      />
-    </ScrollView>
+        <View style={styles.yearList}>
+          {years.map((year, index) => (
+            <PixelChoiceButton
+              key={year}
+              label={`year ${year}`}
+              variant={index === 0 ? 'primary' : 'secondary'}
+              selected={selectedYear === year}
+              hasSelection={hasSelection}
+              onPress={() => setSelectedYear(year)}
+              style={index < years.length - 1 ? styles.yearSpacing : undefined}
+            />
+          ))}
+        </View>
+
+        <PixelBox shadowColor={pixelShadow} style={styles.helperOuter}>
+          <View style={[styles.helperBox, { backgroundColor: helperBg, borderColor: helperBorder }]}>
+            <PixelText variant="caption">
+              younger students focus on observation and simple measurements. older students also
+              see deeper science calculations.
+            </PixelText>
+          </View>
+        </PixelBox>
+
+        <PixelButton
+          label="continue"
+          disabled={!selectedYear}
+          onPress={() =>
+            router.push(`/setup-team?level=${learningLevel}&year=${selectedYear ?? ''}` as Href)
+          }
+          style={styles.continueBtn}
+        />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1 },
+  root: {
+    flex: 1,
+    backgroundColor: setupScreenSafeBackground,
+  },
+  page: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.md,

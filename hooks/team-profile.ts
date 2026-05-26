@@ -16,23 +16,33 @@ function isValidTeam(team: TeamProfile | null | undefined): team is TeamProfile 
   return Boolean(team?.name?.trim()) && Array.isArray(team?.members) && team.members.length > 0;
 }
 
-export async function saveTeamProfile(team: TeamProfile): Promise<void> {
+/** Saves team setup to Firestore. Never throws — local storage remains the source of truth. */
+export async function saveTeamProfile(team: TeamProfile): Promise<boolean> {
   const uid = auth.currentUser?.uid;
-  if (!uid || !isValidTeam(team)) return;
+  if (!uid || !isValidTeam(team)) return false;
 
-  await setDoc(
-    doc(db, 'teamProfiles', uid),
-    {
-      name: team.name.trim(),
-      members: team.members,
-      grade: team.grade,
-      yearLevel: team.yearLevel ?? null,
-      learningLevel: team.learningLevel ?? null,
-      id: team.id ?? null,
-      updatedAt: new Date().toISOString(),
-    },
-    { merge: true }
-  );
+  try {
+    await setDoc(
+      doc(db, 'teamProfiles', uid),
+      {
+        name: team.name.trim(),
+        members: team.members,
+        grade: team.grade,
+        yearLevel: team.yearLevel ?? null,
+        learningLevel: team.learningLevel ?? null,
+        id: team.id ?? null,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (error) {
+    console.warn(
+      'Team profile cloud save failed (deploy firestore.rules for teamProfiles).',
+      error
+    );
+    return false;
+  }
 }
 
 /** Loads team profile from Firestore into local storage when missing on device. */
@@ -54,7 +64,7 @@ export async function restoreTeamProfileFromCloud(): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error('Failed to restore team profile from cloud', error);
+    console.warn('Team profile cloud restore skipped.', error);
     return false;
   }
 }
