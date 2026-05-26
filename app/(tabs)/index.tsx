@@ -6,8 +6,8 @@ import { getTrials } from '@/hooks/database';
 import { getTeamData } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { onAuthStateChanged } from 'firebase/auth';
 import { type Href, useRouter } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -105,19 +105,21 @@ export default function HomeScreen() {
   const [trials, setTrials] = useState<TrialRow[]>([]);
 
   const background = useThemeColor({}, 'background');
-  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   const text = useThemeColor({}, 'text');
-  const textSecondary = useThemeColor({}, 'textSecondary');
-  const textInverse = useThemeColor({}, 'textInverse');
   const primary = useThemeColor({}, 'primary');
-  const primarySoft = useThemeColor({}, 'primarySoft');
-  const cardLavender = useThemeColor({}, 'cardLavender');
-  const cardMint = useThemeColor({}, 'cardMint');
-  const cardMintText = useThemeColor({}, 'cardMintText');
-  const cardYellow = useThemeColor({}, 'cardYellow');
-  const cardYellowText = useThemeColor({}, 'cardYellowText');
-  const shadow = useThemeColor({}, 'shadow');
-  const warning = useThemeColor({}, 'warning');
+  const shadow = useThemeColor({}, 'shadow' as any) ?? '#000000';
+
+  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary' as any) ?? '#F5F5F7';
+  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';
+  const textInverse = useThemeColor({}, 'textInverse' as any) ?? '#FFFFFF';
+  const primarySoft = useThemeColor({}, 'primarySoft' as any) ?? 'rgba(0, 122, 255, 0.1)';
+  const warning = useThemeColor({}, 'warning' as any) ?? '#FF9500';
+
+  const cardLavender = useThemeColor({}, 'cardLavender' as any) ?? '#E8E7FA';
+  const cardMint = useThemeColor({}, 'cardMint' as any) ?? '#E2F4EE';
+  const cardMintText = useThemeColor({}, 'cardMintText' as any) ?? '#0D523C';
+  const cardYellow = useThemeColor({}, 'cardYellow' as any) ?? '#FFF6D6';
+  const cardYellowText = useThemeColor({}, 'cardYellowText' as any) ?? '#665200';
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
