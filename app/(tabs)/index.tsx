@@ -1,4 +1,5 @@
 import { ActivityCard, type ActivityCardColour } from '@/components/ui/activity-card';
+import { AuthScreenBackground, useAuthScreenBackground } from '@/components/ui/auth-screen-background';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
 import { resolveAppRoute } from '@/hooks/app-routing';
 import { getTrials } from '@/hooks/database';
@@ -250,6 +251,7 @@ export default function HomeScreen() {
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const [team, setTeam] = useState<TeamData | null>(null);
   const [trials, setTrials] = useState<TrialRow[]>([]);
+  const { overlayColor, imageOpacity } = useAuthScreenBackground();
 
   const background = useThemeColor({}, 'background');
   const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
@@ -377,6 +379,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: background }]} edges={['top']}>
       <View style={styles.page}>
+        <AuthScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
         <DotGridBackground dotColor={text} />
         <ScrollView
           style={styles.scroll}
