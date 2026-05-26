@@ -1,5 +1,4 @@
 import { AttemptRow } from '@/components/ui/attempt-row';
-import { Collapsible } from '@/components/ui/collapsible';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
@@ -11,7 +10,7 @@ import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { Accelerometer, Gyroscope } from 'expo-sensors';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadEarthquakeResult } from '../hooks/firestore';
@@ -47,6 +46,12 @@ const SCREEN_TAB_LABELS: Record<ScreenTab, string> = {
   writeup: 'Write-up',
   discussion: 'Discussion',
 };
+
+const DESIGN_CONFIGURATIONS = [
+  'Design 1 (e.g. 4 folds + 4 pillars)',
+  'Design 2 (e.g. 10 folds + 4 pillars)',
+  'Design 3 (e.g. 3 folds and 6 pillars)',
+] as const;
 
 const calculateStabilityScore = (gyro: SensorVector, accel: SensorVector): number => {
   const gyroMagnitude = Math.sqrt(gyro.x ** 2 + gyro.y ** 2 + gyro.z ** 2);
@@ -92,7 +97,7 @@ export default function EarthquakeScreen() {
   const [locationStatus, setLocationStatus] = useState('📡 Searching...');
   
   // Custom Workspace State Variables
-  const [designName, setDesignName] = useState('');
+  const [designName, setDesignName] = useState<string>(DESIGN_CONFIGURATIONS[0]);
   const [movementHistory, setMovementHistory] = useState<number[]>(new Array(MAX_GRAPH_POINTS).fill(0));
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -108,6 +113,7 @@ export default function EarthquakeScreen() {
   const primary = useThemeColor({}, 'primary');
   const card = useThemeColor({}, 'card');
   const onPrimary = useThemeColor({}, 'onPrimary' as any) ?? '#FFFFFF';
+  const success = useThemeColor({}, 'success');
 
   const stabilityColor = getStabilityColor(liveScore);
   const stabilityLabel = getStabilityLabel(liveScore);
@@ -200,7 +206,7 @@ export default function EarthquakeScreen() {
 
   const startAttempt = (): void => {
     if (!designName.trim()) {
-      Alert.alert('Configuration Required', 'Please assign a design configuration label first (e.g., Design 1).');
+      Alert.alert('Configuration Required', 'Select a design before starting the shaker test.');
       return;
     }
     setTime(0);
@@ -231,11 +237,15 @@ export default function EarthquakeScreen() {
       minScoreRef.current = INITIAL_MIN_SCORE;
       setLiveScore(INITIAL_MIN_SCORE);
       
-      // Prompt next configuration loop sequence directly
-      const nextId = attempts.length + 2;
-      if (nextId <= MAX_ATTEMPTS) {
-        setDesignName(`Design ${nextId}`);
-        Alert.alert(`Trial ${nextId - 1} Logged`, `Ready for ${designName.trim()} configuration adjustments.`);
+      const nextDesignIndex = attempts.length + 1;
+      if (nextDesignIndex < MAX_ATTEMPTS) {
+        setDesignName(DESIGN_CONFIGURATIONS[nextDesignIndex]);
+        Alert.alert(
+          `Trial ${nextDesignIndex} logged`,
+          `Ready for ${DESIGN_CONFIGURATIONS[nextDesignIndex]}.`
+        );
+      } else {
+        Alert.alert('All trials logged', 'You can finish and save your results.');
       }
     }
   };
@@ -250,7 +260,7 @@ export default function EarthquakeScreen() {
     setLiveScore(INITIAL_MIN_SCORE);
     setMovementHistory(new Array(MAX_GRAPH_POINTS).fill(0));
     setAttempts([]);
-    setDesignName('Design 1');
+    setDesignName(DESIGN_CONFIGURATIONS[0]);
     setGyroData(ZERO_VECTOR);
     setAccelData(ZERO_VECTOR);
   };
@@ -397,12 +407,38 @@ export default function EarthquakeScreen() {
       {screenTab === 'experiment' && (
         <View style={{ gap: Spacing.md }}>
           <SectionCard>
-            <Collapsible title="Quick Trial Checklists">
-              <View style={[styles.bullets, { borderTopColor: border }]}>
-                <Text style={[styles.bullet, { color: mutedText }]}>• Assign layout identity parameters below before hitting start loops.</Text>
-                <Text style={[styles.bullet, { color: mutedText }]}>• Record all three distinct design trial parameters before final deployment sync.</Text>
-              </View>
-            </Collapsible>
+            <Text style={[styles.sectionTitle, { color: text }]}>Structure designs</Text>
+            <Text style={[styles.body, { color: mutedText, marginBottom: Spacing.sm }]}>
+              Test each design in order. Build the structure, then run the shaker test for that design.
+            </Text>
+            {DESIGN_CONFIGURATIONS.map((label) => {
+              const isCurrent = designName === label;
+              const isComplete = attempts.some((a) => a.designName === label);
+              return (
+                <View
+                  key={label}
+                  style={[
+                    styles.designRow,
+                    {
+                      borderColor: isCurrent ? primary : border,
+                      backgroundColor: isCurrent ? `${primary}14` : card,
+                    },
+                  ]}>
+                  <MaterialIcons
+                    name={isComplete ? 'check-circle' : isCurrent ? 'radio-button-checked' : 'radio-button-unchecked'}
+                    size={20}
+                    color={isComplete ? success : isCurrent ? primary : mutedText}
+                  />
+                  <Text
+                    style={[
+                      styles.designRowLabel,
+                      { color: text, fontWeight: isCurrent ? '700' : '500' },
+                    ]}>
+                    {label}
+                  </Text>
+                </View>
+              );
+            })}
           </SectionCard>
 
           <View style={[styles.instrumentPanel, { borderColor: border, backgroundColor: card }]}>
@@ -426,15 +462,10 @@ export default function EarthquakeScreen() {
                 </View>
 
                 {/* ✅ New Configuration Field Input Box */}
-                <Text style={[styles.inputLabel, { color: text }]}>Design Identifier Label</Text>
-                <TextInput
-                  style={[styles.textInputField, { borderColor: border, color: text, backgroundColor: background }]}
-                  placeholder="e.g. Design 1 (4 folds)"
-                  placeholderTextColor={mutedText}
-                  value={designName}
-                  onChangeText={setDesignName}
-                  editable={!isActive}
-                />
+                <Text style={[styles.inputLabel, { color: text }]}>Current design</Text>
+                <Text style={[styles.currentDesignValue, { color: text, borderColor: border, backgroundColor: background }]}>
+                  {designName}
+                </Text>
                 
                 <View style={styles.sensorDataRow}>
                   <Text style={[styles.helper, { color: mutedText }]}>
@@ -615,5 +646,26 @@ const styles = StyleSheet.create({
   graphContainer: { height: 85, borderWidth: 1, borderStyle: 'dotted', borderRadius: Radius.md, marginVertical: Spacing.md, padding: Spacing.xs, backgroundColor: 'rgba(0,0,0,0.02)', justifyContent: 'center' },
   // ✅ New styles for the input identifier fields
   inputLabel: { ...Typography.small, fontWeight: '700', marginTop: Spacing.md, marginBottom: 4 },
-  textInputField: { height: 40, borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.sm, fontSize: 13 }
+  designRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  designRowLabel: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  currentDesignValue: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    fontSize: 13,
+    lineHeight: 18,
+  },
 });
