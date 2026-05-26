@@ -45,9 +45,8 @@ export default function EngineeringScreen() {
   const insets = useSafeAreaInsets();
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
-  const textSecondary = useThemeColor({}, 'textSecondary');
-  const cardMintText = useThemeColor({}, 'cardMintText');
-
+  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';
+  const cardMintText = useThemeColor({}, 'cardMintText' as any) ?? '#0D523C';
   return (
     <ScrollView
       style={[styles.page, { backgroundColor: background }]}

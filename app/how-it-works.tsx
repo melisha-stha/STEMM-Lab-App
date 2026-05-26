@@ -46,8 +46,8 @@ export default function HowItWorksScreen() {
   const text = useThemeColor({}, 'text');
   const mutedText = useThemeColor({}, 'mutedText');
   const primary = useThemeColor({}, 'primary');
-  const engineeringSoft = useThemeColor({}, 'engineeringSoft');
-
+  const engineeringSoft = useThemeColor({}, 'engineeringSoft' as any) ?? 'rgba(0, 122, 255, 0.08)';
+  
   return (
     <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
       <TouchableOpacity

@@ -12,13 +12,12 @@ export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
-  const textSecondary = useThemeColor({}, 'textSecondary');
-  const primary = useThemeColor({}, 'primary');
-  const textInverse = useThemeColor({}, 'textInverse');
-  const cardLavender = useThemeColor({}, 'cardLavender');
-  const cardMint = useThemeColor({}, 'cardMint');
-  const cardSky = useThemeColor({}, 'cardSky');
-  const cardYellow = useThemeColor({}, 'cardYellow');
+  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';  const primary = useThemeColor({}, 'primary');
+  const textInverse = useThemeColor({}, 'textInverse' as any) ?? '#FFFFFF';
+  const cardLavender = useThemeColor({}, 'cardLavender' as any) ?? '#E8E7FA';
+  const cardMint = useThemeColor({}, 'cardMint' as any) ?? '#E2F4EE';
+  const cardSky = useThemeColor({}, 'cardSky' as any) ?? '#E1F5FE';
+  const cardYellow = useThemeColor({}, 'cardYellow' as any) ?? '#FFF6D6';
 
   return (
     <ScrollView

@@ -45,10 +45,9 @@ export default function SetupLevelScreen() {
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
-  const textSecondary = useThemeColor({}, 'textSecondary');
-  const primary = useThemeColor({}, 'primary');
-  const primarySoft = useThemeColor({}, 'primarySoft');
-  const textInverse = useThemeColor({}, 'textInverse');
+  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';  const primary = useThemeColor({}, 'primary');
+  const primarySoft = useThemeColor({}, 'primarySoft' as any) ?? 'rgba(0, 122, 255, 0.1)';
+  const textInverse = useThemeColor({}, 'textInverse' as any) ?? '#FFFFFF';
 
   return (
     <ScrollView

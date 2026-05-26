@@ -86,8 +86,7 @@ export default function WelcomeScreen() {
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
 
   const background = useThemeColor({}, 'background');
-  const textSecondary = useThemeColor({}, 'textSecondary');
-  const surface = useThemeColor({}, 'surface');
+  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';  const surface = useThemeColor({}, 'surface');
   const isDark = colorScheme === 'dark';
   const welcomeTitleColor = isDark ? BRAND.white : BRAND.purple;
   const welcomeMutedColor = isDark ? textSecondary : BRAND.textMuted;

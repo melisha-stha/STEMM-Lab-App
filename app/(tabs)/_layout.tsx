@@ -18,19 +18,19 @@ export default function TabLayout() {
       <View style={styles.tabs}>
         <Tabs
           screenOptions={{
-            tabBarActiveTintColor: colors.tabBarActive,
-            tabBarInactiveTintColor: colors.tabBarInactive,
+            tabBarActiveTintColor: (colors as any).tabBarActive ?? '#007AFF',
+            tabBarInactiveTintColor: (colors as any).tabBarInactive ?? '#8E8E93',
             headerShown: false,
             tabBarButton: HapticTab,
             tabBarStyle: {
-              backgroundColor: colors.tabBar,
+              backgroundColor: (colors as any).tabBar ?? colors.background,
               borderTopWidth: 0,
               borderRadius: Radius.xl,
               marginHorizontal: Spacing.md,
               marginBottom: Spacing.md,
               height: 64,
               position: 'absolute',
-              shadowColor: colors.shadow,
+              shadowColor: (colors as any).shadow ?? '#000000',
               shadowOffset: { width: 0, height: -4 },
               shadowOpacity: 0.15,
               shadowRadius: 16,

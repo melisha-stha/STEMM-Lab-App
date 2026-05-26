@@ -38,8 +38,8 @@ export default function HealthScreen() {
   const insets = useSafeAreaInsets();
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
-  const textSecondary = useThemeColor({}, 'textSecondary');
-  const cardSkyText = useThemeColor({}, 'cardSkyText');
+  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';
+  const cardSkyText = useThemeColor({}, 'cardSkyText' as any) ?? '#004A77';
 
   return (
     <ScrollView
