@@ -11,6 +11,7 @@ import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadHandFanResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
@@ -51,11 +52,9 @@ export default function HandFanScreen() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [locationStatus, setLocationStatus] = useState('Searching...');
 
-  // New Multi-User Trackers
   const [memberName, setMemberName] = useState('');
   const [attempts, setAttempts] = useState<DesignTrial[]>([]);
 
-  // Interactive Current Trial Inputs
   const [designName, setDesignName] = useState('');
   const [selectedDistance, setSelectedDistance] = useState<'15cm' | '30cm' | '45cm'>('30cm');
   const [selectedMaterialIndex, setSelectedMaterialIndex] = useState<number>(0);
@@ -77,19 +76,14 @@ export default function HandFanScreen() {
     })();
   }, []);
 
-  // LIVE AERODYNAMIC PHYSICS MATHEMATICAL ENGINE
   const computedForceOutput = useMemo(() => {
     const angleDegrees = parseFloat(bendAngleText);
     if (isNaN(angleDegrees) || angleDegrees <= 0) return null;
 
-    // 1. Convert degrees to structural radians: θ_rad = degrees × (π / 180)
     const radians = angleDegrees * (Math.PI / 180);
     const materialK = MATERIALS_LIST[selectedMaterialIndex].k;
-
-    // 2. Solve structural load formula: F = k × θ
     const rawForce = materialK * radians;
     
-    // Return formatted precision force metric
     return parseFloat(rawForce.toFixed(4));
   }, [bendAngleText, selectedMaterialIndex]);
 
@@ -109,7 +103,6 @@ export default function HandFanScreen() {
     }
   };
 
-  // Aggregates active parameters cleanly into the participant manifest array
   const logCurrentTrialToManifest = () => {
     if (!memberName.trim()) {
       Alert.alert('Identity Required', 'Please assign a student name to allocate lab trial records.');
@@ -143,7 +136,6 @@ export default function HandFanScreen() {
       newTrial,
     ]);
 
-    // Clear current test inputs to make room for another design trial
     setDesignName('');
     setBendAngleText('');
     setRecordedVideoUri(null);
@@ -181,11 +173,8 @@ export default function HandFanScreen() {
         locationData = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
       }
       const teamData = await getTeamData();
-      
-      // Select best trial result to baseline data pipelines
       const maxForceRecord = Math.max(...attempts.map((d) => d.computedForceN || 0));
 
-      // Map local UI dataset records smoothly into standard database schemas
       const mappedPayloadForFirestore = attempts.map((a) => ({
         design: a.designName,
         bendAngle: a.bendAngleDeg,
@@ -205,12 +194,21 @@ export default function HandFanScreen() {
         content: {
           title: 'STEMM Lab Sync Complete',
           body: `Hand Fan results for ${teamData?.name || 'your team'} have been saved!`,
+          data: { screen: 'handfan-results' },
         },
         trigger: null,
       });
 
       Alert.alert('Saved Successfully!', 'All group lab assets are uploaded into the cloud dashboard.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') },
+        { 
+          text: 'OK', 
+          onPress: () => {
+            router.push({
+              pathname: '/handfan-results' as any,
+              params: { attemptsJson: JSON.stringify(attempts) },
+            });
+          } 
+        },
       ]);
     } catch (error) {
       console.error('Hand Fan Save Error:', error);
@@ -221,258 +219,251 @@ export default function HandFanScreen() {
   };
 
   return (
-    <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <MaterialIcons name="arrow-back" size={24} color={text} />
-      </TouchableOpacity>
+    <SafeAreaView style={[styles.safe, { backgroundColor: background }]} edges={['top']}>
+      <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={24} color={text} />
+        </TouchableOpacity>
 
-      <View style={styles.tabRow}>
-        {SCREEN_TABS.map((tab) => {
-          const isActive = screenTab === tab;
-          return (
-            <Pressable
-              key={tab}
-              onPress={() => setScreenTab(tab)}
-              style={[styles.tabPill, { backgroundColor: isActive ? primary : card, borderColor: isActive ? primary : border }]}
-            >
-              <Text style={[styles.tabPillText, { color: isActive ? onPrimary : text }]}>{SCREEN_TAB_LABELS[tab]}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+        <View style={styles.tabRow}>
+          {SCREEN_TABS.map((tab) => {
+            const isActive = screenTab === tab;
+            return (
+              <Pressable
+                key={tab}
+                onPress={() => setScreenTab(tab)}
+                style={[styles.tabPill, { backgroundColor: isActive ? primary : card, borderColor: isActive ? primary : border }]}
+              >
+                <Text style={[styles.tabPillText, { color: isActive ? onPrimary : text }]}>{SCREEN_TAB_LABELS[tab]}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-      {/* ==================== TAB 1: OVERVIEW ==================== */}
-      {screenTab === 'overview' && (
-        <SectionCard>
-          <Text style={[styles.heroTitle, { color: text }]}>Hand Fan Challenge</Text>
-          <Text style={[styles.heroSubtitle, { color: mutedText }]}>Physics – Air Movement</Text>
-          <Text style={[styles.body, { color: mutedText, marginTop: Spacing.sm }]}>
-            Students test how air movement affects flexible materials. By designing and using hand fans, teams discover how air force, material stiffness, and distance affect how much a paper strip bends.
-          </Text>
+        {screenTab === 'overview' && (
+          <SectionCard>
+            <Text style={[styles.heroTitle, { color: text }]}>Hand Fan Challenge</Text>
+            <Text style={[styles.heroSubtitle, { color: mutedText }]}>Physics – Air Movement</Text>
+            <Text style={[styles.body, { color: mutedText, marginTop: Spacing.sm }]}>
+              Students test how air movement affects flexible materials. By designing and using hand fans, teams discover how air force, material stiffness, and distance affect how much a paper strip bends.
+            </Text>
 
-          <Text style={[styles.sectionTitle, { color: text, marginTop: Spacing.md }]}>Equipment</Text>
-          <View style={[styles.bullets, { borderTopColor: border }]}>
-            {['Paper and cardboard', 'Scissors', 'Mobile phone', 'Sticky Tape', 'STEMM Mobile App'].map((item, i) => (
-              <Text key={i} style={[styles.bullet, { color: mutedText }]}>• {item}</Text>
-            ))}
-          </View>
-
-          <Text style={[styles.sectionTitle, { color: text, marginTop: Spacing.md }]}>Instructions</Text>
-          <View style={[styles.bullets, { borderTopColor: border }]}>
-            {[
-              'Stand paper upright on a table.',
-              'Fan air from 30 cm away.',
-              'Observe and record the bend angle.',
-              'Repeat with different fan designs.',
-              'Repeat at distances of 15cm, 30cm, and 45cm.',
-              'Repeat with cardboard instead of paper.',
-            ].map((step, i) => (
-              <Text key={i} style={[styles.bullet, { color: mutedText }]}>{i + 1}. {step}</Text>
-            ))}
-          </View>
-
-          <Text style={[styles.sectionTitle, { color: text, marginTop: Spacing.md }]}>Calculations Framework</Text>
-          <Text style={[styles.body, { color: mutedText, marginBottom: Spacing.xs }]}>
-            Approximate force dynamically using $F \approx k \cdot \theta$ where:
-          </Text>
-          <View style={[styles.bullets, { borderTopColor: border }]}>
-            <Text style={[styles.bullet, { color: mutedText }]}>• $F$ = force applied in Newtons (N)</Text>
-            <Text style={[styles.bullet, { color: mutedText }]}>• $\theta$ = bend angle converted directly into radians</Text>
-            <Text style={[styles.bullet, { color: mutedText }]}>• $k$ = material stiffness resistance parameter</Text>
-          </View>
-
-          <Text style={[styles.bodyHeading, { color: text, marginTop: Spacing.md }]}>Material Stiffness Constants Reference</Text>
-          <View style={[styles.table, { borderColor: border }]}>
-            <View style={[styles.tableHeaderRow, { backgroundColor: card, borderBottomColor: border }]}>
-              {['Material', 'Thick (mm)', 'k (N/rad)'].map((h, i) => (
-                <Text key={i} style={[styles.tableHeaderCell, { color: text, flex: 1 }]}>{h}</Text>
+            <Text style={[styles.sectionTitle, { color: text, marginTop: Spacing.md }]}>Equipment</Text>
+            <View style={[styles.bullets, { borderTopColor: border }]}>
+              {['Paper and cardboard', 'Scissors', 'Mobile phone', 'Sticky Tape', 'STEMM Mobile App'].map((item, i) => (
+                <Text key={i} style={[styles.bullet, { color: mutedText }]}>• {item}</Text>
               ))}
             </View>
-            {MATERIALS_LIST.map((row, i) => (
-              <View key={i} style={[styles.tableRow, { backgroundColor: i % 2 === 0 ? background : card, borderBottomColor: border }]}>
-                <Text style={[styles.tableCell, { color: text, flex: 1, fontWeight: '700' }]}>{row.label}</Text>
-                <Text style={[styles.tableCell, { color: mutedText, flex: 1 }]}>{row.thickness}</Text>
-                <Text style={[styles.tableCell, { color: primary, flex: 1, fontWeight: '700' }]}>{row.k}</Text>
+
+            <Text style={[styles.sectionTitle, { color: text, marginTop: Spacing.md }]}>Instructions</Text>
+            <View style={[styles.bullets, { borderTopColor: border }]}>
+              {[
+                'Stand paper upright on a table.',
+                'Fan air from 30 cm away.',
+                'Observe and record the bend angle.',
+                'Repeat with different fan designs.',
+                'Repeat at distances of 15cm, 30cm, and 45cm.',
+                'Repeat with cardboard instead of paper.',
+              ].map((step, i) => (
+                <Text key={i} style={[styles.bullet, { color: mutedText }]}>{i + 1}. {step}</Text>
+              ))}
+            </View>
+
+            <Text style={[styles.sectionTitle, { color: text, marginTop: Spacing.md }]}>Calculations Framework</Text>
+            <Text style={[styles.body, { color: mutedText, marginBottom: Spacing.xs }]}>
+              Approximate force dynamically using F = k * theta where:
+            </Text>
+            <View style={[styles.bullets, { borderTopColor: border }]}>
+              <Text style={[styles.bullet, { color: mutedText }]}>• F = force applied in Newtons (N)</Text>
+              <Text style={[styles.bullet, { color: mutedText }]}>• theta = bend angle converted directly into radians</Text>
+              <Text style={[styles.bullet, { color: mutedText }]}>• k = material stiffness resistance parameter</Text>
+            </View>
+
+            <Text style={[styles.bodyHeading, { color: text, marginTop: Spacing.md }]}>Material Stiffness Constants Reference</Text>
+            <View style={[styles.table, { borderColor: border }]}>
+              <View style={[styles.tableHeaderRow, { backgroundColor: card, borderBottomColor: border }]}>
+                {['Material', 'Thick (mm)', 'k (N/rad)'].map((h, i) => (
+                  <Text key={i} style={[styles.tableHeaderCell, { color: text, flex: 1 }]}>{h}</Text>
+                ))}
+              </View>
+              {MATERIALS_LIST.map((row, i) => (
+                <View key={i} style={[styles.tableRow, { backgroundColor: i % 2 === 0 ? background : card, borderBottomColor: border }]}>
+                  <Text style={[styles.tableCell, { color: text, flex: 1, fontWeight: '700' }]}>{row.label}</Text>
+                  <Text style={[styles.tableCell, { color: mutedText, flex: 1 }]}>{row.thickness}</Text>
+                  <Text style={[styles.tableCell, { color: primary, flex: 1, fontWeight: '700' }]}>{row.k}</Text>
+                </View>
+              ))}
+            </View>
+          </SectionCard>
+        )}
+
+        {screenTab === 'experiment' && (
+          <View style={styles.experimentWrap}>
+            <View style={[styles.infoCard, { borderColor: border, backgroundColor: card }]}>
+              <Text style={[styles.inputLabel, { color: text, marginTop: 0 }]}>Participant Identity Name</Text>
+              <TextInput
+                style={[styles.inputBox, { borderColor: border, color: text, backgroundColor: background, marginBottom: Spacing.sm }]}
+                placeholder="Input user identity..."
+                placeholderTextColor={mutedText}
+                value={memberName}
+                onChangeText={setMemberName}
+              />
+              <Text style={[styles.helper, { color: mutedText }]}>GPS Module Lock: {locationStatus}</Text>
+            </View>
+
+            <SectionCard>
+              <Text style={[styles.sectionTitle, { color: text }]}>Log Active Trial Parameters</Text>
+
+              <Text style={[styles.inputLabel, { color: text }]}>Fan Design Label</Text>
+              <TextInput
+                style={[styles.inputBox, { borderColor: border, color: text, backgroundColor: background }]}
+                placeholder="e.g. 1cm Accordion Folds"
+                placeholderTextColor={mutedText}
+                value={designName}
+                onChangeText={setDesignName}
+              />
+
+              <Text style={[styles.inputLabel, { color: text }]}>Wind Distance Boundary</Text>
+              <View style={styles.selectorPillRow}>
+                {DISTANCES_LIST.map((dist) => {
+                  const isChosen = selectedDistance === dist;
+                  return (
+                    <TouchableOpacity
+                      key={dist}
+                      onPress={() => setSelectedDistance(dist as any)}
+                      style={[styles.pillSelectorItem, { backgroundColor: isChosen ? primary : card, borderColor: border }]}
+                    >
+                      <Text style={[styles.pillSelectorText, { color: isChosen ? onPrimary : text }]}>{dist}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={[styles.inputLabel, { color: text }]}>Standing target paper material</Text>
+              <View style={styles.materialBlockListColumn}>
+                {MATERIALS_LIST.map((mat, index) => {
+                  const isChosen = selectedMaterialIndex === index;
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => setSelectedMaterialIndex(index)}
+                      style={[styles.materialRowSelector, { backgroundColor: isChosen ? primary : card, borderColor: border }]}
+                    >
+                      <Text style={[styles.materialRowText, { color: isChosen ? onPrimary : text, fontWeight: isChosen ? '700' : '400' }]}>
+                        {mat.label} (k = {mat.k})
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={styles.rowFields}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.inputLabel, { color: text }]}>Observed Bend Angle (°)</Text>
+                  <TextInput
+                    style={[styles.inputBox, { borderColor: border, color: text, backgroundColor: background }]}
+                    placeholder="e.g. 30"
+                    placeholderTextColor={mutedText}
+                    keyboardType="numeric"
+                    value={bendAngleText}
+                    onChangeText={setBendAngleText}
+                  />
+                </View>
+              </View>
+
+              {computedForceOutput !== null && (
+                <View style={[styles.physicsHUDMetricsBox, { backgroundColor: background, borderColor: primary }]}>
+                  <Text style={[styles.hudLabelText, { color: mutedText }]}>COMPUTED AERODYNAMIC DRAG FORCE</Text>
+                  <Text style={[styles.hudValueText, { color: primary }]}>{computedForceOutput} N</Text>
+                </View>
+              )}
+
+              <View style={{ gap: Spacing.xs, marginTop: Spacing.md }}>
+                <PrimaryButton label={recordedVideoUri ? 'Re-record Trial Motion' : 'Record Trial Motion'} variant="secondary" onPress={recordVideo} />
+                {recordedVideoUri && (
+                  <Video source={{ uri: recordedVideoUri }} style={[styles.videoPlayer, { borderColor: border, borderWidth: 1 }]} useNativeControls resizeMode={ResizeMode.CONTAIN} shouldPlay={false} />
+                )}
+              </View>
+
+              <View style={styles.actionControlRow}>
+                <View style={{ flex: 1 }}>
+                  <PrimaryButton label="Log Current Trial" onPress={logCurrentTrialToManifest} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <PrimaryButton label="Reset Form" variant="secondary" onPress={clearActiveFormInputs} />
+                </View>
+              </View>
+            </SectionCard>
+
+            <SectionCard>
+              <Text style={[styles.sectionTitle, { color: text }]}>Group Performance Records Manifest Log</Text>
+              {attempts.length === 0 ? (
+                <Text style={[styles.bullet, { color: mutedText }]}>No experimental vectors stored down inside this sequence yet.</Text>
+              ) : (
+                attempts.map((item, index) => (
+                  <View key={index} style={[styles.attemptRowListItem, { borderBottomColor: border }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.body, { color: text, fontWeight: '700' }]}>{item.memberName} — {item.designName}</Text>
+                      <Text style={[styles.body, { color: mutedText, fontSize: 11 }]}>
+                        Material: {item.materialLabel} | Dist: {item.distance}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={[styles.body, { color: primary, fontWeight: '700' }]}>{item.computedForceN ?? 0} N</Text>
+                      <Text style={[styles.body, { color: mutedText, fontSize: 11 }]}>{item.bendAngleDeg}° Bend</Text>
+                    </View>
+                  </View>
+                ))
+              )}
+
+              {attempts.length > 0 && (
+                <View style={{ gap: Spacing.sm, marginTop: Spacing.md }}>
+                  <PrimaryButton label={isSyncing ? 'Syncing...' : 'Upload Complete Manifest'} onPress={handleSave} disabled={isSyncing} />
+                  <PrimaryButton label="Next Team Member Setup" variant="secondary" onPress={clearForNextTeamMember} style={{ borderStyle: 'dashed', borderColor: primary }} />
+                </View>
+              )}
+            </SectionCard>
+          </View>
+        )}
+
+        {screenTab === 'writeup' && (
+          <SectionCard>
+            <Text style={[styles.sectionTitle, { color: text }]}>Write-up (on paper)</Text>
+            <Text style={[styles.body, { color: mutedText, marginBottom: Spacing.md }]}>
+              Use the analytical evaluation checks below to wrap up notebook submissions inside your exercise text blocks.
+            </Text>
+
+            {[
+              'Predict which fan design makes the paper move the most.',
+              'Record the results.',
+              'Were you right? Any surprises?',
+              'How does material stiffness affect the bend angle?',
+              'How does fan design influence air velocity and resulting paper movement?',
+              'How does distance from the fan affect bending?',
+            ].map((q, i) => (
+              <View key={i} style={[styles.questionBlock, { borderTopColor: border }]}>
+                <Text style={[styles.questionNumber, { color: primary }]}>{i + 1}.</Text>
+                <Text style={[styles.questionText, { color: text }]}>{q}</Text>
               </View>
             ))}
-          </View>
-        </SectionCard>
-      )}
-
-      {/* ==================== TAB 2: ACTIVE EXPERIMENT MODELLING ==================== */}
-      {screenTab === 'experiment' && (
-        <View style={styles.experimentWrap}>
-          <View style={[styles.infoCard, { borderColor: border, backgroundColor: card }]}>
-            <Text style={[styles.inputLabel, { color: text, marginTop: 0 }]}>Participant Identity Name</Text>
-            <TextInput
-              style={[styles.inputBox, { borderColor: border, color: text, backgroundColor: background, marginBottom: Spacing.sm }]}
-              placeholder="Input user identity..."
-              placeholderTextColor={mutedText}
-              value={memberName}
-              onChangeText={setMemberName}
-            />
-            <Text style={[styles.helper, { color: mutedText }]}>GPS Module Lock: {locationStatus}</Text>
-          </View>
-
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Log Active Trial Parameters</Text>
-
-            <Text style={[styles.inputLabel, { color: text }]}>Fan Design Label</Text>
-            <TextInput
-              style={[styles.inputBox, { borderColor: border, color: text, backgroundColor: background }]}
-              placeholder="e.g. 1cm Accordion Folds"
-              placeholderTextColor={mutedText}
-              value={designName}
-              onChangeText={setDesignName}
-            />
-
-            {/* Target Test Wind Distance Selector */}
-            <Text style={[styles.inputLabel, { color: text }]}>Wind Distance Boundary</Text>
-            <View style={styles.selectorPillRow}>
-              {DISTANCES_LIST.map((dist) => {
-                const isChosen = selectedDistance === dist;
-                return (
-                  <TouchableOpacity
-                    key={dist}
-                    onPress={() => setSelectedDistance(dist as any)}
-                    style={[styles.pillSelectorItem, { backgroundColor: isChosen ? primary : card, borderColor: border }]}
-                  >
-                    <Text style={[styles.pillSelectorText, { color: isChosen ? onPrimary : text }]}>{dist}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Target Material Standing Block Stiffness Selector */}
-            <Text style={[styles.inputLabel, { color: text }]}>Standing target paper material</Text>
-            <View style={styles.materialBlockListColumn}>
-              {MATERIALS_LIST.map((mat, index) => {
-                const isChosen = selectedMaterialIndex === index;
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => setSelectedMaterialIndex(index)}
-                    style={[styles.materialRowSelector, { backgroundColor: isChosen ? primary : card, borderColor: border }]}
-                  >
-                    <Text style={[styles.materialRowText, { color: isChosen ? onPrimary : text, fontWeight: isChosen ? '700' : '400' }]}>
-                      {mat.label} (k = {mat.k})
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <View style={styles.rowFields}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.inputLabel, { color: text }]}>Observed Bend Angle (°)</Text>
-                <TextInput
-                  style={[styles.inputBox, { borderColor: border, color: text, backgroundColor: background }]}
-                  placeholder="e.g. 30"
-                  placeholderTextColor={mutedText}
-                  keyboardType="numeric"
-                  value={bendAngleText}
-                  onChangeText={setBendAngleText}
-                />
-              </View>
-            </View>
-
-            {/* REALTIME LABORATORY METRICS COGNITIVE DISPLAY BOX */}
-            {computedForceOutput !== null && (
-              <View style={[styles.physicsHUDMetricsBox, { backgroundColor: background, borderColor: primary }]}>
-                <Text style={[styles.hudLabelText, { color: mutedText }]}>COMPUTED AERODYNAMIC DRAG FORCE</Text>
-                <Text style={[styles.hudValueText, { color: primary }]}>{computedForceOutput} N</Text>
-              </View>
-            )}
-
-            <View style={{ gap: Spacing.xs, marginTop: Spacing.md }}>
-              <PrimaryButton label={recordedVideoUri ? '🎬 Re-record Trial Motion' : '📹 Record Trial Motion'} variant="secondary" onPress={recordVideo} />
-              {recordedVideoUri && (
-                <Video source={{ uri: recordedVideoUri }} style={[styles.videoPlayer, { borderColor: border, borderWidth: 1 }]} useNativeControls resizeMode={ResizeMode.CONTAIN} shouldPlay={false} />
-              )}
-            </View>
-
-            <View style={styles.actionControlRow}>
-              <View style={{ flex: 1 }}>
-                <PrimaryButton label="Log Current Trial" onPress={logCurrentTrialToManifest} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <PrimaryButton label="Reset Form" variant="secondary" onPress={clearActiveFormInputs} />
-              </View>
-            </View>
           </SectionCard>
+        )}
 
-          {/* Aggregated Student Run Reports Dashboard Module */}
+        {screenTab === 'discussion' && (
           <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Group Performance Records Manifest Log</Text>
-            {attempts.length === 0 ? (
-              <Text style={[styles.bullet, { color: mutedText }]}>No experimental vectors stored down inside this sequence yet.</Text>
-            ) : (
-              attempts.map((item, index) => (
-                <View key={index} style={[styles.attemptRowListItem, { borderBottomColor: border }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.body, { color: text, fontWeight: '700' }]}>{item.memberName} — {item.designName}</Text>
-                    <Text style={[styles.body, { color: mutedText, fontSize: 11 }]}>
-                      Material: {item.materialLabel} | Dist: {item.distance}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.body, { color: primary, fontWeight: '700' }]}>{item.computedForceN ?? 0} N</Text>
-                    <Text style={[styles.body, { color: mutedText, fontSize: 11 }]}>{item.bendAngleDeg}° Bend</Text>
-                  </View>
-                </View>
-              ))
-            )}
-
-            {attempts.length > 0 && (
-              <View style={{ gap: Spacing.sm, marginTop: Spacing.md }}>
-                <PrimaryButton label={isSyncing ? 'Syncing...' : 'Upload Complete Manifest'} onPress={handleSave} disabled={isSyncing} />
-                <PrimaryButton label="Next Team Member Setup" variant="secondary" onPress={clearForNextTeamMember} style={{ borderStyle: 'dashed', borderColor: primary }} />
-              </View>
-            )}
+            <Text style={[styles.sectionTitle, { color: text }]}>Discussion Analysis</Text>
+            <Text style={[styles.body, { color: mutedText, lineHeight: 19 }]}>
+              Moving air currents transfer dynamic vector kinetic energy into static barriers. Cardboard profiles display significantly amplified k stiffness coefficient parameters over basic paper fibers, layout links needing much higher air velocities to reach matched baseline spatial deformation limits.
+            </Text>
           </SectionCard>
-        </View>
-      )}
-
-      {/* ==================== TAB 3: WRITEUP MANIFEST ==================== */}
-      {screenTab === 'writeup' && (
-        <SectionCard>
-          <Text style={[styles.sectionTitle, { color: text }]}>Write-up (on paper)</Text>
-          <Text style={[styles.body, { color: mutedText, marginBottom: Spacing.md }]}>
-            Use the analytical evaluation checks below to wrap up notebook submissions inside your exercise text blocks.
-          </Text>
-
-          {[
-            'Predict which fan design makes the paper move the most.',
-            'Record the results.',
-            'Were you right? Any surprises?',
-            'How does material stiffness affect the bend angle?',
-            'How does fan design influence air velocity and resulting paper movement?',
-            'How does distance from the fan affect bending?',
-          ].map((q, i) => (
-            <View key={i} style={[styles.questionBlock, { borderTopColor: border }]}>
-              <Text style={[styles.questionNumber, { color: primary }]}>{i + 1}.</Text>
-              <Text style={[styles.questionText, { color: text }]}>{q}</Text>
-            </View>
-          ))}
-        </SectionCard>
-      )}
-
-      {/* ==================== TAB 4: DISCUSSION ==================== */}
-      {screenTab === 'discussion' && (
-        <SectionCard>
-          <Text style={[styles.sectionTitle, { color: text }]}>Discussion Analysis</Text>
-          <Text style={[styles.body, { color: mutedText, lineHeight: 19 }]}>
-            Moving air currents transfer dynamic vector kinetic energy into static barriers. Cardboard profiles display significantly amplified $k$ stiffness coefficient parameters over basic paper fibers, layout links needing much higher air velocities to reach matched baseline spatial deformation limits.
-          </Text>
-        </SectionCard>
-      )}
-
-      <PrimaryButton label="Back to dashboard" variant="secondary" onPress={() => router.back()} disabled={isSyncing} />
-    </ScrollView>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   page: { flex: 1 },
   content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
   backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
