@@ -7,9 +7,11 @@ import { clearTeamData, getTeamData } from '@/hooks/storage';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { type Href, useRouter } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TeamTabScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [team, setTeam] = useState<{
     name: string;
     id: number;
@@ -54,29 +56,34 @@ export default function TeamTabScreen() {
         : '—';
 
   return (
-    <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
-      <Text style={[styles.title, { color: text }]}>Your Team</Text>
-      <Text style={[styles.subtitle, { color: mutedText }]}>
-        Team details are saved locally on this device.
-      </Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: background }]} edges={['top']}>
+      <ScrollView
+        style={styles.page}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: Math.max(Spacing.sm, insets.top + Spacing.sm) },
+        ]}>
+        <Text style={[styles.title, { color: text }]}>Your Team</Text>
+        <Text style={[styles.subtitle, { color: mutedText }]}>
+          Team details are saved locally on this device.
+        </Text>
 
-      <SectionCard>
-        <InfoRow label="Team name" value={team?.name || '—'} />
-        <InfoRow label="Team ID" value={team?.id ? String(team.id) : '—'} />
-        <InfoRow label="Year level" value={yearDisplay} />
-        <InfoRow label="Learning level" value={levelDisplay} />
-        <InfoRow
-          label="Members"
-          value={team?.members?.length ? team.members.join(', ') : '—'}
-        />
-      </SectionCard>
+        <SectionCard>
+          <InfoRow label="Team name" value={team?.name || '—'} />
+          <InfoRow label="Team ID" value={team?.id ? String(team.id) : '—'} />
+          <InfoRow label="Year level" value={yearDisplay} />
+          <InfoRow label="Learning level" value={levelDisplay} />
+          <InfoRow label="Members" value={team?.members?.length ? team.members.join(', ') : '—'} />
+        </SectionCard>
 
-      <PrimaryButton label="Reset team setup" variant="danger" onPress={handleResetTeam} />
-    </ScrollView>
+        <PrimaryButton label="Reset team setup" variant="danger" onPress={handleResetTeam} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   page: { flex: 1 },
   content: {
     padding: Spacing.lg,
@@ -86,7 +93,6 @@ const styles = StyleSheet.create({
   title: {
     ...Typography.hero,
     fontSize: 26,
-    paddingTop: Spacing.sm,
   },
   subtitle: {
     ...Typography.body,
