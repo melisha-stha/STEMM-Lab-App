@@ -3,6 +3,9 @@ import {
   authScreenSafeBackground,
   useAuthScreenBackground,
 } from '@/components/ui/auth-screen-background';
+import { ThemeModeToggle } from '@/components/ui/theme-mode-toggle';
+import { Spacing } from '@/constants/design';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { usePixelFont } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -15,11 +18,10 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const BRAND = {
   purple: '#4A1B6D',
@@ -106,22 +108,31 @@ export default function WelcomeScreen() {
   const secondaryText = isDark ? BRAND.white : BRAND.purple;
 
   const { overlayColor, imageOpacity } = useAuthScreenBackground();
+  const insets = useSafeAreaInsets();
 
   if (!pixelFontLoaded) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <AuthScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
-        <View style={styles.loading}>
-          <ActivityIndicator size="large" color={primaryBg} />
+      <View style={styles.pageRoot}>
+        <SafeAreaView style={styles.safe} edges={['bottom']}>
+          <AuthScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+          <View style={styles.loading}>
+            <ActivityIndicator size="large" color={primaryBg} />
+          </View>
+        </SafeAreaView>
+        <View
+          style={[styles.cornerToggleHost, { paddingTop: insets.top + Spacing.xs }]}
+          pointerEvents="box-none">
+          <ThemeModeToggle />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <AuthScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
-      <View style={styles.screen}>
+    <View style={styles.pageRoot}>
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <AuthScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+        <View style={styles.screen}>
         <View style={styles.topSection}>
           <View style={[styles.brandBlock, { width: LOGO_SIZE }]}>
             <Text
@@ -237,14 +248,33 @@ export default function WelcomeScreen() {
           </Text>
         </View>
       </View>
-    </SafeAreaView>
+      </SafeAreaView>
+      <View
+        style={[styles.cornerToggleHost, { paddingTop: insets.top + Spacing.xs }]}
+        pointerEvents="box-none">
+        <ThemeModeToggle />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  pageRoot: {
+    flex: 1,
+  },
   safe: {
     flex: 1,
     backgroundColor: authScreenSafeBackground,
+  },
+  cornerToggleHost: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingRight: HORIZONTAL_PADDING,
+    zIndex: 30,
   },
   screen: {
     flex: 1,
@@ -261,7 +291,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: HORIZONTAL_PADDING,
-    paddingTop: 16,
+    paddingTop: Spacing.sm,
     paddingBottom: 8,
     minHeight: 0,
   },

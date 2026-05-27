@@ -1,7 +1,8 @@
 import { PIXEL_BRAND } from '@/constants/pixel-brand';
 import { Image } from 'expo-image';
 import React from 'react';
-import { StyleSheet, useColorScheme, View } from 'react-native';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { StyleSheet, View } from 'react-native';
 
 const BACKGROUND_SOURCE = require('@/assets/images/background.jpg');
 

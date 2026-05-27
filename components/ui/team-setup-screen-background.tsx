@@ -1,6 +1,7 @@
 import { PIXEL_BRAND } from '@/constants/pixel-brand';
 import React from 'react';
-import { ImageBackground, StyleSheet, useColorScheme, View } from 'react-native';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ImageBackground, StyleSheet, View } from 'react-native';
 
 const BACKGROUND_SOURCE = require('@/assets/images/teamsetup.jpeg');
 
