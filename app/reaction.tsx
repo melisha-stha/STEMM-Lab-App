@@ -830,23 +830,39 @@ export default function ReactionScreen() {
                 <OverviewStepByStepActivity />
               </ColorPanel>
 
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setScreenTab('activity')}
-                style={[
-                  styles.heroCta,
-                  {
-                    backgroundColor: primary,
-                    borderColor: primary,
-                    borderBottomColor: primaryDark,
-                    alignSelf: 'stretch',
-                    justifyContent: 'center',
-                  },
-                ]}>
-                <Text style={[styles.heroCtaText, { color: onPrimary, textAlign: 'center' }]}>
-                  ▶  Start activity
-                </Text>
-              </Pressable>
+              <View style={styles.overviewActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setScreenTab('activity')}
+                  style={[
+                    styles.heroCta,
+                    {
+                      backgroundColor: primary,
+                      borderColor: primary,
+                      borderBottomColor: primaryDark,
+                      alignSelf: 'stretch',
+                      justifyContent: 'center',
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.heroCtaText,
+                      {
+                        color: onPrimary,
+                        textAlign: 'center',
+                        fontFamily: pixelFontLoaded ? pixelFamily : undefined,
+                      },
+                    ]}>
+                    ▶  Start activity
+                  </Text>
+                </Pressable>
+                <PrimaryButton
+                  label="Back to dashboard"
+                  variant="secondary"
+                  onPress={() => router.back()}
+                  disabled={isSyncing}
+                />
+              </View>
             </View>
           )}
 
@@ -986,6 +1002,16 @@ export default function ReactionScreen() {
               </ColorPanel>
             </View>
           )}
+
+          {screenTab !== 'instructions' && (
+            <PrimaryButton
+              label="Back to dashboard"
+              variant="secondary"
+              onPress={() => router.back()}
+              disabled={isSyncing}
+              style={{ marginTop: Spacing.sm }}
+            />
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -1060,8 +1086,13 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm + 2,
   },
   heroCtaText: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.bold,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  overviewActions: {
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
   },
   heroImageWrap: {
     borderRadius: Radius.lg,

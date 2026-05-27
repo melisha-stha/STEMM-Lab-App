@@ -473,27 +473,39 @@ export default function BreathingScreen() {
                 <BreathingDiagramFrame />
               </ColorPanel>
 
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setScreenTab('activity')}
-                style={[
-                  styles.heroCta,
-                  {
-                    backgroundColor: primary,
-                    borderColor: primary,
-                    borderBottomColor: primaryDark,
-                    alignSelf: 'stretch',
-                    justifyContent: 'center',
-                  },
-                ]}>
-                <Text
+              <View style={styles.overviewActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setScreenTab('activity')}
                   style={[
-                    styles.heroCtaText,
-                    { color: onPrimary, textAlign: 'center', fontFamily: pixelFontLoaded ? pixelFamily : undefined },
+                    styles.heroCta,
+                    {
+                      backgroundColor: primary,
+                      borderColor: primary,
+                      borderBottomColor: primaryDark,
+                      alignSelf: 'stretch',
+                      justifyContent: 'center',
+                    },
                   ]}>
-                  ▶  Start activity
-                </Text>
-              </Pressable>
+                  <Text
+                    style={[
+                      styles.heroCtaText,
+                      {
+                        color: onPrimary,
+                        textAlign: 'center',
+                        fontFamily: pixelFontLoaded ? pixelFamily : undefined,
+                      },
+                    ]}>
+                    ▶  Start activity
+                  </Text>
+                </Pressable>
+                <PrimaryButton
+                  label="Back to dashboard"
+                  variant="secondary"
+                  onPress={() => router.back()}
+                  disabled={isSyncing}
+                />
+              </View>
             </View>
           )}
 
@@ -641,13 +653,15 @@ export default function BreathingScreen() {
         </View>
       )}
 
-          <PrimaryButton
-            label="Back to dashboard"
-            variant="secondary"
-            onPress={() => router.back()}
-            disabled={isSyncing}
-            style={{ marginTop: Spacing.sm }}
-          />
+          {screenTab !== 'instructions' && (
+            <PrimaryButton
+              label="Back to dashboard"
+              variant="secondary"
+              onPress={() => router.back()}
+              disabled={isSyncing}
+              style={{ marginTop: Spacing.sm }}
+            />
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -697,6 +711,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 1,
+  },
+  overviewActions: {
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
   },
   bodyMuted: { fontSize: 13, lineHeight: 19, opacity: 0.88 },
   bulletPrompt: { fontSize: 13, lineHeight: 19, opacity: 0.88, marginTop: 6 },

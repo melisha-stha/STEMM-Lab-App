@@ -752,23 +752,39 @@ export default function SoundScreen() {
                 <OverviewStepByStep />
               </ColorPanel>
 
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setScreenTab('experiment')}
-                style={[
-                  styles.heroCta,
-                  {
-                    backgroundColor: primary,
-                    borderColor: primary,
-                    borderBottomColor: primaryDark,
-                    alignSelf: 'stretch',
-                    justifyContent: 'center',
-                  },
-                ]}>
-                <Text style={[styles.heroCtaText, { color: onPrimary, textAlign: 'center' }]}>
-                  ▶  Start experiment
-                </Text>
-              </Pressable>
+              <View style={styles.overviewActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setScreenTab('experiment')}
+                  style={[
+                    styles.heroCta,
+                    {
+                      backgroundColor: primary,
+                      borderColor: primary,
+                      borderBottomColor: primaryDark,
+                      alignSelf: 'stretch',
+                      justifyContent: 'center',
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.heroCtaText,
+                      {
+                        color: onPrimary,
+                        textAlign: 'center',
+                        fontFamily: pixelFontLoaded ? pixelFamily : undefined,
+                      },
+                    ]}>
+                    ▶  Start experiment
+                  </Text>
+                </Pressable>
+                <PrimaryButton
+                  label="Back to dashboard"
+                  variant="secondary"
+                  onPress={() => router.back()}
+                  disabled={isSyncing}
+                />
+              </View>
             </View>
           )}
 
@@ -917,6 +933,16 @@ export default function SoundScreen() {
               </ColorPanel>
             </View>
           )}
+
+          {screenTab !== 'overview' && (
+            <PrimaryButton
+              label="Back to dashboard"
+              variant="secondary"
+              onPress={() => router.back()}
+              disabled={isSyncing}
+              style={{ marginTop: Spacing.sm }}
+            />
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -1005,8 +1031,13 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm + 2,
   },
   heroCtaText: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.bold,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  overviewActions: {
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
   },
   equipmentIntro: {
     fontSize: FontSize.sm,
