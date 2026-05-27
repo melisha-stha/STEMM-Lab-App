@@ -323,7 +323,7 @@ return (
             {bounceMode === 'bounced' && (
               <View style={styles.markerRow}>
                 <Pressable disabled={!checkUnlocked('maxBounceFrame')} onPress={() => markEvent('maxBounceFrame')} style={[styles.markerBtn, { backgroundColor: markers.maxBounceFrame ? danger : card, borderColor: border }]}>
-                  <Text style={[styles.markerBtnText, { color: markers.maxBounceFrame ? '#fff' : text }]}>Mark Bounce Apex height 🔝</Text>
+                  <Text style={[styles.markerBtnText, { color: markers.maxBounceFrame ? '#fff' : text }]}>Mark Bounce Apex height</Text>
                 </Pressable>
                 {markers.maxBounceFrame !== null && (
                   <View style={styles.resultBadge}>

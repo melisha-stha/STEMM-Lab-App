@@ -1,11 +1,11 @@
 import { ActivityCard, type ActivityCardColour } from '@/components/ui/activity-card';
 import { AuthScreenBackground, useAuthScreenBackground } from '@/components/ui/auth-screen-background';
 import { ThemeModeToggle } from '@/components/ui/theme-mode-toggle';
-import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
+import { FontWeight, Radius, Spacing } from '@/constants/design';
 import { resolveAppRoute } from '@/hooks/app-routing';
 import { getTrials } from '@/hooks/database';
-import { usePixelFont } from '@/hooks/use-pixel-font';
 import { getTeamData } from '@/hooks/storage';
+import { usePixelFont } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { type Href, useRouter } from 'expo-router';
@@ -58,7 +58,7 @@ const ACTIVITIES: ActivityItem[] = [
     subtitle: 'Engineering · Physics',
     colour: 'mint',
     badge: 'Engineering',
-    route: '/parachute',
+    route: '/parachute' as Href,
     icon: 'flight-land',
     activityKey: 'parachute',
   },
@@ -67,7 +67,7 @@ const ACTIVITIES: ActivityItem[] = [
     subtitle: 'Health · Physics',
     colour: 'peach',
     badge: 'Health',
-    route: '/sound',
+    route: '/sound' as Href,
     icon: 'graphic-eq',
     activityKey: 'sound',
   },
@@ -76,7 +76,7 @@ const ACTIVITIES: ActivityItem[] = [
     subtitle: 'Engineering · Earth Science',
     colour: 'lavender',
     badge: 'Engineering',
-    route: '/earthquake',
+    route: '/earthquake' as Href,
     icon: 'domain',
     activityKey: 'earthquake',
   },
@@ -85,7 +85,7 @@ const ACTIVITIES: ActivityItem[] = [
     subtitle: 'Health · Neuroscience',
     colour: 'yellow',
     badge: 'Health',
-    route: '/reaction',
+    route: '/reaction' as Href,
     icon: 'flash-on',
     activityKey: 'reaction',
   },
@@ -94,7 +94,7 @@ const ACTIVITIES: ActivityItem[] = [
     subtitle: 'Health · Biology',
     colour: 'sky',
     badge: 'Health',
-    route: '/breathing',
+    route: '/breathing' as Href,
     icon: 'air',
     activityKey: 'breathing',
   },
@@ -103,7 +103,7 @@ const ACTIVITIES: ActivityItem[] = [
     subtitle: 'Engineering · Physics',
     colour: 'orange',
     badge: 'Engineering',
-    route: '/handfan',
+    route: '/handfan' as Href,
     icon: 'toys',
     activityKey: 'handfan',
   },
@@ -112,7 +112,7 @@ const ACTIVITIES: ActivityItem[] = [
     subtitle: 'Health · Biology',
     colour: 'pink',
     badge: 'Health',
-    route: '/performance',
+    route: '/performance' as Href,
     icon: 'directions-run',
     activityKey: 'performance',
   },
@@ -141,13 +141,13 @@ const MISSION_ICON: Record<string, keyof typeof MaterialIcons.glyphMap> = {
 };
 
 const MISSION_ROUTE: Record<string, Href> = {
-  parachute: '/parachute',
-  sound: '/sound',
-  earthquake: '/earthquake',
-  reaction: '/reaction',
-  breathing: '/breathing',
-  handfan: '/handfan',
-  performance: '/performance',
+  parachute: '/parachute' as Href,
+  sound: '/sound' as Href,
+  earthquake: '/earthquake' as Href,
+  reaction: '/reaction' as Href,
+  breathing: '/breathing' as Href,
+  handfan: '/handfan' as Href,
+  performance: '/performance' as Href,
 };
 
 const MISSION_HEADLINE: Record<string, { stream: string; action: string }> = {
@@ -253,33 +253,37 @@ export default function HomeScreen() {
   const { overlayColor, imageOpacity } = useAuthScreenBackground();
 
   const background = useThemeColor({}, 'background');
-  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
+  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary' as any) ?? '#F2F2F7';
   const text = useThemeColor({}, 'text');
-  const textSecondary = useThemeColor({}, 'textSecondary');
+  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#8E8E93';
   const onPrimary = useThemeColor({}, 'onPrimary');
   const primary = useThemeColor({}, 'primary');
-  const primarySoft = useThemeColor({}, 'primarySoft');
-  const primaryDark = useThemeColor({}, 'primaryDark');
-  const gold = useThemeColor({}, 'gold');
-  const onGold = useThemeColor({}, 'onGold');
+  const primarySoft = useThemeColor({}, 'primarySoft' as any) ?? '#F3E8FF';
+  const primaryDark = useThemeColor({}, 'primaryDark' as any) ?? '#6B21A8';
+  const gold = useThemeColor({}, 'gold' as any) ?? '#EAB308';
+  const onGold = useThemeColor({}, 'onGold' as any) ?? '#FFFFFF';
   const border = useThemeColor({}, 'border');
-  const cardLavender = useThemeColor({}, 'cardLavender');
-  const cardLavenderBorder = useThemeColor({}, 'cardLavenderBorder');
-  const cardLavenderShadow = useThemeColor({}, 'cardLavenderShadow');
-  const cardLavenderText = useThemeColor({}, 'cardLavenderText');
-  const cardLavenderDecor = useThemeColor({}, 'cardLavenderDecor');
-  const cardMint = useThemeColor({}, 'cardMint');
-  const cardMintBorder = useThemeColor({}, 'cardMintBorder');
-  const cardMintShadow = useThemeColor({}, 'cardMintShadow');
-  const cardMintText = useThemeColor({}, 'cardMintText');
-  const cardYellow = useThemeColor({}, 'cardYellow');
-  const cardYellowBorder = useThemeColor({}, 'cardYellowBorder');
-  const cardYellowShadow = useThemeColor({}, 'cardYellowShadow');
-  const cardYellowText = useThemeColor({}, 'cardYellowText');
-  const missionBadgeBg = useThemeColor({}, 'missionBadgeBg');
-  const missionIconBg = useThemeColor({}, 'missionIconBg');
-  const missionIconBorder = useThemeColor({}, 'missionIconBorder');
-  const cardIconBg = useThemeColor({}, 'cardIconBg');
+  
+  const cardLavender = useThemeColor({}, 'cardLavender' as any) ?? '#E8E8FF';
+  const cardLavenderBorder = useThemeColor({}, 'cardLavenderBorder' as any) ?? '#C7C7FF';
+  const cardLavenderShadow = useThemeColor({}, 'cardLavenderShadow' as any) ?? '#A3A3FF';
+  const cardLavenderText = useThemeColor({}, 'cardLavenderText' as any) ?? '#4338CA';
+  const cardLavenderDecor = useThemeColor({}, 'cardLavenderDecor' as any) ?? '#818CF8';
+  
+  const cardMint = useThemeColor({}, 'cardMint' as any) ?? '#E6F4EA';
+  const cardMintBorder = useThemeColor({}, 'cardMintBorder' as any) ?? '#34A853';
+  const cardMintShadow = useThemeColor({}, 'cardMintShadow' as any) ?? '#137333';
+  const cardMintText = useThemeColor({}, 'cardMintText' as any) ?? '#137333';
+  
+  const cardYellow = useThemeColor({}, 'cardYellow' as any) ?? '#FEF7E0';
+  const cardYellowBorder = useThemeColor({}, 'cardYellowBorder' as any) ?? '#FBBC04';
+  const cardYellowShadow = useThemeColor({}, 'cardYellowShadow' as any) ?? '#B06000';
+  const cardYellowText = useThemeColor({}, 'cardYellowText' as any) ?? '#B06000';
+  
+  const missionBadgeBg = useThemeColor({}, 'missionBadgeBg' as any) ?? 'rgba(0,0,0,0.05)';
+  const missionIconBg = useThemeColor({}, 'missionIconBg' as any) ?? '#FFFFFF';
+  const missionIconBorder = useThemeColor({}, 'missionIconBorder' as any) ?? '#E5E5EA';
+  const cardIconBg = useThemeColor({}, 'cardIconBg' as any) ?? 'rgba(0,0,0,0.03)';
 
   const progressAnim = useRef(new Animated.Value(0)).current;
 
@@ -365,7 +369,7 @@ export default function HomeScreen() {
 
   const handleMissionStart = () => {
     if (missionComingSoon) {
-      Alert.alert('Coming Soon', 'Coming Soon! This activity is being built. Check back soon!');
+      Alert.alert('Coming Soon', 'This activity is being built. Check back soon!');
       return;
     }
     router.push(missionRoute);
@@ -551,8 +555,8 @@ export default function HomeScreen() {
                   colour={activity.colour}
                   badge={activity.badge}
                   icon={activity.icon}
-                  completed={false}
-                  comingSoon={false}
+                  completed={completedActivities.has(activity.activityKey)}
+                  comingSoon={activity.comingSoon ?? false}
                   onPress={() => handleActivityPress(activity)}
                 />
               ))}

@@ -35,35 +35,43 @@ export default function TabLayout() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
+  const themeColors = colors as any;
+
+  const activeColor = themeColors?.tabBar?.active ?? themeColors?.primary ?? '#A855F7';
+  const inactiveColor = themeColors?.tabBar?.inactive ?? themeColors?.mutedText ?? '#8E8E93';
+  const tabBgColor = themeColors?.tabBar?.background ?? themeColors?.card ?? (colorScheme === 'dark' ? '#121212' : '#FFFFFF');
+  const borderColor = themeColors?.border ?? '#E5E5EA';
+  const shadowColor = themeColors?.shadow ?? '#000000';
+
   const renderIcon = (name: TabIconName) =>
     ({ color, focused }: { color: string; focused: boolean }) => (
       <TabBarIcon
         name={name}
         color={color}
         focused={focused}
-        activeColor={colors.tabBarActive}
+        activeColor={activeColor}
       />
     );
 
-  return (
+return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={styles.tabs}>
         <Tabs
           screenOptions={{
-            tabBarActiveTintColor: colors.tabBarActive,
-            tabBarInactiveTintColor: colors.tabBarInactive,
+            tabBarActiveTintColor: activeColor,
+            tabBarInactiveTintColor: inactiveColor,
             headerShown: false,
             tabBarButton: HapticTab,
             tabBarStyle: {
-              backgroundColor: colors.tabBar,
+              backgroundColor: tabBgColor,
               borderTopWidth: 1,
-              borderTopColor: colors.border,
+              borderTopColor: borderColor,
               borderRadius: Radius.xl,
               marginHorizontal: Spacing.md,
               marginBottom: Spacing.md,
               height: 64,
               position: 'absolute',
-              shadowColor: colors.shadow,
+              shadowColor: shadowColor,
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: colorScheme === 'light' ? 0.1 : 0.25,
               shadowRadius: 16,
@@ -108,8 +116,6 @@ export default function TabLayout() {
               tabBarIcon: renderIcon('groups'),
             }}
           />
-          <Tabs.Screen name="earthquake" options={{ href: null }} />
-          <Tabs.Screen name="breathing" options={{ href: null }} />
         </Tabs>
       </View>
     </View>

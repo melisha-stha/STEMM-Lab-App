@@ -135,6 +135,78 @@ export const getBreathingResults = async () => {
   }
 };
 
+const SOUND_RESULTS_KEY = '@sound_results';
+
+export const saveSoundResults = async (payload) => {
+  try {
+    const existing = await AsyncStorage.getItem(SOUND_RESULTS_KEY);
+    const history = existing ? JSON.parse(existing) : [];
+    const next = Array.isArray(history) ? [payload, ...history] : [payload];
+    await AsyncStorage.setItem(SOUND_RESULTS_KEY, JSON.stringify(next));
+    console.log('Success: Sound results saved.');
+  } catch (e) {
+    console.error('Failed to save sound results', e);
+  }
+};
+
+export const getSoundResults = async () => {
+  try {
+    const existing = await AsyncStorage.getItem(SOUND_RESULTS_KEY);
+    return existing ? JSON.parse(existing) : [];
+  } catch (e) {
+    console.error('Failed to load sound results', e);
+    return [];
+  }
+};
+
+const PERFORMANCE_RESULTS_KEY = '@performance_results';
+
+export const savePerformanceResults = async (payload) => {
+  try {
+    const existing = await AsyncStorage.getItem(PERFORMANCE_RESULTS_KEY);
+    const history = existing ? JSON.parse(existing) : [];
+    const next = Array.isArray(history) ? [payload, ...history] : [payload];
+    await AsyncStorage.setItem(PERFORMANCE_RESULTS_KEY, JSON.stringify(next));
+    console.log('Success: Performance results saved.');
+  } catch (e) {
+    console.error('Failed to save performance results', e);
+  }
+};
+
+export const getPerformanceResults = async () => {
+  try {
+    const existing = await AsyncStorage.getItem(PERFORMANCE_RESULTS_KEY);
+    return existing ? JSON.parse(existing) : [];
+  } catch (e) {
+    console.error('Failed to load performance results', e);
+    return [];
+  }
+};
+
+const HANDFAN_RESULTS_KEY = '@handfan_results';
+
+export const saveHandFanResults = async (payload) => {
+  try {
+    const existing = await AsyncStorage.getItem(HANDFAN_RESULTS_KEY);
+    const history = existing ? JSON.parse(existing) : [];
+    const next = Array.isArray(history) ? [payload, ...history] : [payload];
+    await AsyncStorage.setItem(HANDFAN_RESULTS_KEY, JSON.stringify(next));
+    console.log('Success: Hand Fan results saved.');
+  } catch (e) {
+    console.error('Failed to save hand fan results', e);
+  }
+};
+
+export const getHandFanResults = async () => {
+  try {
+    const existing = await AsyncStorage.getItem(HANDFAN_RESULTS_KEY);
+    return existing ? JSON.parse(existing) : [];
+  } catch (e) {
+    console.error('Failed to load hand fan results', e);
+    return [];
+  }
+};
+
 const COLOR_SCHEME_KEY = '@app_color_scheme';
 
 /** @returns {'light' | 'dark' | null} */
