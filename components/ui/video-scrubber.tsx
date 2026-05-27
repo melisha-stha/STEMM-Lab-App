@@ -1,3 +1,4 @@
+import { usePanelFieldColors } from '@/components/ui/activity-color-panel';
 import { Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -92,11 +93,9 @@ export function VideoScrubber({ uri, onMarkersChange }: Props) {
     maxBounceFrame: null,
   });
 
-  const text = useThemeColor({}, 'text');
-  const mutedText = useThemeColor({}, 'mutedText');
-  const border = useThemeColor({}, 'border');
+  const { foreground: text, muted: mutedText, surface: card, border, onPanel } =
+    usePanelFieldColors();
   const primary = useThemeColor({}, 'primary');
-  const card = useThemeColor({}, 'card');
   const success = useThemeColor({}, 'success');
   const warning = useThemeColor({}, 'warning');
   const danger = useThemeColor({}, 'danger');
@@ -223,7 +222,7 @@ return (
         })}
       </Pressable>
 
-      <Text style={[styles.timeLabel, { color: mutedText }]}>
+      <Text style={[styles.timeLabel, { color: mutedText, opacity: onPanel ? 0.8 : 1 }]}>
         Frame: {currentFrameIndex}f / {totalFrameCount}f ({fmtTime(positionMs)})
       </Text>
 
@@ -303,7 +302,7 @@ return (
 
         {/* Embedded Physics Case Switcher */}
         {markers.stopFrame !== null && (
-          <View style={styles.inlineProfileStack}>
+          <View style={[styles.inlineProfileStack, { backgroundColor: card, borderColor: border }]}>
             <View style={styles.profileHeadingRow}>
               <Text style={[styles.profileHeading, { color: text }]}>Collision Rebound Profile</Text>
               <HelpButton
@@ -378,7 +377,7 @@ const styles = StyleSheet.create({
   },
   markerBtnText: { ...Typography.small, fontWeight: '700' },
   resultBadge: { flexDirection: 'row', alignItems: 'center', minWidth: 80, justifyContent: 'flex-end' },
-  inlineProfileStack: { marginTop: Spacing.sm, padding: Spacing.sm, backgroundColor: 'rgba(0,0,0,0.01)', borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)', gap: Spacing.xs },
+  inlineProfileStack: { marginTop: Spacing.sm, padding: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, gap: Spacing.xs },
   profileHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   profileHeading: { ...Typography.small, fontWeight: 'bold', flex: 1 },
   toggleRow: { flexDirection: 'row', gap: Spacing.xs, marginVertical: 2 },

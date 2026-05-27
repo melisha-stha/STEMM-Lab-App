@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { usePanelFieldColors } from '@/components/ui/activity-color-panel';
 import { Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
@@ -11,14 +12,13 @@ type Props = {
 };
 
 export function AttemptRow({ index, value, isLast }: Props) {
-  const border = useThemeColor({}, 'border');
-  const mutedText = useThemeColor({}, 'mutedText');
+  const { foreground, muted, border, onPanel } = usePanelFieldColors();
   const primary = useThemeColor({}, 'primary');
 
   return (
     <View style={[styles.row, { borderBottomColor: border }, isLast ? styles.last : null]}>
-      <Text style={[styles.left, { color: mutedText }]}>Attempt {index}</Text>
-      <Text style={[styles.right, { color: primary }]}>{value}</Text>
+      <Text style={[styles.left, { color: muted, opacity: onPanel ? 0.75 : 1 }]}>Attempt {index}</Text>
+      <Text style={[styles.right, { color: onPanel ? border : primary }]}>{value}</Text>
     </View>
   );
 }

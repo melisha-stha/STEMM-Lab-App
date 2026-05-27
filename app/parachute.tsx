@@ -12,6 +12,10 @@ import {
   ParachuteScreenBackground,
   useParachuteScreenBackground,
 } from '@/components/ui/parachute-screen-background';
+import {
+  EXPERIMENT_CHALLENGE_LIMIT_MS,
+  ExperimentChallengeTimer,
+} from '@/components/ui/experiment-challenge-timer';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { VideoScrubber } from '@/components/ui/video-scrubber';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
@@ -23,7 +27,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -514,6 +518,64 @@ export default function ParachuteScreen() {
     gForce: number;
   } | null>(null);
 
+  const [challengeTimerStarted, setChallengeTimerStarted] = useState(false);
+  const [challengeTimerRunning, setChallengeTimerRunning] = useState(false);
+  const [challengeTimerFinished, setChallengeTimerFinished] = useState(false);
+  const [challengeRemainingMs, setChallengeRemainingMs] = useState(EXPERIMENT_CHALLENGE_LIMIT_MS);
+  const challengeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearChallengeInterval = useCallback(() => {
+    if (challengeIntervalRef.current) {
+      clearInterval(challengeIntervalRef.current);
+      challengeIntervalRef.current = null;
+    }
+  }, []);
+
+  const stopChallengeTimer = useCallback(() => {
+    clearChallengeInterval();
+    setChallengeTimerRunning(false);
+    setChallengeTimerFinished(true);
+  }, [clearChallengeInterval]);
+
+  const runChallengeInterval = useCallback(() => {
+    const endAt = Date.now() + challengeRemainingMs;
+    challengeIntervalRef.current = setInterval(() => {
+      const next = Math.max(0, endAt - Date.now());
+      setChallengeRemainingMs(next);
+      if (next <= 0) {
+        clearChallengeInterval();
+        setChallengeTimerRunning(false);
+      }
+    }, 250);
+  }, [challengeRemainingMs, clearChallengeInterval]);
+
+  const startChallengeTimer = useCallback(() => {
+    if (challengeTimerFinished || challengeTimerRunning) return;
+    setChallengeTimerStarted(true);
+    setChallengeTimerRunning(true);
+    runChallengeInterval();
+  }, [challengeTimerFinished, challengeTimerRunning, runChallengeInterval]);
+
+  const pauseChallengeTimer = useCallback(() => {
+    if (!challengeTimerRunning) return;
+    clearChallengeInterval();
+    setChallengeTimerRunning(false);
+  }, [challengeTimerRunning, clearChallengeInterval]);
+
+  const resumeChallengeTimer = useCallback(() => {
+    if (challengeTimerFinished || challengeTimerRunning || challengeRemainingMs <= 0) return;
+    setChallengeTimerStarted(true);
+    setChallengeTimerRunning(true);
+    runChallengeInterval();
+  }, [
+    challengeRemainingMs,
+    challengeTimerFinished,
+    challengeTimerRunning,
+    runChallengeInterval,
+  ]);
+
+  useEffect(() => () => clearChallengeInterval(), [clearChallengeInterval]);
+
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
   const textSecondary = useThemeColor({}, 'textSecondary');
@@ -687,6 +749,8 @@ export default function ParachuteScreen() {
         ),
       ]);
 
+      stopChallengeTimer();
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🚀 STEMM Lab Sync Complete',
@@ -785,6 +849,20 @@ export default function ParachuteScreen() {
 
           {screenTab === 'experiment' && (
             <View style={styles.tabContent}>
+              <ColorPanel colour="mint">
+                <ExperimentChallengeTimer
+                  pixelFamily={pixelFontLoaded ? pixelFamily : undefined}
+                  started={challengeTimerStarted}
+                  running={challengeTimerRunning}
+                  finished={challengeTimerFinished}
+                  remainingMs={challengeRemainingMs}
+                  onStart={startChallengeTimer}
+                  onPause={pauseChallengeTimer}
+                  onResume={resumeChallengeTimer}
+                  onStop={stopChallengeTimer}
+                />
+              </ColorPanel>
+
               <View style={styles.statusRow}>
                 <View style={[styles.statusPill, { backgroundColor: primarySoft }]}>
                   <MaterialIcons name="location-on" size={14} color={primary} />
