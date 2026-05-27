@@ -57,8 +57,8 @@ const TARGET_LIFESPAN_MS = 2400;
 const BOARD_SIZE = Math.min(SCREEN_WIDTH - 40, 340);
 const GRID_CELL_SIZE = 70; 
 
-const TRACE_DURATION_MS = 10000; // 10 seconds total for a complete tracing loop circuit
-const TARGET_SIZE = 44; // Made larger for a better physical touch footprint
+const TRACE_DURATION_MS = 10000; 
+const TARGET_SIZE = 44; 
 
 type ScreenTab = 'instructions' | 'activity' | 'discussion';
 type ActivityPhase = 1 | 2 | 3;
@@ -150,8 +150,9 @@ const formatTrialSubtitle = (item: ExtendedReactionAttempt): string => {
   return `Avg ${item.reactionTime}ms · ${item.totalHits ?? 0} hits`;
 };
 
-const hasAllPhasesRecorded = (trialAttempts: ExtendedReactionAttempt[]): boolean => {
-  const phases = new Set(trialAttempts.map((a) => a.phase));
+const hasAllPhasesRecorded = (trialAttempts: ExtendedReactionAttempt[], name: string): boolean => {
+  const currentAttempts = trialAttempts.filter(a => a.memberName === name.trim());
+  const phases = new Set(currentAttempts.map((a) => a.phase));
   return phases.has(1) && phases.has(2) && phases.has(3);
 };
 
@@ -210,8 +211,8 @@ function PhaseActivityGuide({ phase }: { phase: ActivityPhase }) {
 
 function OverviewConductExperiment() {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
-  const success = useThemeColor({}, 'success');
-  const error = useThemeColor({}, 'error');
+  const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
+  const error = useThemeColor({}, 'error' as any) ?? '#F44336';
 
   const [checked, setChecked] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
@@ -270,7 +271,7 @@ function OverviewConductExperiment() {
       {allGathered ? (
         <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
           <MaterialIcons name="celebration" size={20} color={success} />
-          <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
+          <Text style={[styles.equipmentStatusText, { color: success }]}>You are good to go!</Text>
         </View>
       ) : hasStartedSelecting ? (
         <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
@@ -433,7 +434,7 @@ function ReactionRoundArena({
           />
           {!roundActive && (
             <Text style={[styles.tracingPlaceholderText, { color: textColor, opacity: 0.6 }]}>
-              Hold & drag finger here
+              Hold and drag finger here
             </Text>
           )}
         </View>
@@ -491,13 +492,12 @@ export default function ReactionScreen() {
   const [challengeRemainingMs, setChallengeRemainingMs] = useState(EXPERIMENT_CHALLENGE_LIMIT_MS);
   const challengeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Tracing State Variables
   const [targetPos, setTargetPos] = useState({ x: BOARD_SIZE / 2, y: BOARD_SIZE / 2 });
   const [liveAccuracy, setLiveAccuracy] = useState<number | null>(null);
 
   const fingerPosRef = useRef({ x: 0, y: 0 });
   const traceMetricsRef = useRef({ totalSamples: 0, matchingSamples: 0, accumulatedDelayMs: 0 });
-  const arenaLayoutRef = useRef({ x: 0, y: 0 }); // Tracks where the board sits on screen dynamically
+  const arenaLayoutRef = useRef({ x: 0, y: 0 }); 
   
   const currentRoundDeltasRef = useRef<number[]>([]);
   const cellSpawnTimesRef = useRef<Record<number, number>>({});
@@ -509,9 +509,10 @@ export default function ReactionScreen() {
   const text = useThemeColor({}, 'text');
   const border = useThemeColor({}, 'border');
   const primary = useThemeColor({}, 'primary');
-  const primaryDark = useThemeColor({}, 'primaryDark');
-  const primarySoft = useThemeColor({}, 'primarySoft');
+  const primaryDark = useThemeColor({}, 'primaryDark' as any) ?? '#6B21A8';
+  const primarySoft = useThemeColor({}, 'primarySoft' as any) ?? '#F3E8FF';
   const onPrimary = useThemeColor({}, 'onPrimary');
+
   const clearChallengeInterval = useCallback(() => {
     if (challengeIntervalRef.current) {
       clearInterval(challengeIntervalRef.current);
@@ -583,11 +584,8 @@ export default function ReactionScreen() {
 
     const spawnTime = cellSpawnTimesRef.current[index] || Date.now();
     const delta = Date.now() - spawnTime;
-    const currentName = memberName.trim();
 
-    // Push reaction time quietly into tracking reference array
     currentRoundDeltasRef.current.push(delta);
-
     setActiveCellIndices((prev) => prev.filter((id) => id !== index));
     delete cellSpawnTimesRef.current[index];
   };
@@ -643,9 +641,9 @@ export default function ReactionScreen() {
           if (totalHits > 0) {
             const avgReaction = Math.round(currentRoundDeltasRef.current.reduce((acc, d) => acc + d, 0) / totalHits);
             setAttempts((prev) => [...prev, { memberName: currentName, phase: activePhase, reactionTime: avgReaction, totalHits }]);
-            setLastMetricsText(`🎯 Round Finished! Total Hits: ${totalHits} · Avg Speed: ${avgReaction}ms`);
+            setLastMetricsText(`Round Finished! Total Hits: ${totalHits} · Avg Speed: ${avgReaction}ms`);
           } else {
-            setLastMetricsText("⏰ Time's Up! No targets were tapped.");
+            setLastMetricsText("Times Up! No targets were tapped.");
           }
           return 0;
         }
@@ -654,7 +652,6 @@ export default function ReactionScreen() {
     }, 100);
   };
 
-  // ✅ PERFECTED CALIBRATION: Uses page geometry coordinates minus the container's absolute layout offset position
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -688,7 +685,6 @@ export default function ReactionScreen() {
     traceAnimationRef.current = setInterval(() => {
       elapsed += 40;
       
-      // Infinite figure-eight infinity path loop curve trajectory formula
       const theta = (elapsed / 1500) * Math.PI;
       const tx = centerPoint + radiusRadius * Math.cos(theta) - TARGET_SIZE / 2;
       const ty = centerPoint + (radiusRadius * Math.sin(2 * theta)) / 2 - TARGET_SIZE / 2;
@@ -700,13 +696,11 @@ export default function ReactionScreen() {
       const deltaY = Math.abs(fingerPosRef.current.y - (ty + TARGET_SIZE / 2));
       const distance = Math.sqrt(deltaX ** 2 + deltaY ** 2);
 
-      // Increased threshold radius tolerance margin for easier tracing and better feedback
       if (distance <= 85) {
         traceMetricsRef.current.matchingSamples += 1;
       }
       traceMetricsRef.current.accumulatedDelayMs += Math.round(distance * 1.2);
 
-      // Real-time responsive visual score updates
       const samples = traceMetricsRef.current.totalSamples;
       const currentAcc = Math.round((traceMetricsRef.current.matchingSamples / samples) * 100);
       setLiveAccuracy(currentAcc);
@@ -717,13 +711,14 @@ export default function ReactionScreen() {
         setScrollEnabled(true);
 
         const computedDelay = Math.round(traceMetricsRef.current.accumulatedDelayMs / samples);
+        const currentName = memberName.trim();
 
         setAttempts((prev) => [
-          ...prev.filter((a) => !(a.memberName === memberName.trim() && a.phase === 3)),
-          { memberName: memberName.trim(), phase: 3, accuracyPercent: currentAcc, delayMs: computedDelay },
+          ...prev.filter((a) => !(a.memberName === currentName && a.phase === 3)),
+          { memberName: currentName, phase: 3, accuracyPercent: currentAcc, delayMs: computedDelay },
         ]);
 
-        setLastMetricsText(`🎉 Analysis Ready! Target Accuracy: ${currentAcc}% · Delta Lag: ${computedDelay}ms`);
+        setLastMetricsText(`Analysis Ready! Target Accuracy: ${currentAcc}% · Delta Lag: ${computedDelay}ms`);
       }
     }, 40);
   };
@@ -731,19 +726,45 @@ export default function ReactionScreen() {
   const uploadEntireManifestDataset = async () => {
     const user = auth.currentUser;
     if (!user) return Alert.alert('Authentication Required', 'Log in to save your cloud lab configurations.');
-    if (!hasAllPhasesRecorded(attempts)) {
+    
+    const currentName = memberName.trim();
+    if (!hasAllPhasesRecorded(attempts, currentName)) {
       return Alert.alert(
         'Complete all phases',
-        'Record at least one trial for Phase 1, Phase 2, and Phase 3 before uploading.'
+        'Record a trial for Phase 1, Phase 2, and Phase 3 before uploading.'
       );
     }
+    
     setIsSyncing(true);
     try {
       const teamInfo = await getTeamData();
-      const mappedPayload = attempts.map((a) => ({ phase: a.phase, reactionTime: a.reactionTime ?? a.delayMs ?? null, tooEarly: false })) as any[];
+      const userAttempts = attempts.filter(a => a.memberName === currentName);
+      
+      const mappedPayload = userAttempts.map((a) => ({
+        phase: a.phase,
+        reactionTime: a.reactionTime ?? a.delayMs ?? 0,
+        tooEarly: false,
+        accuracyPercent: a.accuracyPercent ?? null,
+      }));
+      
       await uploadReactionResult(user.uid, teamInfo, mappedPayload, null);
       stopChallengeTimer();
-      Alert.alert('Sync Complete', 'Your results have been uploaded successfully!');
+      
+      Alert.alert(
+        'Sync Complete', 
+        'Your results have been uploaded successfully!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              router.push({
+                pathname: '/reaction-results' as any,
+                params: { attemptsJson: JSON.stringify(mappedPayload) },
+              });
+            }
+          }
+        ]
+      );
     } catch {
       Alert.alert('Upload Error', 'Failed to connect to the database module.');
     } finally {
@@ -758,8 +779,10 @@ export default function ReactionScreen() {
     );
   };
 
-  const allPhasesComplete = hasAllPhasesRecorded(attempts);
-  const phasesRecordedCount = new Set(attempts.map((a) => a.phase)).size;
+  const currentName = memberName.trim();
+  const allPhasesComplete = hasAllPhasesRecorded(attempts, currentName);
+  const userAttempts = attempts.filter(a => a.memberName === currentName);
+  const phasesRecordedCount = new Set(userAttempts.map((a) => a.phase)).size;
   const timeBarWidthPercent = `${Math.max(0, Math.min(100, (timeLeftMs / ROUND_DURATION_MS) * 100))}%`;
 
   return (
@@ -808,7 +831,7 @@ export default function ReactionScreen() {
                 {pixelFontLoaded ? <OverviewHeroTitle pixelFamily={pixelFamily} /> : null}
                 <PanelMuted style={styles.heroSubtitle}>Health · Neuroscience</PanelMuted>
                 <PanelMuted style={styles.heroBody}>
-                  Measure reaction speed and hand–eye coordination across three phases — dominant
+                  Measure reaction speed and hand eye coordination across three phases — dominant
                   hand, non-dominant hand, then tracing a moving target.
                 </PanelMuted>
                 <Pressable
@@ -822,7 +845,7 @@ export default function ReactionScreen() {
                       borderBottomColor: primaryDark,
                     },
                   ]}>
-                  <Text style={[styles.heroCtaText, { color: onPrimary }]}>▶  Start activity</Text>
+                  <Text style={[styles.heroCtaText, { color: onPrimary }]}>Start activity</Text>
                 </Pressable>
               </ColorPanel>
 
@@ -905,7 +928,6 @@ export default function ReactionScreen() {
                 <ReactionRoundArena
                   activePhase={activePhase}
                   roundActive={roundActive}
-                  memberName={memberName}
                   timeLeftMs={timeLeftMs}
                   timeBarWidthPercent={timeBarWidthPercent}
                   liveAccuracy={liveAccuracy}
@@ -924,28 +946,28 @@ export default function ReactionScreen() {
               </StepPanel>
 
               <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Trial records">
-                {attempts.length === 0 ? (
-                  <PanelMuted style={styles.emptyHint}>No trials recorded yet.</PanelMuted>
+                {userAttempts.length === 0 ? (
+                  <PanelMuted style={styles.emptyHint}>No trials recorded yet for this student.</PanelMuted>
                 ) : (
                   <View style={styles.attemptsWrap}>
-                    {attempts.map((item, index) => (
+                    {userAttempts.map((item, index) => (
                       <AttemptRow
                         key={`${item.memberName}-${item.phase}-${index}`}
                         index={index + 1}
                         title={`${item.memberName} · Phase ${item.phase}`}
                         subtitle={formatTrialSubtitle(item)}
-                        isLast={index === attempts.length - 1}
+                        isLast={index === userAttempts.length - 1}
                       />
                     ))}
                   </View>
                 )}
-                {attempts.length > 0 && !allPhasesComplete && (
+                {userAttempts.length > 0 && !allPhasesComplete && (
                   <PanelMuted style={[styles.uploadHint, { marginTop: Spacing.sm }]}>
                     Record a trial for each phase (1, 2, and 3) before uploading to finish the
                     challenge timer.
                   </PanelMuted>
                 )}
-                {attempts.length > 0 && (
+                {userAttempts.length > 0 && (
                   <PrimaryButton
                     style={{ marginTop: Spacing.md }}
                     label={isSyncing ? 'Uploading...' : 'Upload records'}
