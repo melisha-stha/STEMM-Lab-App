@@ -7,7 +7,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Callout, Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { Callout, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 interface Trial {
   id: number;
@@ -113,7 +113,7 @@ export default function MapScreen() {
           ) : (
             <MapView
               style={styles.map}
-              provider={PROVIDER_DEFAULT}
+              provider={PROVIDER_GOOGLE}
               initialRegion={initialRegion}
               showsUserLocation
               showsMyLocationButton
