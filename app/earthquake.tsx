@@ -1,3 +1,4 @@
+import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
 import {
   ColorPanel,
   PanelMuted,
@@ -10,6 +11,10 @@ import {
   EarthquakeScreenBackground,
   useEarthquakeScreenBackground,
 } from '@/components/ui/earthquake-screen-background';
+import {
+  EXPERIMENT_CHALLENGE_LIMIT_MS,
+  ExperimentChallengeTimer,
+} from '@/components/ui/experiment-challenge-timer';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { insertTrial } from '@/hooks/database';
@@ -21,7 +26,7 @@ import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { Accelerometer, Gyroscope } from 'expo-sensors';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -84,16 +89,43 @@ const DESIGN_CONFIGURATIONS = [
 ] as const;
 
 const EQUIPMENT_ITEMS = [
-  'Cardboard, paper, scissors, sticky tape, plastic or paper cups',
-  'Mobile phone with vibration sensor (STEMM Lab app)',
+  'Cardboard, paper, scissors, and sticky tape',
+  'Plastic or paper cups (for pillars)',
+  'Mobile phone with STEMM Lab app',
 ];
 
 const INSTRUCTION_STEPS = [
   'Build an anti-vibration layer by folding paper or cardboard.',
-  'Place a flat cardboard platform on top.',
-  'Place the phone in the centre and start the shaker test in the app.',
-  'Modify the structure to reduce movement (more pillars, more folds, etc.).',
+  'Place a flat cardboard platform on top with the phone in the centre.',
+  'Run the shaker test in the app for each of the three structure designs.',
+  'Modify folds and pillars between tests to reduce movement.',
+  'Upload your results when all three designs are logged.',
 ];
+
+const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = ['lavender', 'sky', 'lavender'];
+
+type StepPanelProps = {
+  step: number;
+  title: string;
+  colour?: ActivityCardColour;
+  children: React.ReactNode;
+};
+
+function StepPanel({ step, title, colour = 'lavender', children }: StepPanelProps) {
+  const { textColor, cardIconBg, borderColor } = useActivityCardColours(colour);
+
+  return (
+    <ColorPanel colour={colour}>
+      <View style={styles.stepHeader}>
+        <View style={[styles.stepBadge, { backgroundColor: cardIconBg }]}>
+          <Text style={[styles.stepBadgeText, { color: borderColor }]}>Step {step}</Text>
+        </View>
+        <Text style={[styles.stepTitle, { color: textColor }]}>{title}</Text>
+      </View>
+      <View style={styles.stepBody}>{children}</View>
+    </ColorPanel>
+  );
+}
 
 const calculateStabilityScore = (gyro: SensorVector, accel: SensorVector): number => {
   const gyroMagnitude = Math.sqrt(gyro.x ** 2 + gyro.y ** 2 + gyro.z ** 2);
@@ -119,8 +151,10 @@ const formatTime = (ms: number): string => {
   return `${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
 };
 
-const formatAttemptValue = (attempt: EarthquakeAttempt): string =>
-  `${attempt.designName} · ${attempt.score} pts · ${formatTime(attempt.duration)}s`;
+const shortDesignLabel = (designName: string): string => designName.split(' (')[0] ?? designName;
+
+const formatAttemptMetrics = (attempt: EarthquakeAttempt): string =>
+  `${attempt.score} pts · ${formatTime(attempt.duration)}s`;
 
 function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
   const { textColor } = usePanelTheme();
@@ -145,20 +179,6 @@ function OverviewDiagramFrame() {
   );
 }
 
-function OverviewEquipmentList() {
-  const { textColor, borderColor } = usePanelTheme();
-  return (
-    <View style={styles.listContainer}>
-      {EQUIPMENT_ITEMS.map((item) => (
-        <View key={item} style={styles.listRow}>
-          <MaterialIcons name="check-circle" size={16} color={borderColor} />
-          <Text style={[styles.listItem, { color: textColor, opacity: 0.85 }]}>{item}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 function OverviewInstructionList() {
   const { textColor, cardIconBg, borderColor } = usePanelTheme();
   return (
@@ -175,19 +195,116 @@ function OverviewInstructionList() {
   );
 }
 
-type StructureDesignsPanelProps = {
-  designName: string;
-  attempts: EarthquakeAttempt[];
-  primary: string;
-  success: string;
-};
-
-function StructureDesignsPanel({ designName, attempts, primary, success }: StructureDesignsPanelProps) {
+function OverviewConductExperiment() {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const success = useThemeColor({}, 'success');
+  const error = useThemeColor({}, 'error');
+
+  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
+  );
+
+  const missingItems = EQUIPMENT_ITEMS.filter((item) => !checked[item]);
+  const allGathered = missingItems.length === 0;
+  const hasStartedSelecting = EQUIPMENT_ITEMS.some((item) => checked[item]);
+
+  const toggleEquipment = (item: string) => {
+    setChecked((prev) => ({ ...prev, [item]: !prev[item] }));
+  };
 
   return (
     <>
-      <PanelTitle>Structure designs</PanelTitle>
+      <PanelTitle>How to conduct the experiment</PanelTitle>
+      <PanelMuted style={styles.equipmentIntro}>First, gather all this equipment:</PanelMuted>
+      <PanelMuted style={styles.equipmentSelectHint}>
+        Select all equipment you have gathered
+      </PanelMuted>
+
+      <View style={styles.equipmentChecklist}>
+        {EQUIPMENT_ITEMS.map((item) => {
+          const isChecked = checked[item];
+          return (
+            <Pressable
+              key={item}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isChecked }}
+              accessibilityLabel={item}
+              onPress={() => toggleEquipment(item)}
+              style={[
+                styles.equipmentCheckRow,
+                {
+                  borderColor: isChecked ? success : borderColor,
+                  backgroundColor: cardIconBg,
+                },
+              ]}>
+              <MaterialIcons
+                name={isChecked ? 'check-box' : 'check-box-outline-blank'}
+                size={22}
+                color={isChecked ? success : borderColor}
+              />
+              <Text
+                style={[
+                  styles.equipmentCheckLabel,
+                  { color: textColor, fontWeight: isChecked ? '700' : '500' },
+                ]}>
+                {item}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {allGathered ? (
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
+          <MaterialIcons name="celebration" size={20} color={success} />
+          <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
+        </View>
+      ) : hasStartedSelecting ? (
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
+          <MaterialIcons name="warning" size={20} color={error} />
+          <View style={styles.missingEquipmentBlock}>
+            <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
+            {missingItems.map((item) => (
+              <Text key={item} style={[styles.missingEquipmentItem, { color: error }]}>
+                • {item}
+              </Text>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
+
+      <Text style={[styles.stepsSectionTitle, { color: textColor }]}>Step-by-step instructions</Text>
+      <OverviewInstructionList />
+
+      <PanelMuted style={[styles.diagramCaption, { marginTop: Spacing.md }]}>
+        Place the phone in the centre of the platform before each shaker test.
+      </PanelMuted>
+      <OverviewDiagramFrame />
+    </>
+  );
+}
+
+type StructureDesignsPanelProps = {
+  designName: string;
+  attempts: EarthquakeAttempt[];
+  isActive: boolean;
+  onSelectDesign: (label: string) => void;
+};
+
+function StructureDesignsPanel({
+  designName,
+  attempts,
+  isActive,
+  onSelectDesign,
+}: StructureDesignsPanelProps) {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const primary = useThemeColor({}, 'primary');
+  const success = useThemeColor({}, 'success');
+
+  return (
+    <>
       <PanelMuted style={styles.designIntro}>
         Test each design in order. Build the structure, then run the shaker test for that design.
       </PanelMuted>
@@ -195,13 +312,16 @@ function StructureDesignsPanel({ designName, attempts, primary, success }: Struc
         const isCurrent = designName === label;
         const isComplete = attempts.some((a) => a.designName === label);
         return (
-          <View
+          <Pressable
             key={label}
+            disabled={isActive || isComplete}
+            onPress={() => onSelectDesign(label)}
             style={[
               styles.designRow,
               {
                 borderColor: isCurrent ? primary : borderColor,
                 backgroundColor: isCurrent ? `${primary}14` : cardIconBg,
+                opacity: isActive && !isCurrent ? 0.6 : 1,
               },
             ]}>
             <MaterialIcons
@@ -214,9 +334,108 @@ function StructureDesignsPanel({ designName, attempts, primary, success }: Struc
             <Text style={[styles.designRowLabel, { color: textColor, fontWeight: isCurrent ? '700' : '500' }]}>
               {label}
             </Text>
-          </View>
+          </Pressable>
         );
       })}
+    </>
+  );
+}
+
+type EarthquakeStabilityMonitorProps = {
+  isActive: boolean;
+  time: number;
+  liveScore: number;
+  designName: string;
+  gyroData: SensorVector;
+  accelData: SensorVector;
+  graphPath: string;
+  stabilityColor: string;
+  stabilityLabel: string;
+  isSyncing: boolean;
+  attemptsCount: number;
+  bestScore: number | null;
+  onToggleTest: () => void;
+  onReset: () => void;
+};
+
+function EarthquakeStabilityMonitor({
+  isActive,
+  time,
+  liveScore,
+  designName,
+  gyroData,
+  accelData,
+  graphPath,
+  stabilityColor,
+  stabilityLabel,
+  isSyncing,
+  attemptsCount,
+  bestScore,
+  onToggleTest,
+  onReset,
+}: EarthquakeStabilityMonitorProps) {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+
+  if (Platform.OS === 'web') {
+    return (
+      <PanelMuted style={styles.webFallback}>
+        Gyroscope and accelerometer are not available on web. Use a physical device to run this
+        activity.
+      </PanelMuted>
+    );
+  }
+
+  return (
+    <>
+      <PanelMuted style={styles.stepHint}>
+        Tap Start shaker test while the phone vibrates on your structure. Tap Stop & record when the
+        test ends.
+      </PanelMuted>
+
+      <Text style={[styles.scoreValue, { color: stabilityColor }]}>{liveScore}</Text>
+      <Text style={[styles.scoreLabel, { color: stabilityColor }]}>{stabilityLabel}</Text>
+      <Text style={[styles.timerValue, { color: borderColor }]}>{formatTime(time)}s</Text>
+
+      <View style={[styles.graphContainer, { borderColor, backgroundColor: cardIconBg }]}>
+        <Svg height="80" width="100%">
+          <Path d={graphPath} fill="none" stroke={stabilityColor} strokeWidth="3" />
+        </Svg>
+      </View>
+
+      <PanelMuted style={styles.fieldLabel}>Current design</PanelMuted>
+      <View style={[styles.currentDesignValue, { borderColor, backgroundColor: cardIconBg }]}>
+        <Text style={[styles.currentDesignText, { color: textColor }]}>{designName}</Text>
+      </View>
+
+      <PanelMuted style={styles.sensorLine}>
+        Gyro: x {gyroData.x.toFixed(3)} · y {gyroData.y.toFixed(3)} · z {gyroData.z.toFixed(3)} rad/s
+      </PanelMuted>
+      <PanelMuted style={styles.sensorLine}>
+        Accel: x {accelData.x.toFixed(2)} · y {accelData.y.toFixed(2)} · z {accelData.z.toFixed(2)} g
+      </PanelMuted>
+
+      <PrimaryButton
+        label={isActive ? 'Stop & record' : 'Start shaker test'}
+        variant={isActive ? 'danger' : 'primary'}
+        disabled={isSyncing || (!isActive && attemptsCount >= MAX_ATTEMPTS)}
+        onPress={onToggleTest}
+      />
+
+      <PrimaryButton
+        label="Reset all"
+        variant="secondary"
+        onPress={onReset}
+        disabled={(time === 0 && attemptsCount === 0) || isSyncing || isActive}
+      />
+
+      <View style={styles.helperRow}>
+        <PanelMuted style={styles.helper}>
+          Attempts: {attemptsCount}/{MAX_ATTEMPTS}
+        </PanelMuted>
+        <Text style={[styles.helperPeak, { color: borderColor }]}>
+          Best: {bestScore !== null ? `${bestScore} pts` : '—'}
+        </Text>
+      </View>
     </>
   );
 }
@@ -270,10 +489,14 @@ export default function EarthquakeScreen() {
   const [accelData, setAccelData] = useState<SensorVector>(ZERO_VECTOR);
   const [liveScore, setLiveScore] = useState(INITIAL_MIN_SCORE);
   const [locationStatus, setLocationStatus] = useState('📡 Searching...');
-  
-  // Custom Workspace State Variables
   const [designName, setDesignName] = useState<string>(DESIGN_CONFIGURATIONS[0]);
   const [movementHistory, setMovementHistory] = useState<number[]>(new Array(MAX_GRAPH_POINTS).fill(0));
+
+  const [challengeTimerStarted, setChallengeTimerStarted] = useState(false);
+  const [challengeTimerRunning, setChallengeTimerRunning] = useState(false);
+  const [challengeTimerFinished, setChallengeTimerFinished] = useState(false);
+  const [challengeRemainingMs, setChallengeRemainingMs] = useState(EXPERIMENT_CHALLENGE_LIMIT_MS);
+  const challengeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeRef = useRef(0);
@@ -288,12 +511,59 @@ export default function EarthquakeScreen() {
   const primaryDark = useThemeColor({}, 'primaryDark');
   const primarySoft = useThemeColor({}, 'primarySoft');
   const onPrimary = useThemeColor({}, 'onPrimary');
-  const success = useThemeColor({}, 'success');
-  const cardIconBg = useThemeColor({}, 'cardIconBg');
-
   const { color: stabilityColor, label: stabilityLabel } = useStabilityPresentation(liveScore);
   const bestScore =
     attempts.length > 0 ? Math.max(...attempts.map((attempt) => attempt.score)) : null;
+
+  const clearChallengeInterval = useCallback(() => {
+    if (challengeIntervalRef.current) {
+      clearInterval(challengeIntervalRef.current);
+      challengeIntervalRef.current = null;
+    }
+  }, []);
+
+  const stopChallengeTimer = useCallback(() => {
+    clearChallengeInterval();
+    setChallengeTimerRunning(false);
+    setChallengeTimerFinished(true);
+  }, [clearChallengeInterval]);
+
+  const runChallengeInterval = useCallback(() => {
+    const endAt = Date.now() + challengeRemainingMs;
+    challengeIntervalRef.current = setInterval(() => {
+      const next = Math.max(0, endAt - Date.now());
+      setChallengeRemainingMs(next);
+      if (next <= 0) {
+        clearChallengeInterval();
+        setChallengeTimerRunning(false);
+      }
+    }, 250);
+  }, [challengeRemainingMs, clearChallengeInterval]);
+
+  const startChallengeTimer = useCallback(() => {
+    if (challengeTimerFinished || challengeTimerRunning) return;
+    setChallengeTimerStarted(true);
+    setChallengeTimerRunning(true);
+    runChallengeInterval();
+  }, [challengeTimerFinished, challengeTimerRunning, runChallengeInterval]);
+
+  const pauseChallengeTimer = useCallback(() => {
+    if (!challengeTimerRunning) return;
+    clearChallengeInterval();
+    setChallengeTimerRunning(false);
+  }, [challengeTimerRunning, clearChallengeInterval]);
+
+  const resumeChallengeTimer = useCallback(() => {
+    if (challengeTimerFinished || challengeTimerRunning || challengeRemainingMs <= 0) return;
+    setChallengeTimerStarted(true);
+    setChallengeTimerRunning(true);
+    runChallengeInterval();
+  }, [
+    challengeRemainingMs,
+    challengeTimerFinished,
+    challengeTimerRunning,
+    runChallengeInterval,
+  ]);
 
   useEffect(() => {
     (async () => {
@@ -301,6 +571,8 @@ export default function EarthquakeScreen() {
       setLocationStatus(status === 'granted' ? 'Fixed' : 'Off');
     })();
   }, []);
+
+  useEffect(() => () => clearChallengeInterval(), [clearChallengeInterval]);
 
   useEffect(() => {
     if (isActive && Platform.OS !== 'web') {
@@ -479,6 +751,8 @@ export default function EarthquakeScreen() {
         ),
       ]);
 
+      stopChallengeTimer();
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'STEMM Lab Sync Complete',
@@ -580,123 +854,98 @@ export default function EarthquakeScreen() {
               </ColorPanel>
 
               <ColorPanel colour="sky">
-                <PanelTitle>How to conduct the experiment</PanelTitle>
-                <PanelMuted style={styles.diagramCaption}>
-                  Place the phone in the centre of the platform before each shaker test.
-                </PanelMuted>
-                <OverviewDiagramFrame />
-              </ColorPanel>
-
-              <ColorPanel colour="peach">
-                <PanelTitle>Equipment</PanelTitle>
-                <OverviewEquipmentList />
-              </ColorPanel>
-
-              <ColorPanel colour="lavender">
-                <PanelTitle>How it works</PanelTitle>
-                <OverviewInstructionList />
+                <OverviewConductExperiment />
               </ColorPanel>
             </View>
           )}
 
           {screenTab === 'experiment' && (
             <View style={styles.tabContent}>
-              <ColorPanel colour="sky">
-                <StructureDesignsPanel
-                  designName={designName}
-                  attempts={attempts}
-                  primary={primary}
-                  success={success}
+              <ColorPanel colour="mint">
+                <ExperimentChallengeTimer
+                  pixelFamily={pixelFontLoaded ? pixelFamily : undefined}
+                  started={challengeTimerStarted}
+                  running={challengeTimerRunning}
+                  finished={challengeTimerFinished}
+                  remainingMs={challengeRemainingMs}
+                  onStart={startChallengeTimer}
+                  onPause={pauseChallengeTimer}
+                  onResume={resumeChallengeTimer}
+                  onStop={stopChallengeTimer}
                 />
               </ColorPanel>
 
-              <ColorPanel colour="lavender">
-                <PanelTitle>Stability monitor</PanelTitle>
-
-                {Platform.OS === 'web' ? (
-                  <PanelMuted style={styles.webFallback}>
-                    Gyroscope and accelerometer are not available on web. Use a physical device to run
-                    this activity.
-                  </PanelMuted>
-                ) : (
-                  <>
-                    <Text style={[styles.scoreValue, { color: stabilityColor }]}>{liveScore}</Text>
-                    <Text style={[styles.scoreLabel, { color: stabilityColor }]}>{stabilityLabel}</Text>
-                    <Text style={[styles.timerValue, { color: primary }]}>{formatTime(time)}s</Text>
-
-                    <View style={[styles.graphContainer, { borderColor: primary, backgroundColor: cardIconBg }]}>
-                      <Svg height="80" width="100%">
-                        <Path d={generateGraphPath()} fill="none" stroke={stabilityColor} strokeWidth="3" />
-                      </Svg>
-                    </View>
-
-                    <PanelMuted style={styles.fieldLabel}>Current design</PanelMuted>
-                    <View style={[styles.currentDesignValue, { borderColor: primary, backgroundColor: cardIconBg }]}>
-                      <Text style={[styles.currentDesignText, { color: primary }]}>{designName}</Text>
-                    </View>
-
-                    <PanelMuted style={styles.sensorLine}>
-                      Gyro: x {gyroData.x.toFixed(3)} · y {gyroData.y.toFixed(3)} · z {gyroData.z.toFixed(3)}{' '}
-                      rad/s
-                    </PanelMuted>
-                    <PanelMuted style={styles.sensorLine}>
-                      Accel: x {accelData.x.toFixed(2)} · y {accelData.y.toFixed(2)} · z{' '}
-                      {accelData.z.toFixed(2)} g
-                    </PanelMuted>
-                    <PanelMuted style={styles.sensorLine}>Location: {locationStatus}</PanelMuted>
-                  </>
-                )}
-
-                <View style={styles.panelButtons}>
-                  <PrimaryButton
-                    label={isActive ? 'Stop & record' : 'Start shaker test'}
-                    variant={isActive ? 'danger' : 'primary'}
-                    disabled={
-                      Platform.OS === 'web' || (!isActive && attempts.length >= MAX_ATTEMPTS) || isSyncing
-                    }
-                    onPress={() => (isActive ? stopAttempt() : startAttempt())}
-                  />
-                  <PrimaryButton
-                    label="Reset"
-                    variant="secondary"
-                    onPress={resetAll}
-                    disabled={(time === 0 && attempts.length === 0) || isSyncing}
-                  />
-                  <PrimaryButton
-                    label={isSyncing ? 'Syncing...' : 'Finish & save'}
-                    variant="secondary"
-                    onPress={() => void finishAndSave()}
-                    disabled={attempts.length < MAX_ATTEMPTS || isActive || isSyncing}
-                  />
-                </View>
-
-                <View style={styles.helperRow}>
-                  <PanelMuted style={styles.helper}>
-                    Attempts: {attempts.length}/{MAX_ATTEMPTS}
-                  </PanelMuted>
-                  <Text style={[styles.helperPeak, { color: primary }]}>
-                    Best: {bestScore !== null ? `${bestScore} pts` : '—'}
+              <View style={styles.statusRow}>
+                <View style={[styles.statusPill, { backgroundColor: primarySoft }]}>
+                  <MaterialIcons name="location-on" size={14} color={primary} />
+                  <Text style={[styles.statusPillText, { color: primary }]}>
+                    Location: {locationStatus}
                   </Text>
                 </View>
-              </ColorPanel>
+                <View style={[styles.statusPill, { backgroundColor: primarySoft }]}>
+                  <MaterialIcons name="architecture" size={14} color={primary} />
+                  <Text style={[styles.statusPillText, { color: primary }]}>
+                    Designs {attempts.length} / {MAX_ATTEMPTS}
+                  </Text>
+                </View>
+              </View>
 
-              <ColorPanel colour="sky">
-                <PanelTitle>Results</PanelTitle>
+              <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Choose structure design">
+                <StructureDesignsPanel
+                  designName={designName}
+                  attempts={attempts}
+                  isActive={isActive}
+                  onSelectDesign={setDesignName}
+                />
+              </StepPanel>
+
+              <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Run shaker test">
+                <EarthquakeStabilityMonitor
+                  isActive={isActive}
+                  time={time}
+                  liveScore={liveScore}
+                  designName={designName}
+                  gyroData={gyroData}
+                  accelData={accelData}
+                  graphPath={generateGraphPath()}
+                  stabilityColor={stabilityColor}
+                  stabilityLabel={stabilityLabel}
+                  isSyncing={isSyncing}
+                  attemptsCount={attempts.length}
+                  bestScore={bestScore}
+                  onToggleTest={() => (isActive ? stopAttempt() : startAttempt())}
+                  onReset={resetAll}
+                />
+              </StepPanel>
+
+              <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Your results">
                 {attempts.length === 0 ? (
-                  <PanelMuted style={styles.placeholder}>No stability trials recorded yet.</PanelMuted>
+                  <PanelMuted style={styles.emptyHint}>
+                    No stability trials recorded yet — complete Step 2 for each design.
+                  </PanelMuted>
                 ) : (
                   <View style={styles.attemptsWrap}>
                     {attempts.map((attempt, index) => (
                       <AttemptRow
                         key={`${index}-${attempt.duration}`}
                         index={index + 1}
-                        value={formatAttemptValue(attempt)}
+                        title={shortDesignLabel(attempt.designName)}
+                        subtitle={formatAttemptMetrics(attempt)}
                         isLast={index === attempts.length - 1}
                       />
                     ))}
                   </View>
                 )}
-              </ColorPanel>
+                {attempts.length >= MAX_ATTEMPTS && (
+                  <PrimaryButton
+                    label={isSyncing ? 'Syncing...' : 'Upload results'}
+                    variant="primary"
+                    style={{ marginTop: Spacing.md }}
+                    onPress={() => void finishAndSave()}
+                    disabled={isActive || isSyncing}
+                  />
+                )}
+              </StepPanel>
             </View>
           )}
 
@@ -840,18 +1089,65 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     fontWeight: FontWeight.bold,
   },
-  listContainer: {
+  equipmentIntro: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    fontWeight: FontWeight.semibold,
+  },
+  equipmentSelectHint: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    marginBottom: Spacing.xs,
+  },
+  equipmentChecklist: {
     gap: Spacing.xs,
   },
-  listRow: {
+  equipmentCheckRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderWidth: 2,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  equipmentCheckLabel: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    lineHeight: 18,
+  },
+  equipmentStatusBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.sm,
+    borderWidth: 2,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
   },
-  listItem: {
-    flex: 1,
+  equipmentStatusText: {
     fontSize: FontSize.sm,
-    lineHeight: 20,
+    fontWeight: FontWeight.bold,
+    flex: 1,
+  },
+  missingEquipmentBlock: {
+    flex: 1,
+    gap: 4,
+  },
+  missingEquipmentItem: {
+    fontSize: FontSize.sm,
+    lineHeight: 18,
+    fontWeight: FontWeight.semibold,
+  },
+  sectionDivider: {
+    height: 2,
+    opacity: 0.35,
+    marginVertical: Spacing.md,
+  },
+  stepsSectionTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    marginBottom: Spacing.xs,
   },
   instructionRow: {
     flexDirection: 'row',
@@ -874,6 +1170,52 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.sm,
     lineHeight: 20,
+  },
+  stepHeader: {
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  stepBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+  },
+  stepBadgeText: {
+    fontSize: 11,
+    fontWeight: FontWeight.bold,
+  },
+  stepTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+  },
+  stepBody: {
+    gap: Spacing.md,
+  },
+  stepHint: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+  },
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: FontWeight.semibold,
+  },
+  emptyHint: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   designIntro: {
     marginBottom: Spacing.sm,
@@ -938,10 +1280,6 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     lineHeight: 16,
   },
-  panelButtons: {
-    marginTop: Spacing.md,
-    gap: Spacing.sm,
-  },
   helperRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -956,10 +1294,7 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
   },
   attemptsWrap: {
-    gap: Spacing.xs,
-  },
-  placeholder: {
-    fontStyle: 'italic',
+    gap: Spacing.sm,
   },
   webFallback: {
     lineHeight: 20,
