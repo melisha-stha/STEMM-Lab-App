@@ -146,17 +146,96 @@ function OverviewDiagramFrame() {
   );
 }
 
-function OverviewEquipmentList() {
-  const { textColor, borderColor } = usePanelTheme();
+function OverviewConductExperiment() {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const success = useThemeColor({}, 'success');
+  const successSoft = useThemeColor({}, 'successSoft');
+  const error = useThemeColor({}, 'error');
+  const errorSoft = useThemeColor({}, 'errorSoft');
+
+  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
+  );
+
+  const missingItems = EQUIPMENT_ITEMS.filter((item) => !checked[item]);
+  const allGathered = missingItems.length === 0;
+  const hasStartedSelecting = EQUIPMENT_ITEMS.some((item) => checked[item]);
+
+  const toggleEquipment = (item: string) => {
+    setChecked((prev) => ({ ...prev, [item]: !prev[item] }));
+  };
+
   return (
-    <View style={styles.listContainer}>
-      {EQUIPMENT_ITEMS.map((item) => (
-        <View key={item} style={styles.listRow}>
-          <MaterialIcons name="check-circle" size={16} color={borderColor} />
-          <Text style={[styles.listItem, { color: textColor, opacity: 0.85 }]}>{item}</Text>
+    <>
+      <PanelTitle>How to conduct the experiment</PanelTitle>
+      <PanelMuted style={styles.equipmentIntro}>First, gather all this equipment:</PanelMuted>
+      <PanelMuted style={styles.equipmentSelectHint}>
+        Select all equipment you have gathered
+      </PanelMuted>
+
+      <View style={styles.equipmentChecklist}>
+        {EQUIPMENT_ITEMS.map((item) => {
+          const isChecked = checked[item];
+          return (
+            <Pressable
+              key={item}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isChecked }}
+              accessibilityLabel={item}
+              onPress={() => toggleEquipment(item)}
+              style={[
+                styles.equipmentCheckRow,
+                {
+                  borderColor: isChecked ? success : borderColor,
+                  backgroundColor: isChecked ? successSoft : cardIconBg,
+                },
+              ]}>
+              <MaterialIcons
+                name={isChecked ? 'check-box' : 'check-box-outline-blank'}
+                size={22}
+                color={isChecked ? success : borderColor}
+              />
+              <Text
+                style={[
+                  styles.equipmentCheckLabel,
+                  { color: textColor, fontWeight: isChecked ? '700' : '500' },
+                ]}>
+                {item}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {allGathered ? (
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: successSoft, borderColor: success }]}>
+          <MaterialIcons name="celebration" size={20} color={success} />
+          <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
         </View>
-      ))}
-    </View>
+      ) : hasStartedSelecting ? (
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: errorSoft, borderColor: error }]}>
+          <MaterialIcons name="warning" size={20} color={error} />
+          <View style={styles.missingEquipmentBlock}>
+            <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
+            {missingItems.map((item) => (
+              <Text key={item} style={[styles.missingEquipmentItem, { color: error }]}>
+                • {item}
+              </Text>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
+
+      <Text style={[styles.stepsSectionTitle, { color: textColor }]}>Step-by-step instructions</Text>
+      <OverviewInstructionList />
+
+      <PanelMuted style={[styles.diagramCaption, { marginTop: Spacing.md }]}>
+        Use the same drop height, landing zone, and camera angle for every attempt.
+      </PanelMuted>
+      <OverviewDiagramFrame />
+    </>
   );
 }
 
@@ -643,21 +722,7 @@ export default function ParachuteScreen() {
               </ColorPanel>
 
               <ColorPanel colour="sky">
-                <PanelTitle>How to conduct the experiment</PanelTitle>
-                <PanelMuted style={styles.diagramCaption}>
-                  Use the same drop height, landing zone, and camera angle for every attempt.
-                </PanelMuted>
-                <OverviewDiagramFrame />
-              </ColorPanel>
-
-              <ColorPanel colour="peach">
-                <PanelTitle>Equipment</PanelTitle>
-                <OverviewEquipmentList />
-              </ColorPanel>
-
-              <ColorPanel colour="lavender">
-                <PanelTitle>How it works</PanelTitle>
-                <OverviewInstructionList />
+                <OverviewConductExperiment />
               </ColorPanel>
             </View>
           )}
@@ -980,18 +1045,65 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginBottom: Spacing.sm,
   },
-  listContainer: {
-    gap: Spacing.sm,
+  equipmentIntro: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    fontWeight: FontWeight.semibold,
   },
-  listRow: {
+  equipmentSelectHint: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    marginBottom: Spacing.xs,
+  },
+  equipmentChecklist: {
+    gap: Spacing.xs,
+  },
+  equipmentCheckRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+    borderWidth: 2,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
   },
-  listItem: {
+  equipmentCheckLabel: {
     flex: 1,
     fontSize: FontSize.sm,
-    lineHeight: 20,
+    lineHeight: 18,
+  },
+  equipmentStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    borderWidth: 2,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  equipmentStatusText: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
+    flex: 1,
+  },
+  missingEquipmentBlock: {
+    flex: 1,
+    gap: 4,
+  },
+  missingEquipmentItem: {
+    fontSize: FontSize.sm,
+    lineHeight: 18,
+    fontWeight: FontWeight.semibold,
+  },
+  sectionDivider: {
+    height: 2,
+    opacity: 0.35,
+    marginVertical: Spacing.md,
+  },
+  stepsSectionTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    marginBottom: Spacing.xs,
   },
   instructionRow: {
     flexDirection: 'row',
