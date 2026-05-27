@@ -149,9 +149,7 @@ function OverviewDiagramFrame() {
 function OverviewConductExperiment() {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
   const success = useThemeColor({}, 'success');
-  const successSoft = useThemeColor({}, 'successSoft');
   const error = useThemeColor({}, 'error');
-  const errorSoft = useThemeColor({}, 'errorSoft');
 
   const [checked, setChecked] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
@@ -187,7 +185,7 @@ function OverviewConductExperiment() {
                 styles.equipmentCheckRow,
                 {
                   borderColor: isChecked ? success : borderColor,
-                  backgroundColor: isChecked ? successSoft : cardIconBg,
+                  backgroundColor: cardIconBg,
                 },
               ]}>
               <MaterialIcons
@@ -208,12 +206,12 @@ function OverviewConductExperiment() {
       </View>
 
       {allGathered ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: successSoft, borderColor: success }]}>
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
           <MaterialIcons name="celebration" size={20} color={success} />
           <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
         </View>
       ) : hasStartedSelecting ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: errorSoft, borderColor: error }]}>
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
           <MaterialIcons name="warning" size={20} color={error} />
           <View style={styles.missingEquipmentBlock}>
             <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
@@ -236,6 +234,66 @@ function OverviewConductExperiment() {
       </PanelMuted>
       <OverviewDiagramFrame />
     </>
+  );
+}
+
+type CalculatedOutputs = {
+  dropTime: number;
+  contactTime: number;
+  bounceTime: number | null;
+  calcs: {
+    finalVelocity: number;
+    acceleration: number;
+    netForce: number;
+    weight: number;
+    dragForce: number;
+  };
+  gForce: number;
+};
+
+function ExperimentReviewResults({
+  calculatedOutputs,
+  getGForceRiskColor,
+}: {
+  calculatedOutputs: CalculatedOutputs;
+  getGForceRiskColor: (g: number) => string;
+}) {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const valueStyle = [styles.metricValue, { color: textColor }];
+
+  return (
+    <View style={[styles.calcOutputBox, { backgroundColor: cardIconBg, borderColor }]}>
+      <Text style={[styles.metricLine, { color: textColor }]}>
+        Drop Time: <Text style={valueStyle}>{calculatedOutputs.dropTime}s</Text>
+      </Text>
+      <Text style={[styles.metricLine, { color: textColor }]}>
+        Contact Time: <Text style={valueStyle}>{calculatedOutputs.contactTime}s</Text>
+      </Text>
+      {calculatedOutputs.bounceTime !== null && (
+        <Text style={[styles.metricLine, { color: textColor }]}>
+          Time to Max Bounce Height (t_up):{' '}
+          <Text style={valueStyle}>{calculatedOutputs.bounceTime}s</Text>
+        </Text>
+      )}
+      <Text style={[styles.metricLine, { color: textColor, marginTop: 4 }]}>
+        Final Velocity (v): <Text style={valueStyle}>{calculatedOutputs.calcs.finalVelocity} m/s</Text>
+      </Text>
+      <Text style={[styles.metricLine, { color: textColor }]}>
+        Acceleration (a): <Text style={valueStyle}>{calculatedOutputs.calcs.acceleration} m/s²</Text>
+      </Text>
+      <Text style={[styles.metricLine, { color: textColor, marginTop: 4 }]}>
+        Downward Force (Weight): <Text style={valueStyle}>{calculatedOutputs.calcs.weight} N</Text>
+      </Text>
+      <Text style={[styles.metricLine, { color: textColor }]}>
+        Net Force (F_net): <Text style={valueStyle}>{calculatedOutputs.calcs.netForce} N</Text>
+      </Text>
+      <Text style={[styles.metricLine, { color: textColor }]}>
+        Upward Force (Drag Force): <Text style={valueStyle}>{calculatedOutputs.calcs.dragForce} N</Text>
+      </Text>
+      <Text style={[styles.gForceText, { color: getGForceRiskColor(calculatedOutputs.gForce) }]}>
+        Impact G-Force: {calculatedOutputs.gForce} g
+      </Text>
+    </View>
   );
 }
 
@@ -469,8 +527,6 @@ export default function ParachuteScreen() {
   const success = useThemeColor({}, 'success');
   const warning = useThemeColor({}, 'warning');
   const error = useThemeColor({}, 'error');
-  const cardBadgeBg = useThemeColor({}, 'cardBadgeBg');
-
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -762,9 +818,9 @@ export default function ParachuteScreen() {
               </StepPanel>
 
               <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Record slow-motion drop">
-                <Text style={[styles.stepHint, { color: textSecondary }]}>
+                <PanelMuted style={styles.stepHint}>
                   Film each prototype drop. Mark release, impact, and stop frames in the analyser.
-                </Text>
+                </PanelMuted>
                 <PrimaryButton
                   label={isRecording ? 'Awaiting System Device...' : 'Launch Camera'}
                   onPress={() => void captureVideoAsset()}
@@ -796,53 +852,10 @@ export default function ParachuteScreen() {
 
               {calculatedOutputs && (
                 <StepPanel step={4} colour={EXPERIMENT_STEP_COLOURS[3]} title="Review your results">
-                  <View style={[styles.calcOutputBox, { backgroundColor: cardBadgeBg }]}>
-                    <Text style={[styles.metricLine, { color: text }]}>
-                      Drop Time:{' '}
-                      <Text style={styles.metricValue}>{calculatedOutputs.dropTime}s</Text>
-                    </Text>
-                    <Text style={[styles.metricLine, { color: text }]}>
-                      Contact Time:{' '}
-                      <Text style={styles.metricValue}>{calculatedOutputs.contactTime}s</Text>
-                    </Text>
-                    {calculatedOutputs.bounceTime !== null && (
-                      <Text style={[styles.metricLine, { color: text }]}>
-                        Time to Max Bounce Height (t_up):{' '}
-                        <Text style={styles.metricValue}>{calculatedOutputs.bounceTime}s</Text>
-                      </Text>
-                    )}
-                    <Text style={[styles.metricLine, { color: text, marginTop: 4 }]}>
-                      Final Velocity (v):{' '}
-                      <Text style={styles.metricValue}>
-                        {calculatedOutputs.calcs.finalVelocity} m/s
-                      </Text>
-                    </Text>
-                    <Text style={[styles.metricLine, { color: text }]}>
-                      Acceleration (a):{' '}
-                      <Text style={styles.metricValue}>
-                        {calculatedOutputs.calcs.acceleration} m/s²
-                      </Text>
-                    </Text>
-                    <Text style={[styles.metricLine, { color: text, marginTop: 4 }]}>
-                      Downward Force (Weight):{' '}
-                      <Text style={styles.metricValue}>{calculatedOutputs.calcs.weight} N</Text>
-                    </Text>
-                    <Text style={[styles.metricLine, { color: text }]}>
-                      Net Force (F_net):{' '}
-                      <Text style={styles.metricValue}>{calculatedOutputs.calcs.netForce} N</Text>
-                    </Text>
-                    <Text style={[styles.metricLine, { color: text }]}>
-                      Upward Force (Drag Force):{' '}
-                      <Text style={styles.metricValue}>{calculatedOutputs.calcs.dragForce} N</Text>
-                    </Text>
-                    <Text
-                      style={[
-                        styles.gForceText,
-                        { color: getGForceRiskColor(calculatedOutputs.gForce) },
-                      ]}>
-                      Impact G-Force: {calculatedOutputs.gForce} g
-                    </Text>
-                  </View>
+                  <ExperimentReviewResults
+                    calculatedOutputs={calculatedOutputs}
+                    getGForceRiskColor={getGForceRiskColor}
+                  />
                   <PrimaryButton
                     label="Save and Lock Trial Results"
                     variant="secondary"
@@ -854,9 +867,9 @@ export default function ParachuteScreen() {
 
               <StepPanel step={5} colour={EXPERIMENT_STEP_COLOURS[4]} title="Your attempts">
                 {attempts.length === 0 ? (
-                  <Text style={[styles.emptyHint, { color: textSecondary }]}>
+                  <PanelMuted style={styles.emptyHint}>
                     Awaiting valid experiment metrics updates.
-                  </Text>
+                  </PanelMuted>
                 ) : (
                   attempts.map((item, index) => (
                     <AttemptRow
@@ -1172,6 +1185,7 @@ const styles = StyleSheet.create({
   calcOutputBox: {
     padding: Spacing.md,
     borderRadius: Radius.md,
+    borderWidth: 1,
     gap: 4,
   },
   metricLine: {

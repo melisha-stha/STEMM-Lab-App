@@ -1,15 +1,58 @@
 import { Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { ResizeMode, Video } from 'expo-av';
 import React, { useRef, useState } from 'react';
 import {
+  Alert,
   GestureResponderEvent,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+
+const HELP = {
+  playback: {
+    title: 'Frames & playback',
+    message:
+      'Your clip is slow-motion (240 fps). Each frame is one snapshot — use Play/Pause, then -10f / +10f to land on the exact frame.\n\n' +
+      '1× is normal speed. 0.5× and 0.25× play slower so you can spot the right moment. Tap the timeline bar to jump to a point.',
+  },
+  release: {
+    title: 'Mark Release',
+    message: 'Pause on the frame where you let go of the parachute / toy — the instant it leaves your hand.',
+  },
+  impact: {
+    title: 'Mark Impact',
+    message: 'Pause on the first frame where it touches the ground. Not a later bounce — only the first contact.',
+  },
+  stopped: {
+    title: 'Mark Stopped',
+    message: 'Pause when it has fully stopped moving (no more sliding, wobble, or bouncing).',
+  },
+  bounce: {
+    title: 'Static vs kinetic bounce',
+    message:
+      'Static (no bounce): lands and stays down with no rebound.\n\n' +
+      'Kinetic bounce: it bounces back up after impact.\n\n' +
+      'Mark bounce apex: only if kinetic — pause at the highest point of the rebound, not the landing frame.',
+  },
+} as const;
+
+function HelpButton({ onPress, color }: { onPress: () => void; color: string }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Show help"
+      hitSlop={8}
+      onPress={onPress}
+      style={styles.helpBtn}>
+      <MaterialIcons name="help-outline" size={20} color={color} />
+    </Pressable>
+  );
+}
 
 const ULTRA_SLOW_FPS = 240; //
 
@@ -123,9 +166,27 @@ export function VideoScrubber({ uri, onMarkersChange }: Props) {
   const progress = durationMs > 0 ? positionMs / durationMs : 0;
 
   const CORE_STEPS = [
-    { key: 'releaseFrame' as const, label: 'Mark Release', hint: 'Letting go point', color: primary, textColor: onPrimary },
-    { key: 'impactFrame' as const, label: 'Mark Impact', hint: 'Ground contact hit', color: success, textColor: '#fff' },
-    { key: 'stopFrame' as const, label: 'Mark Stopped', hint: 'Velocity reaches zero', color: warning, textColor: '#000' },
+    {
+      key: 'releaseFrame' as const,
+      label: 'Mark Release',
+      color: primary,
+      textColor: onPrimary,
+      help: HELP.release,
+    },
+    {
+      key: 'impactFrame' as const,
+      label: 'Mark Impact',
+      color: success,
+      textColor: '#fff',
+      help: HELP.impact,
+    },
+    {
+      key: 'stopFrame' as const,
+      label: 'Mark Stopped',
+      color: warning,
+      textColor: '#000',
+      help: HELP.stopped,
+    },
   ];
 
   const checkUnlocked = (key: string): boolean => {
@@ -193,11 +254,25 @@ return (
       </View>
 
       <View style={styles.speedRow}>
-        {SPEEDS.map(s => (
-          <Pressable key={s.value} onPress={() => void changeSpeed(s.value)} style={[styles.speedPill, { backgroundColor: speed === s.value ? primary : card, borderColor: border }]}>
-            <Text style={[styles.speedPillText, { color: speed === s.value ? onPrimary : mutedText }]}>{s.label}</Text>
-          </Pressable>
-        ))}
+        <View style={styles.speedPills}>
+          {SPEEDS.map(s => (
+            <Pressable
+              key={s.value}
+              onPress={() => void changeSpeed(s.value)}
+              style={[
+                styles.speedPill,
+                { backgroundColor: speed === s.value ? primary : card, borderColor: border },
+              ]}>
+              <Text style={[styles.speedPillText, { color: speed === s.value ? onPrimary : mutedText }]}>
+                {s.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <HelpButton
+          color={primary}
+          onPress={() => Alert.alert(HELP.playback.title, HELP.playback.message)}
+        />
       </View>
 
       <View style={[styles.markerSection, { borderTopColor: border }]}>
@@ -206,9 +281,16 @@ return (
           const unlocked = checkUnlocked(step.key);
           return (
             <View key={step.key} style={styles.markerRow}>
-              <Pressable disabled={!unlocked} onPress={() => markEvent(step.key)} style={[styles.markerBtn, { backgroundColor: isSet ? step.color : card, borderColor: border, opacity: unlocked ? 1 : 0.4 }]}>
+              <Pressable
+                disabled={!unlocked}
+                onPress={() => markEvent(step.key)}
+                style={[
+                  styles.markerBtn,
+                  { backgroundColor: isSet ? step.color : card, borderColor: border, opacity: unlocked ? 1 : 0.4 },
+                ]}>
                 <Text style={[styles.markerBtnText, { color: isSet ? step.textColor : text }]}>{step.label}</Text>
               </Pressable>
+              <HelpButton color={primary} onPress={() => Alert.alert(step.help.title, step.help.message)} />
               {isSet && (
                 <View style={styles.resultBadge}>
                   <Text style={{ color: step.color, fontWeight: 'bold', fontSize: 12 }}>f {markers[step.key]}</Text>
@@ -222,7 +304,13 @@ return (
         {/* Embedded Physics Case Switcher */}
         {markers.stopFrame !== null && (
           <View style={styles.inlineProfileStack}>
-            <Text style={[styles.profileHeading, { color: text }]}>Collision Rebound Profile</Text>
+            <View style={styles.profileHeadingRow}>
+              <Text style={[styles.profileHeading, { color: text }]}>Collision Rebound Profile</Text>
+              <HelpButton
+                color={primary}
+                onPress={() => Alert.alert(HELP.bounce.title, HELP.bounce.message)}
+              />
+            </View>
             <View style={styles.toggleRow}>
               <Pressable onPress={() => toggleBounceMode('no_bounce')} style={[styles.togglePill, { backgroundColor: bounceMode === 'no_bounce' ? primary : card, borderColor: border }]}>
                 <Text style={{ color: bounceMode === 'no_bounce' ? onPrimary : text, fontSize: 12, fontWeight: '600' }}>Static (No Bounce)</Text>
@@ -265,16 +353,34 @@ const styles = StyleSheet.create({
   stepBtnText: { ...Typography.small, fontWeight: '700', fontSize: 11 },
   playbackEngineTrigger: { flex: 2, minHeight: 44, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
   playbackTriggerText: { ...Typography.body, fontWeight: '700', fontSize: 13 },
-  speedRow: { flexDirection: 'row', gap: Spacing.xs, justifyContent: 'center' },
+  speedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs },
+  speedPills: { flexDirection: 'row', gap: Spacing.xs, flexShrink: 1, justifyContent: 'center' },
   speedPill: { paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.pill, borderWidth: 1 },
+  helpBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   speedPillText: { ...Typography.small, fontWeight: '700' },
   markerSection: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.xs },
   markerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 2 },
-  markerBtn: { flex: 1, minHeight: 40, borderRadius: Radius.sm, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.sm },
+  markerBtn: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
+    marginRight: Spacing.xs,
+  },
   markerBtnText: { ...Typography.small, fontWeight: '700' },
   resultBadge: { flexDirection: 'row', alignItems: 'center', minWidth: 80, justifyContent: 'flex-end' },
   inlineProfileStack: { marginTop: Spacing.sm, padding: Spacing.sm, backgroundColor: 'rgba(0,0,0,0.01)', borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)', gap: Spacing.xs },
-  profileHeading: { ...Typography.small, fontWeight: 'bold' },
+  profileHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  profileHeading: { ...Typography.small, fontWeight: 'bold', flex: 1 },
   toggleRow: { flexDirection: 'row', gap: Spacing.xs, marginVertical: 2 },
   togglePill: { flex: 1, paddingVertical: 8, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
 });
