@@ -270,7 +270,21 @@ export default function BreathingScreen() {
         ),
       ]);
 
-      Alert.alert('Upload Successful', 'Your team session updates were safely sent to the cloud database dashboard.');
+      Alert.alert(
+        'Upload Successful', 
+        'Your team session updates were safely sent to the cloud database dashboard.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              router.push({
+                pathname: '/breathing-results',
+                params: { sessionsJson: JSON.stringify(formattedPayload) },
+              });
+            }
+          }
+        ]
+      );
     } catch (error) {
       console.error('Breathing save error:', error);
       Alert.alert('Sync Error', 'Could not establish connection with database storage pipelines.');
