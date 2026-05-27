@@ -8,8 +8,8 @@ import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { Accelerometer } from 'expo-sensors';
-import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadPerformanceResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
@@ -30,7 +30,11 @@ const MOVEMENTS = [
   { label: 'Movement 3', description: 'Rotate your hand side to side at shoulder height.' },
 ];
 
+const MOVEMENT_DURATION_MS = 30000;
+const SENSOR_INTERVAL_MS = 100;
+
 type Attempt = {
+  memberName: string;
   movement: string;
   peakForce: number;
   averageForce: number;
@@ -46,11 +50,13 @@ export default function PerformanceScreen() {
   const [liveForce, setLiveForce] = useState(0);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [locationStatus, setLocationStatus] = useState('Searching...');
+  const [memberName, setMemberName] = useState('');
+  const [timeLeftMs, setTimeLeftMs] = useState(MOVEMENT_DURATION_MS);
 
   const subscriptionRef = useRef<any>(null);
   const peakForceRef = useRef(0);
   const forceReadingsRef = useRef<number[]>([]);
-  const startTimeRef = useRef<number>(0);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
@@ -58,35 +64,73 @@ export default function PerformanceScreen() {
   const border = useThemeColor({}, 'border');
   const primary = useThemeColor({}, 'primary');
   const card = useThemeColor({}, 'card');
-  const onPrimary = useThemeColor({}, 'onPrimary');
+  const onPrimary = useThemeColor({}, 'onPrimary' as any) ?? '#FFFFFF';
 
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       setLocationStatus(status === 'granted' ? 'Fixed' : 'Off');
     })();
-    return () => stopSensor();
+    return () => {
+      stopSensor();
+      clearCountdown();
+    };
   }, []);
 
+  const filteredAttempts = useMemo(() => {
+    return attempts.filter(a => a.memberName === memberName.trim());
+  }, [attempts, memberName]);
+
+  const allDone = filteredAttempts.length >= MOVEMENTS.length;
+
   const getScoreLabel = (avg: number): { label: string; color: string } => {
-    if (avg < 1.2) return { label: 'Excellent — Very smooth', color: '#4CAF50' };
-    if (avg < 1.8) return { label: 'Good — Moderate control', color: '#FF9800' };
-    return { label: 'Needs practice — Fast movement', color: '#FF4444' };
+    if (avg < 0.15) return { label: 'Excellent — Very smooth', color: '#4CAF50' };
+    if (avg < 0.35) return { label: 'Good — Moderate control', color: '#FF9800' };
+    return { label: 'Needs practice — Shaky movement', color: '#FF4444' };
+  };
+
+  const clearCountdown = () => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
   };
 
   const startSensor = () => {
+    if (!memberName.trim()) {
+      Alert.alert('Name Required', 'Please enter a participant name before starting.');
+      return;
+    }
     if (Platform.OS === 'web') return;
+
     peakForceRef.current = 0;
     forceReadingsRef.current = [];
-    startTimeRef.current = Date.now();
-    Accelerometer.setUpdateInterval(100);
-    subscriptionRef.current = Accelerometer.addListener(data => {
-      const force = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
-      setLiveForce(force);
-      if (force > peakForceRef.current) peakForceRef.current = force;
-      forceReadingsRef.current.push(force);
-    });
+    setTimeLeftMs(MOVEMENT_DURATION_MS);
     setIsActive(true);
+
+    Accelerometer.setUpdateInterval(SENSOR_INTERVAL_MS);
+    subscriptionRef.current = Accelerometer.addListener(data => {
+      const rawMagnitude = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
+      const relativeDeviation = Math.abs(rawMagnitude - 1.0);
+      
+      setLiveForce(relativeDeviation);
+      if (relativeDeviation > peakForceRef.current) peakForceRef.current = relativeDeviation;
+      forceReadingsRef.current.push(relativeDeviation);
+    });
+
+    countdownIntervalRef.current = setInterval(() => {
+      setTimeLeftMs(prev => {
+        const nextTime = prev - SENSOR_INTERVAL_MS;
+        if (nextTime <= 0) {
+          clearCountdown();
+          setTimeout(() => {
+            stopAndRecord();
+          }, 0);
+          return 0;
+        }
+        return nextTime;
+      });
+    }, SENSOR_INTERVAL_MS);
   };
 
   const stopSensor = () => {
@@ -99,22 +143,30 @@ export default function PerformanceScreen() {
 
   const stopAndRecord = () => {
     stopSensor();
+    clearCountdown();
+    
     const readings = forceReadingsRef.current;
     if (readings.length === 0) return;
 
     const avgForce = readings.reduce((a, b) => a + b, 0) / readings.length;
-    const duration = (Date.now() - startTimeRef.current) / 1000;
+    const durationUsed = (MOVEMENT_DURATION_MS - timeLeftMs) / 1000;
     const movement = MOVEMENTS[currentMovementIndex];
+    const currentName = memberName.trim();
 
     const newAttempt: Attempt = {
+      memberName: currentName,
       movement: movement.label,
       peakForce: Math.round(peakForceRef.current * 100) / 100,
       averageForce: Math.round(avgForce * 100) / 100,
-      durationSec: Math.round(duration * 10) / 10,
+      durationSec: Math.round(durationUsed * 10) / 10,
     };
 
-    setAttempts(prev => [...prev, newAttempt]);
+    setAttempts(prev => [
+      ...prev.filter(a => !(a.memberName === currentName && a.movement === movement.label)),
+      newAttempt,
+    ]);
     setLiveForce(0);
+    setTimeLeftMs(MOVEMENT_DURATION_MS);
 
     if (currentMovementIndex < MOVEMENTS.length - 1) {
       setCurrentMovementIndex(prev => prev + 1);
@@ -123,13 +175,25 @@ export default function PerformanceScreen() {
 
   const resetAll = () => {
     stopSensor();
-    setAttempts([]);
+    clearCountdown();
+    const currentName = memberName.trim();
+    setAttempts(prev => prev.filter(a => a.memberName !== currentName));
     setCurrentMovementIndex(0);
     setLiveForce(0);
+    setTimeLeftMs(MOVEMENT_DURATION_MS);
+  };
+
+  const prepNextTeamMember = () => {
+    stopSensor();
+    clearCountdown();
+    setCurrentMovementIndex(0);
+    setLiveForce(0);
+    setMemberName('');
+    setTimeLeftMs(MOVEMENT_DURATION_MS);
   };
 
   const handleSave = async () => {
-    if (!attempts.length) return;
+    if (!filteredAttempts.length) return;
     const user = auth.currentUser;
     if (!user) return;
     setIsSyncing(true);
@@ -141,10 +205,10 @@ export default function PerformanceScreen() {
         locationData = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
       }
       const teamData = await getTeamData();
-      const bestAvg = Math.min(...attempts.map(a => a.averageForce));
+      const bestAvg = Math.min(...filteredAttempts.map(a => a.averageForce));
 
       await Promise.all([
-        uploadPerformanceResult(user.uid, teamData, attempts, locationData),
+        uploadPerformanceResult(user.uid, teamData, filteredAttempts, locationData),
         Promise.resolve(insertTrial(
           teamData?.name || 'unknown',
           'performance',
@@ -175,6 +239,8 @@ export default function PerformanceScreen() {
     }
   };
 
+  const timeBarWidthPercent = `${Math.max(0, Math.min(100, (timeLeftMs / MOVEMENT_DURATION_MS) * 100))}%`;
+
   const renderOverviewTab = () => (
     <SectionCard>
       <Text style={[styles.heroTitle, { color: text }]}>Human Performance Lab</Text>
@@ -193,8 +259,8 @@ export default function PerformanceScreen() {
       <View style={[styles.bullets, { borderTopColor: border }]}>
         <Text style={[styles.bullet, { color: mutedText }]}>1. Hold the phone firmly in one hand.</Text>
         <Text style={[styles.bullet, { color: mutedText }]}>2. Press Start on the Experiment tab.</Text>
-        <Text style={[styles.bullet, { color: mutedText }]}>3. Perform the guided movement as slowly and smoothly as possible.</Text>
-        <Text style={[styles.bullet, { color: mutedText }]}>4. Press Stop to record your score.</Text>
+        <Text style={[styles.bullet, { color: mutedText }]}>3. Perform the guided movement as slowly and smoothly as possible for 30 seconds.</Text>
+        <Text style={[styles.bullet, { color: mutedText }]}>4. The app automatically stops and records your score at the end of the countdown.</Text>
         <Text style={[styles.bullet, { color: mutedText }]}>5. Complete all 3 movements and compare results.</Text>
         <Text style={[styles.bullet, { color: mutedText }]}>6. Save and reflect as a group.</Text>
       </View>
@@ -208,35 +274,46 @@ export default function PerformanceScreen() {
           </View>
         ))}
       </View>
-
-      <View style={[styles.diagramCard, { borderColor: border, backgroundColor: card }]}>
-        <Text style={[styles.diagramText, { color: mutedText }]}>
-          [Diagram: Student holding phone with direction of movement arrows for each of the 3 movements]
-        </Text>
-      </View>
     </SectionCard>
   );
 
   const renderExperimentTab = () => {
     const currentMovement = MOVEMENTS[currentMovementIndex];
-    const allDone = attempts.length >= MOVEMENTS.length;
     const score = getScoreLabel(liveForce);
 
     return (
       <View style={styles.experimentWrap}>
         <View style={[styles.infoCard, { borderColor: border, backgroundColor: card }]}>
+          <Text style={[styles.inputLabel, { color: text, marginTop: 0 }]}>Participant Student Name</Text>
+          <TextInput
+            style={[styles.inputBox, { borderColor: border, color: text, backgroundColor: background, marginBottom: Spacing.sm }]}
+            placeholder="Enter student name..."
+            placeholderTextColor={mutedText}
+            value={memberName}
+            onChangeText={setMemberName}
+            editable={!isActive}
+          />
           <Text style={[styles.helper, { color: mutedText }]}>GPS Status: {locationStatus}</Text>
-          <Text style={[styles.helper, { color: mutedText, marginTop: 4 }]}>
-            Attempts recorded: {attempts.length}/{MOVEMENTS.length}
-          </Text>
+          {memberName.trim().length > 0 && (
+            <Text style={[styles.helper, { color: mutedText, marginTop: 4 }]}>
+              Attempts recorded for {memberName.trim()}: {filteredAttempts.length}/{MOVEMENTS.length}
+            </Text>
+          )}
         </View>
 
-        {!allDone && (
+        {!allDone && memberName.trim().length > 0 && (
           <SectionCard>
             <Text style={[styles.sectionTitle, { color: text }]}>{currentMovement.label}</Text>
             <Text style={[styles.body, { color: mutedText, marginBottom: Spacing.md }]}>
               {currentMovement.description}
             </Text>
+
+            {isActive && (
+              <View style={styles.timerTrackField}>
+                <View style={[styles.timerProgressBarFill, { width: timeBarWidthPercent as any, backgroundColor: primary }]} />
+                <Text style={styles.timerPercentageText}>Time Remaining: {Math.ceil(timeLeftMs / 1000)}s</Text>
+              </View>
+            )}
 
             <Text style={[styles.inputLabel, { color: mutedText }]}>Live Sensor Reading</Text>
             <Text style={[styles.liveForce, { color: isActive ? score.color : mutedText }]}>
@@ -248,7 +325,7 @@ export default function PerformanceScreen() {
 
             <View style={styles.buttonRow}>
               <PrimaryButton
-                label={isActive ? 'Stop & Record' : 'Start Movement'}
+                label={isActive ? 'Stop' : 'Start'}
                 variant={isActive ? 'danger' : 'primary'}
                 onPress={isActive ? stopAndRecord : startSensor}
                 disabled={isSyncing}
@@ -259,29 +336,29 @@ export default function PerformanceScreen() {
                 label="Reset"
                 variant="secondary"
                 onPress={resetAll}
-                disabled={isSyncing || (attempts.length === 0 && !isActive)}
+                disabled={isSyncing || (filteredAttempts.length === 0 && !isActive)}
                 style={{ flex: 1 }}
               />
             </View>
           </SectionCard>
         )}
 
-        {attempts.length > 0 && (
+        {filteredAttempts.length > 0 && (
           <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Recorded Movements</Text>
-            {attempts.map((a, i) => {
+            <Text style={[styles.sectionTitle, { color: text }]}>Recorded Movements ({memberName.trim()})</Text>
+            {filteredAttempts.map((a, i) => {
               const s = getScoreLabel(a.averageForce);
               return (
                 <View key={i} style={[styles.attemptRow, { borderTopColor: border, borderTopWidth: i === 0 ? 0 : 1 }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.bodyHeading, { color: text }]}>{a.movement}</Text>
                     <Text style={[styles.body, { color: mutedText }]}>
-                      Average: {a.averageForce} g  |  Peak: {a.peakForce} g  |  Duration: {a.durationSec}s
+                      Average Deviation: {a.averageForce} g  |  Peak: {a.peakForce} g  |  Duration: {a.durationSec}s
                     </Text>
                   </View>
                   <View style={[styles.scoreBadge, { backgroundColor: s.color + '22', borderColor: s.color }]}>
                     <Text style={[styles.scoreBadgeText, { color: s.color }]}>
-                      {a.averageForce < 1.2 ? 'Excellent' : a.averageForce < 1.8 ? 'Good' : 'Needs Practice'}
+                      {a.averageForce < 0.15 ? 'Excellent' : a.averageForce < 0.35 ? 'Good' : 'Needs Practice'}
                     </Text>
                   </View>
                 </View>
@@ -291,13 +368,35 @@ export default function PerformanceScreen() {
         )}
 
         {allDone && (
-          <PrimaryButton
-            label={isSyncing ? 'Saving...' : 'Finish & Save Results'}
-            onPress={handleSave}
-            disabled={isSyncing}
-            style={{ borderColor: primary }}
-          />
+          <View style={{ gap: Spacing.sm }}>
+            <PrimaryButton
+              label={isSyncing ? 'Saving...' : 'Finish & Save Results'}
+              onPress={handleSave}
+              disabled={isSyncing}
+              style={{ borderColor: primary }}
+            />
+            <PrimaryButton
+              label="Next Team Member Setup"
+              variant="secondary"
+              onPress={prepNextTeamMember}
+              style={{ borderStyle: 'dashed', borderColor: primary }}
+            />
+          </View>
         )}
+
+        <SectionCard>
+          <Text style={[styles.sectionTitle, { color: text }]}>Team Progress Manifest Log</Text>
+          {attempts.length === 0 ? (
+            <Text style={[styles.bullet, { color: mutedText }]}>No local participant records populated in this cycle yet.</Text>
+          ) : (
+            attempts.map((item, index) => (
+              <View key={index} style={styles.teamLogItemRow}>
+                <Text style={[styles.body, { color: text, fontWeight: '700' }]}>{item.memberName}</Text>
+                <Text style={[styles.body, { color: mutedText }]}>{item.movement}: {item.averageForce} g avg</Text>
+              </View>
+            ))
+          )}
+        </SectionCard>
       </View>
     );
   };
@@ -420,12 +519,11 @@ const styles = StyleSheet.create({
   bullet: { ...Typography.body, fontSize: 13, lineHeight: 19 },
   movementRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start', marginBottom: 6 },
   movementLabel: { ...Typography.small, fontWeight: '700', minWidth: 90 },
-  diagramCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, marginTop: Spacing.md },
-  diagramText: { ...Typography.body, fontSize: 13, lineHeight: 19, fontStyle: 'italic' },
   experimentWrap: { gap: Spacing.md },
   infoCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md },
   helper: { ...Typography.small },
-  inputLabel: { ...Typography.small, marginBottom: 4 },
+  inputLabel: { ...Typography.small, marginBottom: 6, marginTop: Spacing.xs, fontWeight: '700' },
+  inputBox: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm, height: 40, fontSize: 13 },
   liveForce: { fontSize: 64, fontWeight: '800', fontVariant: ['tabular-nums'], marginVertical: Spacing.sm },
   scoreLabel: { ...Typography.body, fontWeight: '600', marginBottom: Spacing.sm },
   buttonRow: { flexDirection: 'row', marginTop: Spacing.sm },
@@ -440,4 +538,8 @@ const styles = StyleSheet.create({
   tableHeaderCell: { ...Typography.small, fontWeight: '800', fontSize: 11 },
   tableRow: { flexDirection: 'row', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, alignItems: 'flex-start' },
   tableCell: { ...Typography.small, fontSize: 11, lineHeight: 16 },
+  teamLogItemRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  timerTrackField: { height: 24, width: '100%', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: Radius.sm, overflow: 'hidden', marginBottom: Spacing.md, justifyContent: 'center', position: 'relative' },
+  timerProgressBarFill: { height: '100%', left: 0, position: 'absolute', opacity: 0.25 },
+  timerPercentageText: { ...Typography.small, fontSize: 11, fontWeight: '700', paddingHorizontal: Spacing.sm, zIndex: 2 }
 });
