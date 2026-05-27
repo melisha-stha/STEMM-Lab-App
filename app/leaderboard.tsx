@@ -1,15 +1,26 @@
+import { type ActivityCardColour } from '@/components/ui/activity-card';
+import { ColorPanel, PanelMuted, PanelTitle, usePanelTheme } from '@/components/ui/activity-color-panel';
+import {
+  LeaderboardScreenBackground,
+  useLeaderboardScreenBackground,
+} from '@/components/ui/leaderboard-screen-background';
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
+import { usePixelFont } from '@/hooks/use-pixel-font';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-import { PillTab } from '@/components/ui/PillTab';
-import { PrimaryButton } from '@/components/ui/primary-button';
-import { SectionCard } from '@/components/ui/section-card';
-import { SectionHeading } from '@/components/ui/SectionHeading';
-import { FontSize, FontWeight, Radius, Spacing, Typography } from '@/constants/design';
-import { useThemeColor } from '@/hooks/use-theme-color';
-
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   subscribeToBreathingLeaderboard,
   subscribeToEarthquakeLeaderboard,
@@ -35,6 +46,14 @@ const ACTIVITY_DISPLAY_NAMES: Record<Activity, string> = {
   earthquake: 'Earthquake',
   reaction: 'Reaction Board',
   breathing: 'Breathing Pace',
+};
+
+const ACTIVITY_COLOURS: Record<Activity, ActivityCardColour> = {
+  parachute: 'mint',
+  sound: 'peach',
+  earthquake: 'lavender',
+  reaction: 'yellow',
+  breathing: 'sky',
 };
 
 type LeaderboardResult = {
@@ -92,8 +111,7 @@ const getActivityMetric = (
       };
     case 'reaction':
       return {
-        primary:
-          result.bestReactionTime != null ? `${result.bestReactionTime} ms` : '—',
+        primary: result.bestReactionTime != null ? `${result.bestReactionTime} ms` : '—',
         label: 'Best reaction time',
       };
     case 'breathing':
@@ -104,19 +122,88 @@ const getActivityMetric = (
   }
 };
 
+const RANK_MEDALS = ['🥇', '🥈', '🥉'] as const;
+
+function LeaderboardHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
+  const { textColor } = usePanelTheme();
+  return (
+    <Text style={[styles.heroTitle, { color: textColor, fontFamily: pixelFamily }]}>Leaderboard</Text>
+  );
+}
+
+type LeaderboardRowProps = {
+  rank: number;
+  teamLabel: string;
+  grade: string;
+  metricPrimary: string;
+  metricLabel: string;
+};
+
+function LeaderboardEmptyState({ activityName }: { activityName: string }) {
+  const { textColor, borderColor } = usePanelTheme();
+
+  return (
+    <View style={styles.emptyState}>
+      <MaterialIcons name="leaderboard" size={40} color={borderColor} />
+      <Text style={[styles.emptyTitle, { color: textColor }]}>No {activityName} results yet</Text>
+      <PanelMuted style={styles.emptySubtext}>
+        Complete the activity to appear on the leaderboard.
+      </PanelMuted>
+    </View>
+  );
+}
+
+function LeaderboardRow({ rank, teamLabel, grade, metricPrimary, metricLabel }: LeaderboardRowProps) {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const gold = useThemeColor({}, 'gold');
+  const isPodium = rank <= 3;
+
+  return (
+    <View
+      style={[
+        styles.row,
+        {
+          borderColor: isPodium ? gold : borderColor,
+          backgroundColor: cardIconBg,
+        },
+      ]}>
+      <View style={[styles.rankWrap, { borderColor: isPodium ? gold : borderColor }]}>
+        <Text style={[styles.rank, { color: isPodium ? gold : textColor }]}>
+          {RANK_MEDALS[rank - 1] ?? rank}
+        </Text>
+      </View>
+      <View style={styles.main}>
+        <Text style={[styles.teamId, { color: textColor }]} numberOfLines={1}>
+          Team {teamLabel}
+        </Text>
+        <Text style={[styles.meta, { color: textColor, opacity: 0.75 }]} numberOfLines={1}>
+          Grade {grade}
+        </Text>
+      </View>
+      <View style={styles.score}>
+        <Text style={[styles.metricValue, { color: borderColor }]}>{metricPrimary}</Text>
+        <Text style={[styles.metricLabel, { color: textColor, opacity: 0.75 }]}>{metricLabel}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function LeaderboardScreen() {
   const router = useRouter();
+  const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
+  const { overlayColor, imageOpacity } = useLeaderboardScreenBackground();
+
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
-  const mutedText = useThemeColor({}, 'mutedText');
   const border = useThemeColor({}, 'border');
-  const card = useThemeColor({}, 'card');
-  const success = useThemeColor({}, 'success');
-  const cardMint = useThemeColor({}, 'cardMint');
-
+  const primary = useThemeColor({}, 'primary');
+  const primarySoft = useThemeColor({}, 'primarySoft');
+  const onPrimary = useThemeColor({}, 'onPrimary');
   const [activeActivity, setActiveActivity] = useState<Activity>('parachute');
   const [results, setResults] = useState<LeaderboardResult[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const activeColour = ACTIVITY_COLOURS[activeActivity];
 
   useEffect(() => {
     setLoading(true);
@@ -155,101 +242,171 @@ export default function LeaderboardScreen() {
   }, [activeActivity]);
 
   return (
-    <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <MaterialIcons name="arrow-back" size={24} color={text} />
-      </TouchableOpacity>
-      <SectionHeading
-        title="Leaderboard"
-        subtitle="Top 10 teams per activity"
-      />
+    <View style={[styles.root, { backgroundColor: background }]}>
+      <LeaderboardScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
+          <TouchableOpacity
+            accessibilityLabel="Go back"
+            onPress={() => router.back()}
+            style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={24} color={text} />
+          </TouchableOpacity>
 
-      <PillTab
-        tabs={ACTIVITIES.map((a) => ACTIVITY_LABELS[a])}
-        activeIndex={ACTIVITIES.indexOf(activeActivity)}
-        onChange={(index) => setActiveActivity(ACTIVITIES[index])}
-      />
+          <ColorPanel colour="lavender">
+            {pixelFontLoaded ? <LeaderboardHeroTitle pixelFamily={pixelFamily} /> : null}
+            <PanelMuted style={styles.heroSubtitle}>Top 10 teams per activity</PanelMuted>
+            <PanelMuted style={styles.heroBody}>
+              Pick an activity below to see how teams rank across the STEMM Lab challenges.
+            </PanelMuted>
+          </ColorPanel>
 
-      <SectionCard>
-        <Text style={[styles.sectionTitle, { color: text }]}>
-          {ACTIVITY_DISPLAY_NAMES[activeActivity]}
-        </Text>
-
-        {loading ? (
-          <ActivityIndicator size="small" color={text} style={styles.loader} />
-        ) : results.length === 0 ? (
-          <View style={styles.emptyState}>
-            <MaterialIcons name="leaderboard" size={40} color={mutedText} />
-            <Text style={[styles.emptyTitle, { color: text }]}>
-              No {ACTIVITY_DISPLAY_NAMES[activeActivity]} results yet
-            </Text>
-            <Text style={[styles.emptySubtext, { color: mutedText }]}>
-              Complete the activity to appear on the leaderboard
-            </Text>
-          </View>
-        ) : (
-          <View style={[styles.list, { borderTopColor: border }]}>
-            {results.map((result, idx) => {
-              const isFirst = idx === 0;
-              const metric = getActivityMetric(activeActivity, result);
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabRow}>
+            {ACTIVITIES.map((activity) => {
+              const isSelected = activeActivity === activity;
               return (
-                <View
-                  key={result.id}
+                <Pressable
+                  key={activity}
+                  onPress={() => setActiveActivity(activity)}
                   style={[
-                    styles.row,
+                    styles.tabPill,
                     {
-                      backgroundColor: isFirst ? cardMint : card,
-                      borderColor: isFirst ? success : border,
+                      backgroundColor: isSelected ? primary : primarySoft,
+                      borderColor: isSelected ? primary : border,
                     },
                   ]}>
-                  <View style={[styles.rankWrap, { borderColor: border }]}>
-                    <Text style={[styles.rank, { color: text }]}>{idx + 1}</Text>
-                  </View>
-                  <View style={styles.main}>
-                    <Text style={[styles.teamId, { color: text }]} numberOfLines={1}>
-                      Team ID: {getTeamDiscriminator(result)}
-                    </Text>
-                    <Text style={[styles.meta, { color: mutedText }]} numberOfLines={1}>
-                      Grade: {result.grade ?? '—'}
-                    </Text>
-                  </View>
-                  <View style={styles.score}>
-                    <Text style={[styles.metricValue, { color: text }]}>{metric.primary}</Text>
-                    <Text style={[styles.metricLabel, { color: mutedText }]}>{metric.label}</Text>
-                  </View>
-                </View>
+                  <Text style={[styles.tabPillText, { color: isSelected ? onPrimary : primary }]}>
+                    {ACTIVITY_LABELS[activity]}
+                  </Text>
+                </Pressable>
               );
             })}
-          </View>
-        )}
-      </SectionCard>
+          </ScrollView>
 
-      <View style={styles.actions}>
-        <PrimaryButton label="Back to dashboard" variant="secondary" onPress={() => router.replace('/(tabs)')} />
-      </View>
-    </ScrollView>
+          <ColorPanel colour={activeColour}>
+            <PanelTitle>{ACTIVITY_DISPLAY_NAMES[activeActivity]}</PanelTitle>
+            <PanelMuted style={styles.listHint}>Showing up to 10 teams · live rankings</PanelMuted>
+
+            {loading ? (
+              <ActivityIndicator size="small" color={primary} style={styles.loader} />
+            ) : results.length === 0 ? (
+              <LeaderboardEmptyState activityName={ACTIVITY_DISPLAY_NAMES[activeActivity]} />
+            ) : (
+              <View style={styles.list}>
+                {results.map((result, idx) => {
+                  const metric = getActivityMetric(activeActivity, result);
+                  return (
+                    <LeaderboardRow
+                      key={result.id}
+                      rank={idx + 1}
+                      teamLabel={getTeamDiscriminator(result)}
+                      grade={result.grade ?? '—'}
+                      metricPrimary={metric.primary}
+                      metricLabel={metric.label}
+                    />
+                  );
+                })}
+              </View>
+            )}
+          </ColorPanel>
+
+          <PrimaryButton
+            label="Back to dashboard"
+            variant="secondary"
+            onPress={() => router.replace('/(tabs)')}
+          />
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1 },
-  content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
-  backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
-  header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
-  title: { ...Typography.hero, fontSize: 26 },
-  subtitle: { marginTop: Spacing.xs, ...Typography.body },
-  sectionTitle: { ...Typography.section, marginBottom: Spacing.sm, fontSize: FontSize.lg },
-  loader: { marginVertical: 20 },
+  root: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  safe: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  content: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: SCREEN_BOTTOM_INSET,
+    gap: Spacing.lg,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    padding: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  heroTitle: {
+    fontSize: FontSize.xxl,
+    fontWeight: '800',
+  },
+  heroSubtitle: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+  },
+  heroBody: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingBottom: Spacing.xs,
+  },
+  tabPill: {
+    minHeight: 40,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabPillText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+  },
+  listHint: {
+    marginBottom: Spacing.sm,
+    fontSize: FontSize.sm,
+  },
+  loader: {
+    marginVertical: Spacing.lg,
+  },
   emptyState: {
     alignItems: 'center',
     gap: Spacing.sm,
     paddingVertical: Spacing.lg,
   },
-  emptyTitle: { ...Typography.section, textAlign: 'center' },
-  emptySubtext: { ...Typography.body, fontSize: 13, textAlign: 'center', lineHeight: 19 },
-  list: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.sm },
+  emptyTitle: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.bold,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    textAlign: 'center',
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  list: {
+    gap: Spacing.sm,
+  },
   row: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderRadius: Radius.lg,
     padding: Spacing.md,
     flexDirection: 'row',
@@ -257,19 +414,44 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   rankWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: Radius.pill,
+    width: 36,
+    height: 36,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
   },
-  rank: { fontWeight: '900', fontVariant: ['tabular-nums'] },
-  main: { flex: 1, gap: 4 },
-  teamId: { ...Typography.section, fontSize: 15 },
-  meta: { ...Typography.small },
-  score: { alignItems: 'flex-end', gap: 4 },
-  metricValue: { fontWeight: '900', fontSize: 16, fontVariant: ['tabular-nums'] },
-  metricLabel: { ...Typography.small, textTransform: 'uppercase', letterSpacing: 0.8 },
-  actions: { gap: Spacing.sm },
+  rank: {
+    fontWeight: '900',
+    fontSize: FontSize.md,
+    fontVariant: ['tabular-nums'],
+  },
+  main: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  teamId: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
+  },
+  meta: {
+    fontSize: FontSize.xs,
+  },
+  score: {
+    alignItems: 'flex-end',
+    gap: 2,
+    flexShrink: 0,
+  },
+  metricValue: {
+    fontWeight: '900',
+    fontSize: FontSize.md,
+    fontVariant: ['tabular-nums'],
+  },
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
 });

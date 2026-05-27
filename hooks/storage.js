@@ -134,3 +134,26 @@ export const getBreathingResults = async () => {
     return [];
   }
 };
+
+const COLOR_SCHEME_KEY = '@app_color_scheme';
+
+/** @returns {'light' | 'dark' | null} */
+export const getColorSchemePreference = async () => {
+  try {
+    const value = await AsyncStorage.getItem(COLOR_SCHEME_KEY);
+    if (value === 'light' || value === 'dark') return value;
+    return null;
+  } catch (e) {
+    console.error('Failed to load color scheme preference', e);
+    return null;
+  }
+};
+
+/** @param {'light' | 'dark'} scheme */
+export const saveColorSchemePreference = async (scheme) => {
+  try {
+    await AsyncStorage.setItem(COLOR_SCHEME_KEY, scheme);
+  } catch (e) {
+    console.error('Failed to save color scheme preference', e);
+  }
+};

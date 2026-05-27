@@ -3,26 +3,26 @@ import React from 'react';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { StyleSheet, View } from 'react-native';
 
-const BACKGROUND_SOURCE = require('@/assets/images/parachute-background.png');
+const BACKGROUND_SOURCE = require('@/assets/images/leaderboard-background.png');
 
-export function useParachuteScreenBackground() {
+export function useLeaderboardScreenBackground() {
   const isDark = useColorScheme() === 'dark';
 
   return {
-    overlayColor: isDark ? 'rgba(13, 13, 31, 0.72)' : 'rgba(255, 255, 255, 0.58)',
-    imageOpacity: isDark ? 0.5 : 0.62,
+    overlayColor: isDark ? 'rgba(13, 13, 31, 0.74)' : 'rgba(255, 255, 255, 0.6)',
+    imageOpacity: isDark ? 0.48 : 0.65,
   };
 }
 
-type ParachuteScreenBackgroundProps = {
+type LeaderboardScreenBackgroundProps = {
   overlayColor: string;
   imageOpacity: number;
 };
 
-export function ParachuteScreenBackground({
+export function LeaderboardScreenBackground({
   overlayColor,
   imageOpacity,
-}: ParachuteScreenBackgroundProps) {
+}: LeaderboardScreenBackgroundProps) {
   return (
     <View style={styles.layer} pointerEvents="none">
       <Image

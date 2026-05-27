@@ -1,5 +1,6 @@
 import { ActivityCard, type ActivityCardColour } from '@/components/ui/activity-card';
 import { AuthScreenBackground, useAuthScreenBackground } from '@/components/ui/auth-screen-background';
+import { ThemeModeToggle } from '@/components/ui/theme-mode-toggle';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
 import { resolveAppRoute } from '@/hooks/app-routing';
 import { getTrials } from '@/hooks/database';
@@ -401,13 +402,16 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Lab alerts"
-              onPress={() => Alert.alert('Lab Alerts', 'No new alerts')}
-              style={[styles.bellBtn, { backgroundColor: backgroundSecondary }]}>
-              <MaterialIcons name="notifications-none" size={24} color={textSecondary} />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <ThemeModeToggle />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Lab alerts"
+                onPress={() => Alert.alert('Lab Alerts', 'No new alerts')}
+                style={[styles.bellBtn, { backgroundColor: backgroundSecondary }]}>
+                <MaterialIcons name="notifications-none" size={24} color={textSecondary} />
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.progressSection}>
@@ -621,6 +625,11 @@ const styles = StyleSheet.create({
   yearPillText: {
     fontSize: 11,
     fontWeight: FontWeight.semibold,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   bellBtn: {
     width: 40,
