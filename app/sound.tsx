@@ -151,9 +151,9 @@ function meterToDb(meter: number): number {
 }
 
 function useDbRisk(db: number) {
-  const success = useThemeColor({}, 'success');
-  const warning = useThemeColor({}, 'warning');
-  const error = useThemeColor({}, 'error');
+  const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
+  const warning = useThemeColor({}, 'warning' as any) ?? '#FF9800';
+  const error = useThemeColor({}, 'error' as any) ?? '#F44336';
   const text = useThemeColor({}, 'text');
 
   if (db < 30) return { label: 'No Risk', color: success };
@@ -208,8 +208,8 @@ function OverviewInstructionList() {
 
 function OverviewConductExperiment() {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
-  const success = useThemeColor({}, 'success');
-  const error = useThemeColor({}, 'error');
+  const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
+  const error = useThemeColor({}, 'error' as any) ?? '#F44336';
 
   const [checked, setChecked] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
@@ -268,7 +268,7 @@ function OverviewConductExperiment() {
       {allGathered ? (
         <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
           <MaterialIcons name="celebration" size={20} color={success} />
-          <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
+          <Text style={[styles.equipmentStatusText, { color: success }]}>You are good to go!</Text>
         </View>
       ) : hasStartedSelecting ? (
         <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
@@ -401,9 +401,9 @@ function WriteupWorksheetTable() {
           ))}
         </View>
       </ScrollView>
-      <PanelMuted style={[styles.fieldSubHintText, { marginTop: Spacing.xs }]}>
+      <Text style={[styles.fieldSubHintText, { marginTop: Spacing.xs }]}>
         Fill these cells on your physical worksheet during classroom testing.
-      </PanelMuted>
+      </Text>
     </>
   );
 }
@@ -505,8 +505,8 @@ export default function SoundScreen() {
   const text = useThemeColor({}, 'text');
   const border = useThemeColor({}, 'border');
   const primary = useThemeColor({}, 'primary');
-  const primaryDark = useThemeColor({}, 'primaryDark');
-  const primarySoft = useThemeColor({}, 'primarySoft');
+  const primaryDark = useThemeColor({}, 'primaryDark' as any) ?? '#6B21A8';
+  const primarySoft = useThemeColor({}, 'primarySoft' as any) ?? '#F3E8FF';
   const onPrimary = useThemeColor({}, 'onPrimary');
 
   const loudest = measurements.length ? Math.max(...measurements.map((m) => m.db)) : null;
@@ -671,13 +671,21 @@ export default function SoundScreen() {
         content: {
           title: 'STEMM Lab Sync Complete',
           body: `Sound data for ${teamData?.name || 'your team'} has been saved!`,
-          data: { screen: 'sound' },
+          data: { screen: 'sound-results' },
         },
         trigger: null,
       });
 
       Alert.alert('Saved!', 'Your sound measurements have been saved.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') },
+        { 
+          text: 'OK', 
+          onPress: () => {
+            router.push({
+              pathname: '/sound-results' as any,
+              params: { measurementsJson: JSON.stringify(measurements) },
+            });
+          } 
+        },
       ]);
     } catch (error) {
       console.error('Sound Save Error:', error);
@@ -746,7 +754,7 @@ export default function SoundScreen() {
                       borderBottomColor: primaryDark,
                     },
                   ]}>
-                  <Text style={[styles.heroCtaText, { color: onPrimary }]}>▶  Start experiment</Text>
+                  <Text style={[styles.heroCtaText, { color: onPrimary }]}>Start experiment</Text>
                 </Pressable>
               </ColorPanel>
 
@@ -869,8 +877,7 @@ export default function SoundScreen() {
               </ColorPanel>
 
               <ColorPanel colour="sky">
-                <PanelTitle>Worksheet reference table</PanelTitle>
-                <WriteupWorksheetTable />
+                <OverviewWorksheetReferenceTable />
               </ColorPanel>
             </View>
           )}
@@ -905,6 +912,10 @@ export default function SoundScreen() {
       </SafeAreaView>
     </View>
   );
+}
+
+function OverviewWorksheetReferenceTable() {
+  return <WriteupWorksheetTable />;
 }
 
 const styles = StyleSheet.create({

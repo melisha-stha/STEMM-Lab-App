@@ -135,6 +135,30 @@ export const getBreathingResults = async () => {
   }
 };
 
+const SOUND_RESULTS_KEY = '@sound_results';
+
+export const saveSoundResults = async (payload) => {
+  try {
+    const existing = await AsyncStorage.getItem(SOUND_RESULTS_KEY);
+    const history = existing ? JSON.parse(existing) : [];
+    const next = Array.isArray(history) ? [payload, ...history] : [payload];
+    await AsyncStorage.setItem(SOUND_RESULTS_KEY, JSON.stringify(next));
+    console.log('Success: Sound results saved.');
+  } catch (e) {
+    console.error('Failed to save sound results', e);
+  }
+};
+
+export const getSoundResults = async () => {
+  try {
+    const existing = await AsyncStorage.getItem(SOUND_RESULTS_KEY);
+    return existing ? JSON.parse(existing) : [];
+  } catch (e) {
+    console.error('Failed to load sound results', e);
+    return [];
+  }
+};
+
 const COLOR_SCHEME_KEY = '@app_color_scheme';
 
 /** @returns {'light' | 'dark' | null} */
