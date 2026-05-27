@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { Accelerometer } from 'expo-sensors';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadPerformanceResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
@@ -223,13 +224,21 @@ export default function PerformanceScreen() {
         content: {
           title: 'STEMM Lab Sync Complete',
           body: `Performance results for ${teamData?.name || 'your team'} have been saved!`,
-          data: { screen: 'performance' },
+          data: { screen: 'performance-results' },
         },
         trigger: null,
       });
 
       Alert.alert('Saved!', 'Your performance results have been saved.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') }
+        {
+          text: 'OK',
+          onPress: () => {
+            router.push({
+              pathname: '/performance-results' as any,
+              params: { attemptsJson: JSON.stringify(filteredAttempts) },
+            });
+          }
+        }
       ]);
     } catch (error) {
       console.error('Performance Save Error:', error);
@@ -471,39 +480,40 @@ export default function PerformanceScreen() {
   );
 
   return (
-    <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <MaterialIcons name="arrow-back" size={24} color={text} />
-      </TouchableOpacity>
+    <SafeAreaView style={[styles.safe, { backgroundColor: background }]} edges={['top']}>
+      <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={24} color={text} />
+        </TouchableOpacity>
 
-      <View style={styles.tabRow}>
-        {SCREEN_TABS.map(tab => {
-          const isActive = screenTab === tab;
-          return (
-            <Pressable
-              key={tab}
-              onPress={() => setScreenTab(tab)}
-              style={[styles.tabPill, { backgroundColor: isActive ? primary : card, borderColor: isActive ? primary : border }]}
-            >
-              <Text style={[styles.tabPillText, { color: isActive ? onPrimary : text }]}>
-                {SCREEN_TAB_LABELS[tab]}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+        <View style={styles.tabRow}>
+          {SCREEN_TABS.map(tab => {
+            const isActive = screenTab === tab;
+            return (
+              <Pressable
+                key={tab}
+                onPress={() => setScreenTab(tab)}
+                style={[styles.tabPill, { backgroundColor: isActive ? primary : card, borderColor: isActive ? primary : border }]}
+              >
+                <Text style={[styles.tabPillText, { color: isActive ? onPrimary : text }]}>
+                  {SCREEN_TAB_LABELS[tab]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-      {screenTab === 'overview' && renderOverviewTab()}
-      {screenTab === 'experiment' && renderExperimentTab()}
-      {screenTab === 'writeup' && renderWriteupTab()}
-      {screenTab === 'discussion' && renderDiscussionTab()}
-
-      <PrimaryButton label="Back to dashboard" variant="secondary" onPress={() => router.back()} disabled={isSyncing} />
-    </ScrollView>
+        {screenTab === 'overview' && renderOverviewTab()}
+        {screenTab === 'experiment' && renderExperimentTab()}
+        {screenTab === 'writeup' && renderWriteupTab()}
+        {screenTab === 'discussion' && renderDiscussionTab()}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   page: { flex: 1 },
   content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
   backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
