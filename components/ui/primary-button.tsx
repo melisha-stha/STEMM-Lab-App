@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
+import { usePanelFieldColors } from '@/components/ui/activity-color-panel';
 import { Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
@@ -23,17 +24,15 @@ export function PrimaryButton({
   rightAccessory,
   style,
 }: Props) {
+  const { foreground, surface, border: panelBorder } = usePanelFieldColors();
   const primary = useThemeColor({}, 'primary');
   const onPrimary = useThemeColor({}, 'onPrimary');
-  const card = useThemeColor({}, 'card');
-  const border = useThemeColor({}, 'border');
   const danger = useThemeColor({}, 'danger');
-  const text = useThemeColor({}, 'text');
 
   const bg =
-    variant === 'primary' ? primary : variant === 'danger' ? danger : card;
-  const fg = variant === 'secondary' ? text : onPrimary;
-  const bd = variant === 'secondary' ? border : 'transparent';
+    variant === 'primary' ? primary : variant === 'danger' ? danger : surface;
+  const fg = variant === 'secondary' ? foreground : onPrimary;
+  const bd = variant === 'secondary' ? panelBorder : 'transparent';
 
   return (
     <Pressable

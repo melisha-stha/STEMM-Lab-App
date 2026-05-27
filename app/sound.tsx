@@ -1,3 +1,4 @@
+import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
 import {
   ColorPanel,
   PanelMuted,
@@ -5,6 +6,10 @@ import {
   usePanelTableTokens,
   usePanelTheme,
 } from '@/components/ui/activity-color-panel';
+import {
+  EXPERIMENT_CHALLENGE_LIMIT_MS,
+  ExperimentChallengeTimer,
+} from '@/components/ui/experiment-challenge-timer';
 import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import {
@@ -21,7 +26,7 @@ import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -54,13 +59,21 @@ const SCREEN_TAB_LABELS: Record<ScreenTab, string> = {
   discussion: 'Discussion',
 };
 
-const EQUIPMENT_ITEMS = ['Mobile phone with STEMM Lab app'];
+const EQUIPMENT_ITEMS = [
+  'Mobile phone with STEMM Lab app',
+  'Book or object to make sound (e.g. textbook)',
+  'Table or flat surface for consistent placement',
+];
 
 const INSTRUCTION_STEPS = [
-  'Measure sounds from different actions (e.g. dropping a pen or book, talking, walking, stamping).',
-  'Log the peak decibel level and label each action clearly.',
-  'Compare readings across your classroom to find loud and quiet zones.',
+  'Place the phone 30 cm from the sound source. Use the same distance for every measurement.',
+  'Label each action before recording (e.g. dropping a book, talking, walking).',
+  'Tap Start, perform the action, then Stop to save the peak decibel reading.',
+  'Record up to 3 different actions and compare loud vs quiet zones in your classroom.',
+  'Upload your measurements when finished.',
 ];
+
+const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = ['lavender', 'sky', 'lavender'];
 
 const SOUND_LEVEL_TABLE_ROWS = [
   { level: '0–30 dB', examples: 'Whisper, quiet library', risk: 'No risk', color: '#2E7D32' },
@@ -108,6 +121,29 @@ const SOUND_LEVEL_TABLE_ROWS = [
     color: '#000000',
   },
 ] as const;
+
+type StepPanelProps = {
+  step: number;
+  title: string;
+  colour?: ActivityCardColour;
+  children: React.ReactNode;
+};
+
+function StepPanel({ step, title, colour = 'lavender', children }: StepPanelProps) {
+  const { textColor, cardIconBg, borderColor } = useActivityCardColours(colour);
+
+  return (
+    <ColorPanel colour={colour}>
+      <View style={styles.stepHeader}>
+        <View style={[styles.stepBadge, { backgroundColor: cardIconBg }]}>
+          <Text style={[styles.stepBadgeText, { color: borderColor }]}>Step {step}</Text>
+        </View>
+        <Text style={[styles.stepTitle, { color: textColor }]}>{title}</Text>
+      </View>
+      <View style={styles.stepBody}>{children}</View>
+    </ColorPanel>
+  );
+}
 
 function meterToDb(meter: number): number {
   const clamped = Math.max(-160, Math.min(0, meter));
@@ -170,17 +206,159 @@ function OverviewInstructionList() {
   );
 }
 
-function OverviewEquipmentList() {
-  const { textColor, borderColor } = usePanelTheme();
+function OverviewConductExperiment() {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const success = useThemeColor({}, 'success');
+  const error = useThemeColor({}, 'error');
+
+  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
+  );
+
+  const missingItems = EQUIPMENT_ITEMS.filter((item) => !checked[item]);
+  const allGathered = missingItems.length === 0;
+  const hasStartedSelecting = EQUIPMENT_ITEMS.some((item) => checked[item]);
+
+  const toggleEquipment = (item: string) => {
+    setChecked((prev) => ({ ...prev, [item]: !prev[item] }));
+  };
+
   return (
-    <View style={styles.listContainer}>
-      {EQUIPMENT_ITEMS.map((item) => (
-        <View key={item} style={styles.listRow}>
-          <MaterialIcons name="check-circle" size={16} color={borderColor} />
-          <Text style={[styles.listItem, { color: textColor, opacity: 0.85 }]}>{item}</Text>
+    <>
+      <PanelTitle>How to conduct the experiment</PanelTitle>
+      <PanelMuted style={styles.equipmentIntro}>First, gather all this equipment:</PanelMuted>
+      <PanelMuted style={styles.equipmentSelectHint}>
+        Select all equipment you have gathered
+      </PanelMuted>
+
+      <View style={styles.equipmentChecklist}>
+        {EQUIPMENT_ITEMS.map((item) => {
+          const isChecked = checked[item];
+          return (
+            <Pressable
+              key={item}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isChecked }}
+              accessibilityLabel={item}
+              onPress={() => toggleEquipment(item)}
+              style={[
+                styles.equipmentCheckRow,
+                {
+                  borderColor: isChecked ? success : borderColor,
+                  backgroundColor: cardIconBg,
+                },
+              ]}>
+              <MaterialIcons
+                name={isChecked ? 'check-box' : 'check-box-outline-blank'}
+                size={22}
+                color={isChecked ? success : borderColor}
+              />
+              <Text
+                style={[
+                  styles.equipmentCheckLabel,
+                  { color: textColor, fontWeight: isChecked ? '700' : '500' },
+                ]}>
+                {item}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {allGathered ? (
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
+          <MaterialIcons name="celebration" size={20} color={success} />
+          <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
         </View>
-      ))}
-    </View>
+      ) : hasStartedSelecting ? (
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
+          <MaterialIcons name="warning" size={20} color={error} />
+          <View style={styles.missingEquipmentBlock}>
+            <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
+            {missingItems.map((item) => (
+              <Text key={item} style={[styles.missingEquipmentItem, { color: error }]}>
+                • {item}
+              </Text>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
+
+      <Text style={[styles.stepsSectionTitle, { color: textColor }]}>Step-by-step instructions</Text>
+      <OverviewInstructionList />
+
+      <PanelMuted style={[styles.diagramCaption, { marginTop: Spacing.md }]}>
+        Place the phone 30 cm from the sound source. Use the same distance for every measurement.
+      </PanelMuted>
+      <OverviewDiagramFrame />
+    </>
+  );
+}
+
+type SoundLiveRecordingProps = {
+  liveDb: number;
+  isRecording: boolean;
+  isSyncing: boolean;
+  measurementsCount: number;
+  loudest: number | null;
+  onToggleRecording: () => void;
+  onReset: () => void;
+};
+
+function SoundLiveRecording({
+  liveDb,
+  isRecording,
+  isSyncing,
+  measurementsCount,
+  loudest,
+  onToggleRecording,
+  onReset,
+}: SoundLiveRecordingProps) {
+  const { borderColor, cardIconBg } = usePanelTheme();
+  const risk = useDbRisk(liveDb);
+  const atLimit = measurementsCount >= MAX_MEASUREMENTS;
+
+  return (
+    <>
+      <PanelMuted style={styles.stepHint}>
+        Tap Start, perform the labelled action with the phone 30 cm away, then Stop to save the peak
+        reading.
+      </PanelMuted>
+
+      <Text style={[styles.dbValue, { color: risk.color }]}>{liveDb} dB</Text>
+      <View style={[styles.riskBadge, { backgroundColor: cardIconBg, borderColor: risk.color }]}>
+        <Text style={[styles.riskLabel, { color: risk.color }]}>{risk.label}</Text>
+      </View>
+
+      <PrimaryButton
+        label={isRecording ? 'Stop & save reading' : 'Start microphone'}
+        variant={isRecording ? 'danger' : 'primary'}
+        disabled={atLimit || isSyncing}
+        onPress={onToggleRecording}
+      />
+
+      <View style={styles.buttonRow}>
+        <View style={styles.buttonHalf}>
+          <PrimaryButton
+            label="Reset all"
+            variant="secondary"
+            onPress={onReset}
+            disabled={isSyncing || (measurementsCount === 0 && !isRecording)}
+          />
+        </View>
+      </View>
+
+      <View style={styles.helperRow}>
+        <PanelMuted style={styles.helper}>
+          Measurements: {measurementsCount}/{MAX_MEASUREMENTS}
+        </PanelMuted>
+        {loudest !== null ? (
+          <Text style={[styles.helperPeak, { color: borderColor }]}>Peak: {loudest} dB</Text>
+        ) : null}
+      </View>
+    </>
   );
 }
 
@@ -268,6 +446,40 @@ function HearingDamageTable() {
   );
 }
 
+type MeasurementRowProps = {
+  index: number;
+  measurement: { db: number; label: string };
+  isLoudest: boolean;
+};
+
+function MeasurementRow({ index, measurement, isLoudest }: MeasurementRowProps) {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const { color: riskColor, label: riskLabel } = useDbRisk(measurement.db);
+
+  return (
+    <View
+      style={[
+        styles.measureRow,
+        {
+          borderColor: isLoudest ? riskColor : borderColor,
+          backgroundColor: cardIconBg,
+        },
+      ]}>
+      <View style={styles.measureRowMain}>
+        <Text style={[styles.measureAction, { color: textColor }]}>
+          Action {index + 1}: {measurement.label}
+        </Text>
+        <Text style={[styles.measureDb, { color: riskColor }]}>{measurement.db} dB</Text>
+      </View>
+      <View style={[styles.riskBadge, { backgroundColor: cardIconBg, borderColor: riskColor }]}>
+        <Text style={[styles.riskLabel, { color: riskColor }]}>
+          {isLoudest ? 'Peak' : riskLabel}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export default function SoundScreen() {
   const router = useRouter();
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
@@ -276,11 +488,18 @@ export default function SoundScreen() {
   const [screenTab, setScreenTab] = useState<ScreenTab>('overview');
   const [isRecording, setIsRecording] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [locationStatus, setLocationStatus] = useState('📡 Searching...');
   const [liveDb, setLiveDb] = useState(0);
   const [actionLabel, setActionLabel] = useState('');
   const [measurements, setMeasurements] = useState<{ db: number; label: string }[]>([]);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const peakDbRef = useRef(0);
+
+  const [challengeTimerStarted, setChallengeTimerStarted] = useState(false);
+  const [challengeTimerRunning, setChallengeTimerRunning] = useState(false);
+  const [challengeTimerFinished, setChallengeTimerFinished] = useState(false);
+  const [challengeRemainingMs, setChallengeRemainingMs] = useState(EXPERIMENT_CHALLENGE_LIMIT_MS);
+  const challengeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
@@ -289,16 +508,72 @@ export default function SoundScreen() {
   const primaryDark = useThemeColor({}, 'primaryDark');
   const primarySoft = useThemeColor({}, 'primarySoft');
   const onPrimary = useThemeColor({}, 'onPrimary');
-  const cardIconBg = useThemeColor({}, 'cardIconBg');
 
-  const risk = useDbRisk(liveDb);
   const loudest = measurements.length ? Math.max(...measurements.map((m) => m.db)) : null;
+
+  const clearChallengeInterval = useCallback(() => {
+    if (challengeIntervalRef.current) {
+      clearInterval(challengeIntervalRef.current);
+      challengeIntervalRef.current = null;
+    }
+  }, []);
+
+  const stopChallengeTimer = useCallback(() => {
+    clearChallengeInterval();
+    setChallengeTimerRunning(false);
+    setChallengeTimerFinished(true);
+  }, [clearChallengeInterval]);
+
+  const runChallengeInterval = useCallback(() => {
+    const endAt = Date.now() + challengeRemainingMs;
+    challengeIntervalRef.current = setInterval(() => {
+      const next = Math.max(0, endAt - Date.now());
+      setChallengeRemainingMs(next);
+      if (next <= 0) {
+        clearChallengeInterval();
+        setChallengeTimerRunning(false);
+      }
+    }, 250);
+  }, [challengeRemainingMs, clearChallengeInterval]);
+
+  const startChallengeTimer = useCallback(() => {
+    if (challengeTimerFinished || challengeTimerRunning) return;
+    setChallengeTimerStarted(true);
+    setChallengeTimerRunning(true);
+    runChallengeInterval();
+  }, [challengeTimerFinished, challengeTimerRunning, runChallengeInterval]);
+
+  const pauseChallengeTimer = useCallback(() => {
+    if (!challengeTimerRunning) return;
+    clearChallengeInterval();
+    setChallengeTimerRunning(false);
+  }, [challengeTimerRunning, clearChallengeInterval]);
+
+  const resumeChallengeTimer = useCallback(() => {
+    if (challengeTimerFinished || challengeTimerRunning || challengeRemainingMs <= 0) return;
+    setChallengeTimerStarted(true);
+    setChallengeTimerRunning(true);
+    runChallengeInterval();
+  }, [
+    challengeRemainingMs,
+    challengeTimerFinished,
+    challengeTimerRunning,
+    runChallengeInterval,
+  ]);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationStatus(status === 'granted' ? 'Fixed' : 'Off');
+    })();
+  }, []);
 
   useEffect(() => {
     return () => {
       void stopRecording();
+      clearChallengeInterval();
     };
-  }, []);
+  }, [clearChallengeInterval]);
 
   const startRecording = async () => {
     if (measurements.length >= MAX_MEASUREMENTS) return;
@@ -390,6 +665,8 @@ export default function SoundScreen() {
         ),
       ]);
 
+      stopChallengeTimer();
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'STEMM Lab Sync Complete',
@@ -474,92 +751,74 @@ export default function SoundScreen() {
               </ColorPanel>
 
               <ColorPanel colour="sky">
-                <PanelTitle>How to conduct the experiment</PanelTitle>
-                <PanelMuted style={styles.diagramCaption}>
-                  Place the phone 30 cm from the sound source. Use the same distance for every
-                  measurement.
-                </PanelMuted>
-                <OverviewDiagramFrame />
-              </ColorPanel>
-
-              <ColorPanel colour="lavender">
-                <PanelTitle>Equipment</PanelTitle>
-                <OverviewEquipmentList />
-              </ColorPanel>
-
-              <ColorPanel colour="peach">
-                <PanelTitle>How it works</PanelTitle>
-                <OverviewInstructionList />
+                <OverviewConductExperiment />
               </ColorPanel>
             </View>
           )}
 
           {screenTab === 'experiment' && (
             <View style={styles.tabContent}>
-              <ColorPanel colour="sky">
-                <PanelTitle>Recording instructions</PanelTitle>
-                <PanelMuted>• Label the action before recording (e.g. &quot;dropping a book&quot;).</PanelMuted>
-                <PanelMuted>• Tap Start and perform the action with the phone 30 cm away.</PanelMuted>
-                <PanelMuted>• Tap Stop to save the peak decibel level.</PanelMuted>
-                <PanelMuted>• Record up to 3 different actions.</PanelMuted>
+              <ColorPanel colour="mint">
+                <ExperimentChallengeTimer
+                  pixelFamily={pixelFontLoaded ? pixelFamily : undefined}
+                  started={challengeTimerStarted}
+                  running={challengeTimerRunning}
+                  finished={challengeTimerFinished}
+                  remainingMs={challengeRemainingMs}
+                  onStart={startChallengeTimer}
+                  onPause={pauseChallengeTimer}
+                  onResume={resumeChallengeTimer}
+                  onStop={stopChallengeTimer}
+                />
               </ColorPanel>
 
-              <ColorPanel colour="lavender">
-                <PanelTitle>Live sound level</PanelTitle>
-                <Text style={[styles.dbValue, { color: risk.color }]}>{liveDb} dB</Text>
-                <View style={[styles.riskBadge, { backgroundColor: cardIconBg, borderColor: risk.color }]}>
-                  <Text style={[styles.riskLabel, { color: risk.color }]}>{risk.label}</Text>
+              <View style={styles.statusRow}>
+                <View style={[styles.statusPill, { backgroundColor: primarySoft }]}>
+                  <MaterialIcons name="location-on" size={14} color={primary} />
+                  <Text style={[styles.statusPillText, { color: primary }]}>
+                    Location: {locationStatus}
+                  </Text>
                 </View>
+                <View style={[styles.statusPill, { backgroundColor: primarySoft }]}>
+                  <MaterialIcons name="graphic-eq" size={14} color={primary} />
+                  <Text style={[styles.statusPillText, { color: primary }]}>
+                    Readings {measurements.length} / {MAX_MEASUREMENTS}
+                  </Text>
+                </View>
+              </View>
 
+              <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Label your action">
+                <PanelMuted style={styles.stepHint}>
+                  Name the sound you are about to measure before you start the microphone.
+                </PanelMuted>
                 <Input
                   label="Action label"
-                  placeholder='e.g. dropping a textbook on desk'
+                  placeholder='e.g. dropping a textbook, talking, walking'
                   value={actionLabel}
                   onChangeText={setActionLabel}
                   editable={!isRecording && measurements.length < MAX_MEASUREMENTS}
                 />
+              </StepPanel>
 
-                <View style={styles.buttons}>
-                  <PrimaryButton
-                    label={isRecording ? 'Stop & save reading' : 'Start microphone'}
-                    variant={isRecording ? 'danger' : 'primary'}
-                    disabled={measurements.length >= MAX_MEASUREMENTS || isSyncing}
-                    onPress={() => (isRecording ? void stopRecording() : void startRecording())}
-                  />
-                  <View style={styles.buttonRow}>
-                    <View style={styles.buttonHalf}>
-                      <PrimaryButton
-                        label="Reset"
-                        variant="secondary"
-                        onPress={resetAll}
-                        disabled={isSyncing || (measurements.length === 0 && !isRecording)}
-                      />
-                    </View>
-                    <View style={styles.buttonWide}>
-                      <PrimaryButton
-                        label={isSyncing ? 'Syncing...' : 'Upload results'}
-                        variant="secondary"
-                        onPress={() => void finishAndSave()}
-                        disabled={measurements.length === 0 || isRecording || isSyncing}
-                      />
-                    </View>
-                  </View>
-                </View>
+              <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Record sound level">
+                <SoundLiveRecording
+                  liveDb={liveDb}
+                  isRecording={isRecording}
+                  isSyncing={isSyncing}
+                  measurementsCount={measurements.length}
+                  loudest={loudest}
+                  onToggleRecording={() =>
+                    isRecording ? void stopRecording() : void startRecording()
+                  }
+                  onReset={resetAll}
+                />
+              </StepPanel>
 
-                <View style={styles.helperRow}>
-                  <PanelMuted style={styles.helper}>
-                    Measurements: {measurements.length}/{MAX_MEASUREMENTS}
-                  </PanelMuted>
-                  {loudest !== null ? (
-                    <Text style={[styles.helperPeak, { color: primary }]}>Peak: {loudest} dB</Text>
-                  ) : null}
-                </View>
-              </ColorPanel>
-
-              <ColorPanel colour="sky">
-                <PanelTitle>Your measurements</PanelTitle>
+              <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Your measurements">
                 {measurements.length === 0 ? (
-                  <PanelMuted style={styles.placeholder}>No readings yet — start a recording above.</PanelMuted>
+                  <PanelMuted style={styles.emptyHint}>
+                    No readings yet — complete Step 2 to log your first measurement.
+                  </PanelMuted>
                 ) : (
                   <View style={styles.measureList}>
                     {measurements.map((m, i) => (
@@ -572,7 +831,16 @@ export default function SoundScreen() {
                     ))}
                   </View>
                 )}
-              </ColorPanel>
+                {measurements.length > 0 && (
+                  <PrimaryButton
+                    label={isSyncing ? 'Syncing...' : 'Upload results'}
+                    variant="primary"
+                    style={{ marginTop: Spacing.md }}
+                    onPress={() => void finishAndSave()}
+                    disabled={isRecording || isSyncing}
+                  />
+                )}
+              </StepPanel>
             </View>
           )}
 
@@ -635,40 +903,6 @@ export default function SoundScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
-    </View>
-  );
-}
-
-type MeasurementRowProps = {
-  index: number;
-  measurement: { db: number; label: string };
-  isLoudest: boolean;
-};
-
-function MeasurementRow({ index, measurement, isLoudest }: MeasurementRowProps) {
-  const { textColor, borderColor, cardIconBg } = usePanelTheme();
-  const { color: riskColor, label: riskLabel } = useDbRisk(measurement.db);
-
-  return (
-    <View
-      style={[
-        styles.measureRow,
-        {
-          borderColor: isLoudest ? riskColor : borderColor,
-          backgroundColor: cardIconBg,
-        },
-      ]}>
-      <View style={styles.measureRowMain}>
-        <Text style={[styles.measureAction, { color: textColor }]}>
-          Action {index + 1}: {measurement.label}
-        </Text>
-        <Text style={[styles.measureDb, { color: riskColor }]}>{measurement.db} dB</Text>
-      </View>
-      <View style={[styles.riskBadge, { backgroundColor: cardIconBg, borderColor: riskColor }]}>
-        <Text style={[styles.riskLabel, { color: riskColor }]}>
-          {isLoudest ? 'Peak' : riskLabel}
-        </Text>
-      </View>
     </View>
   );
 }
@@ -758,18 +992,65 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     fontWeight: FontWeight.bold,
   },
-  listContainer: {
+  equipmentIntro: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    fontWeight: FontWeight.semibold,
+  },
+  equipmentSelectHint: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    marginBottom: Spacing.xs,
+  },
+  equipmentChecklist: {
     gap: Spacing.xs,
   },
-  listRow: {
+  equipmentCheckRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderWidth: 2,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  equipmentCheckLabel: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    lineHeight: 18,
+  },
+  equipmentStatusBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.sm,
+    borderWidth: 2,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
   },
-  listItem: {
-    flex: 1,
+  equipmentStatusText: {
     fontSize: FontSize.sm,
-    lineHeight: 20,
+    fontWeight: FontWeight.bold,
+    flex: 1,
+  },
+  missingEquipmentBlock: {
+    flex: 1,
+    gap: 4,
+  },
+  missingEquipmentItem: {
+    fontSize: FontSize.sm,
+    lineHeight: 18,
+    fontWeight: FontWeight.semibold,
+  },
+  sectionDivider: {
+    height: 2,
+    opacity: 0.35,
+    marginVertical: Spacing.md,
+  },
+  stepsSectionTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    marginBottom: Spacing.xs,
   },
   instructionRow: {
     flexDirection: 'row',
@@ -793,6 +1074,52 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     lineHeight: 20,
   },
+  stepHeader: {
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  stepBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+  },
+  stepBadgeText: {
+    fontSize: 11,
+    fontWeight: FontWeight.bold,
+  },
+  stepTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+  },
+  stepBody: {
+    gap: Spacing.md,
+  },
+  stepHint: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+  },
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: FontWeight.semibold,
+  },
+  emptyHint: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
   dbValue: {
     fontSize: 56,
     fontWeight: '800',
@@ -810,19 +1137,12 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     fontWeight: FontWeight.bold,
   },
-  buttons: {
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
   buttonRow: {
     flexDirection: 'row',
     gap: Spacing.xs,
   },
   buttonHalf: {
     flex: 1,
-  },
-  buttonWide: {
-    flex: 1.3,
   },
   helperRow: {
     flexDirection: 'row',
@@ -836,9 +1156,6 @@ const styles = StyleSheet.create({
   helperPeak: {
     fontSize: FontSize.xs,
     fontWeight: FontWeight.bold,
-  },
-  placeholder: {
-    fontStyle: 'italic',
   },
   measureList: {
     gap: Spacing.sm,

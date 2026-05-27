@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 
+import { usePanelFieldColors } from '@/components/ui/activity-color-panel';
 import { Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
@@ -11,24 +12,23 @@ type Props = TextInputProps & {
 };
 
 export function Input({ label, hint, error, style, ...rest }: Props) {
-  const text = useThemeColor({}, 'text');
-  const mutedText = useThemeColor({}, 'mutedText');
-  const card = useThemeColor({}, 'card');
-  const border = useThemeColor({}, 'border');
+  const { foreground, muted, surface, border, onPanel } = usePanelFieldColors();
+  const themeMuted = useThemeColor({}, 'mutedText');
   const danger = useThemeColor({}, 'danger');
 
   const borderColor = error ? danger : border;
+  const placeholderColor = onPanel ? `${muted}99` : themeMuted;
 
   return (
     <View style={styles.wrap}>
-      {label ? <Text style={[styles.label, { color: text }]}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, { color: foreground }]}>{label}</Text> : null}
       <TextInput
-        placeholderTextColor={mutedText}
+        placeholderTextColor={onPanel ? `${muted}99` : placeholderColor}
         style={[
           styles.input,
           {
-            color: text,
-            backgroundColor: card,
+            color: foreground,
+            backgroundColor: surface,
             borderColor,
           },
           style,
@@ -38,7 +38,7 @@ export function Input({ label, hint, error, style, ...rest }: Props) {
       {error ? (
         <Text style={[styles.hint, { color: danger }]}>{error}</Text>
       ) : hint ? (
-        <Text style={[styles.hint, { color: mutedText }]}>{hint}</Text>
+        <Text style={[styles.hint, { color: muted, opacity: onPanel ? 0.75 : 1 }]}>{hint}</Text>
       ) : null}
     </View>
   );

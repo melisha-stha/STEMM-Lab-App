@@ -3,6 +3,7 @@ import {
   useActivityCardColours,
 } from '@/components/ui/activity-card';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import React from 'react';
 import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
@@ -10,12 +11,37 @@ export type PanelTheme = ReturnType<typeof useActivityCardColours>;
 
 const PanelThemeContext = React.createContext<PanelTheme | null>(null);
 
+export function useOptionalPanelTheme(): PanelTheme | null {
+  return React.useContext(PanelThemeContext);
+}
+
 export function usePanelTheme(): PanelTheme {
-  const ctx = React.useContext(PanelThemeContext);
+  const ctx = useOptionalPanelTheme();
   if (!ctx) {
     throw new Error('usePanelTheme must be used within ColorPanel');
   }
   return ctx;
+}
+
+/** Text/surface/border colors for fields inside a ColorPanel (pastel bg stays light in dark mode). */
+export function usePanelFieldColors() {
+  const panel = useOptionalPanelTheme();
+  const foreground = useThemeColor({}, 'text');
+  const muted = useThemeColor({}, 'mutedText');
+  const surface = useThemeColor({}, 'card');
+  const border = useThemeColor({}, 'border');
+
+  if (!panel) {
+    return { foreground, muted, surface, border, onPanel: false as const };
+  }
+
+  return {
+    foreground: panel.textColor,
+    muted: panel.textColor,
+    surface: panel.cardIconBg,
+    border: panel.borderColor,
+    onPanel: true as const,
+  };
 }
 
 export function usePanelTableTokens() {

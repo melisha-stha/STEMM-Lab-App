@@ -12,6 +12,10 @@ import {
   ParachuteScreenBackground,
   useParachuteScreenBackground,
 } from '@/components/ui/parachute-screen-background';
+import {
+  EXPERIMENT_CHALLENGE_LIMIT_MS,
+  ExperimentChallengeTimer,
+} from '@/components/ui/experiment-challenge-timer';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { VideoScrubber } from '@/components/ui/video-scrubber';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
@@ -23,7 +27,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -146,16 +150,153 @@ function OverviewDiagramFrame() {
   );
 }
 
-function OverviewEquipmentList() {
-  const { textColor, borderColor } = usePanelTheme();
+function OverviewConductExperiment() {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const success = useThemeColor({}, 'success');
+  const error = useThemeColor({}, 'error');
+
+  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
+  );
+
+  const missingItems = EQUIPMENT_ITEMS.filter((item) => !checked[item]);
+  const allGathered = missingItems.length === 0;
+  const hasStartedSelecting = EQUIPMENT_ITEMS.some((item) => checked[item]);
+
+  const toggleEquipment = (item: string) => {
+    setChecked((prev) => ({ ...prev, [item]: !prev[item] }));
+  };
+
   return (
-    <View style={styles.listContainer}>
-      {EQUIPMENT_ITEMS.map((item) => (
-        <View key={item} style={styles.listRow}>
-          <MaterialIcons name="check-circle" size={16} color={borderColor} />
-          <Text style={[styles.listItem, { color: textColor, opacity: 0.85 }]}>{item}</Text>
+    <>
+      <PanelTitle>How to conduct the experiment</PanelTitle>
+      <PanelMuted style={styles.equipmentIntro}>First, gather all this equipment:</PanelMuted>
+      <PanelMuted style={styles.equipmentSelectHint}>
+        Select all equipment you have gathered
+      </PanelMuted>
+
+      <View style={styles.equipmentChecklist}>
+        {EQUIPMENT_ITEMS.map((item) => {
+          const isChecked = checked[item];
+          return (
+            <Pressable
+              key={item}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isChecked }}
+              accessibilityLabel={item}
+              onPress={() => toggleEquipment(item)}
+              style={[
+                styles.equipmentCheckRow,
+                {
+                  borderColor: isChecked ? success : borderColor,
+                  backgroundColor: cardIconBg,
+                },
+              ]}>
+              <MaterialIcons
+                name={isChecked ? 'check-box' : 'check-box-outline-blank'}
+                size={22}
+                color={isChecked ? success : borderColor}
+              />
+              <Text
+                style={[
+                  styles.equipmentCheckLabel,
+                  { color: textColor, fontWeight: isChecked ? '700' : '500' },
+                ]}>
+                {item}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {allGathered ? (
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
+          <MaterialIcons name="celebration" size={20} color={success} />
+          <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
         </View>
-      ))}
+      ) : hasStartedSelecting ? (
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
+          <MaterialIcons name="warning" size={20} color={error} />
+          <View style={styles.missingEquipmentBlock}>
+            <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
+            {missingItems.map((item) => (
+              <Text key={item} style={[styles.missingEquipmentItem, { color: error }]}>
+                • {item}
+              </Text>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
+
+      <Text style={[styles.stepsSectionTitle, { color: textColor }]}>Step-by-step instructions</Text>
+      <OverviewInstructionList />
+
+      <PanelMuted style={[styles.diagramCaption, { marginTop: Spacing.md }]}>
+        Use the same drop height, landing zone, and camera angle for every attempt.
+      </PanelMuted>
+      <OverviewDiagramFrame />
+    </>
+  );
+}
+
+type CalculatedOutputs = {
+  dropTime: number;
+  contactTime: number;
+  bounceTime: number | null;
+  calcs: {
+    finalVelocity: number;
+    acceleration: number;
+    netForce: number;
+    weight: number;
+    dragForce: number;
+  };
+  gForce: number;
+};
+
+function ExperimentReviewResults({
+  calculatedOutputs,
+  getGForceRiskColor,
+}: {
+  calculatedOutputs: CalculatedOutputs;
+  getGForceRiskColor: (g: number) => string;
+}) {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const valueStyle = [styles.metricValue, { color: textColor }];
+
+  return (
+    <View style={[styles.calcOutputBox, { backgroundColor: cardIconBg, borderColor }]}>
+      <Text style={[styles.metricLine, { color: textColor }]}>
+        Drop Time: <Text style={valueStyle}>{calculatedOutputs.dropTime}s</Text>
+      </Text>
+      <Text style={[styles.metricLine, { color: textColor }]}>
+        Contact Time: <Text style={valueStyle}>{calculatedOutputs.contactTime}s</Text>
+      </Text>
+      {calculatedOutputs.bounceTime !== null && (
+        <Text style={[styles.metricLine, { color: textColor }]}>
+          Time to Max Bounce Height (t_up):{' '}
+          <Text style={valueStyle}>{calculatedOutputs.bounceTime}s</Text>
+        </Text>
+      )}
+      <Text style={[styles.metricLine, { color: textColor, marginTop: 4 }]}>
+        Final Velocity (v): <Text style={valueStyle}>{calculatedOutputs.calcs.finalVelocity} m/s</Text>
+      </Text>
+      <Text style={[styles.metricLine, { color: textColor }]}>
+        Acceleration (a): <Text style={valueStyle}>{calculatedOutputs.calcs.acceleration} m/s²</Text>
+      </Text>
+      <Text style={[styles.metricLine, { color: textColor, marginTop: 4 }]}>
+        Downward Force (Weight): <Text style={valueStyle}>{calculatedOutputs.calcs.weight} N</Text>
+      </Text>
+      <Text style={[styles.metricLine, { color: textColor }]}>
+        Net Force (F_net): <Text style={valueStyle}>{calculatedOutputs.calcs.netForce} N</Text>
+      </Text>
+      <Text style={[styles.metricLine, { color: textColor }]}>
+        Upward Force (Drag Force): <Text style={valueStyle}>{calculatedOutputs.calcs.dragForce} N</Text>
+      </Text>
+      <Text style={[styles.gForceText, { color: getGForceRiskColor(calculatedOutputs.gForce) }]}>
+        Impact G-Force: {calculatedOutputs.gForce} g
+      </Text>
     </View>
   );
 }
@@ -377,6 +518,64 @@ export default function ParachuteScreen() {
     gForce: number;
   } | null>(null);
 
+  const [challengeTimerStarted, setChallengeTimerStarted] = useState(false);
+  const [challengeTimerRunning, setChallengeTimerRunning] = useState(false);
+  const [challengeTimerFinished, setChallengeTimerFinished] = useState(false);
+  const [challengeRemainingMs, setChallengeRemainingMs] = useState(EXPERIMENT_CHALLENGE_LIMIT_MS);
+  const challengeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearChallengeInterval = useCallback(() => {
+    if (challengeIntervalRef.current) {
+      clearInterval(challengeIntervalRef.current);
+      challengeIntervalRef.current = null;
+    }
+  }, []);
+
+  const stopChallengeTimer = useCallback(() => {
+    clearChallengeInterval();
+    setChallengeTimerRunning(false);
+    setChallengeTimerFinished(true);
+  }, [clearChallengeInterval]);
+
+  const runChallengeInterval = useCallback(() => {
+    const endAt = Date.now() + challengeRemainingMs;
+    challengeIntervalRef.current = setInterval(() => {
+      const next = Math.max(0, endAt - Date.now());
+      setChallengeRemainingMs(next);
+      if (next <= 0) {
+        clearChallengeInterval();
+        setChallengeTimerRunning(false);
+      }
+    }, 250);
+  }, [challengeRemainingMs, clearChallengeInterval]);
+
+  const startChallengeTimer = useCallback(() => {
+    if (challengeTimerFinished || challengeTimerRunning) return;
+    setChallengeTimerStarted(true);
+    setChallengeTimerRunning(true);
+    runChallengeInterval();
+  }, [challengeTimerFinished, challengeTimerRunning, runChallengeInterval]);
+
+  const pauseChallengeTimer = useCallback(() => {
+    if (!challengeTimerRunning) return;
+    clearChallengeInterval();
+    setChallengeTimerRunning(false);
+  }, [challengeTimerRunning, clearChallengeInterval]);
+
+  const resumeChallengeTimer = useCallback(() => {
+    if (challengeTimerFinished || challengeTimerRunning || challengeRemainingMs <= 0) return;
+    setChallengeTimerStarted(true);
+    setChallengeTimerRunning(true);
+    runChallengeInterval();
+  }, [
+    challengeRemainingMs,
+    challengeTimerFinished,
+    challengeTimerRunning,
+    runChallengeInterval,
+  ]);
+
+  useEffect(() => () => clearChallengeInterval(), [clearChallengeInterval]);
+
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
   const textSecondary = useThemeColor({}, 'textSecondary');
@@ -390,8 +589,6 @@ export default function ParachuteScreen() {
   const success = useThemeColor({}, 'success');
   const warning = useThemeColor({}, 'warning');
   const error = useThemeColor({}, 'error');
-  const cardBadgeBg = useThemeColor({}, 'cardBadgeBg');
-
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -552,6 +749,8 @@ export default function ParachuteScreen() {
         ),
       ]);
 
+      stopChallengeTimer();
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🚀 STEMM Lab Sync Complete',
@@ -643,27 +842,27 @@ export default function ParachuteScreen() {
               </ColorPanel>
 
               <ColorPanel colour="sky">
-                <PanelTitle>How to conduct the experiment</PanelTitle>
-                <PanelMuted style={styles.diagramCaption}>
-                  Use the same drop height, landing zone, and camera angle for every attempt.
-                </PanelMuted>
-                <OverviewDiagramFrame />
-              </ColorPanel>
-
-              <ColorPanel colour="peach">
-                <PanelTitle>Equipment</PanelTitle>
-                <OverviewEquipmentList />
-              </ColorPanel>
-
-              <ColorPanel colour="lavender">
-                <PanelTitle>How it works</PanelTitle>
-                <OverviewInstructionList />
+                <OverviewConductExperiment />
               </ColorPanel>
             </View>
           )}
 
           {screenTab === 'experiment' && (
             <View style={styles.tabContent}>
+              <ColorPanel colour="mint">
+                <ExperimentChallengeTimer
+                  pixelFamily={pixelFontLoaded ? pixelFamily : undefined}
+                  started={challengeTimerStarted}
+                  running={challengeTimerRunning}
+                  finished={challengeTimerFinished}
+                  remainingMs={challengeRemainingMs}
+                  onStart={startChallengeTimer}
+                  onPause={pauseChallengeTimer}
+                  onResume={resumeChallengeTimer}
+                  onStop={stopChallengeTimer}
+                />
+              </ColorPanel>
+
               <View style={styles.statusRow}>
                 <View style={[styles.statusPill, { backgroundColor: primarySoft }]}>
                   <MaterialIcons name="location-on" size={14} color={primary} />
@@ -697,9 +896,9 @@ export default function ParachuteScreen() {
               </StepPanel>
 
               <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Record slow-motion drop">
-                <Text style={[styles.stepHint, { color: textSecondary }]}>
+                <PanelMuted style={styles.stepHint}>
                   Film each prototype drop. Mark release, impact, and stop frames in the analyser.
-                </Text>
+                </PanelMuted>
                 <PrimaryButton
                   label={isRecording ? 'Awaiting System Device...' : 'Launch Camera'}
                   onPress={() => void captureVideoAsset()}
@@ -731,53 +930,10 @@ export default function ParachuteScreen() {
 
               {calculatedOutputs && (
                 <StepPanel step={4} colour={EXPERIMENT_STEP_COLOURS[3]} title="Review your results">
-                  <View style={[styles.calcOutputBox, { backgroundColor: cardBadgeBg }]}>
-                    <Text style={[styles.metricLine, { color: text }]}>
-                      Drop Time:{' '}
-                      <Text style={styles.metricValue}>{calculatedOutputs.dropTime}s</Text>
-                    </Text>
-                    <Text style={[styles.metricLine, { color: text }]}>
-                      Contact Time:{' '}
-                      <Text style={styles.metricValue}>{calculatedOutputs.contactTime}s</Text>
-                    </Text>
-                    {calculatedOutputs.bounceTime !== null && (
-                      <Text style={[styles.metricLine, { color: text }]}>
-                        Time to Max Bounce Height (t_up):{' '}
-                        <Text style={styles.metricValue}>{calculatedOutputs.bounceTime}s</Text>
-                      </Text>
-                    )}
-                    <Text style={[styles.metricLine, { color: text, marginTop: 4 }]}>
-                      Final Velocity (v):{' '}
-                      <Text style={styles.metricValue}>
-                        {calculatedOutputs.calcs.finalVelocity} m/s
-                      </Text>
-                    </Text>
-                    <Text style={[styles.metricLine, { color: text }]}>
-                      Acceleration (a):{' '}
-                      <Text style={styles.metricValue}>
-                        {calculatedOutputs.calcs.acceleration} m/s²
-                      </Text>
-                    </Text>
-                    <Text style={[styles.metricLine, { color: text, marginTop: 4 }]}>
-                      Downward Force (Weight):{' '}
-                      <Text style={styles.metricValue}>{calculatedOutputs.calcs.weight} N</Text>
-                    </Text>
-                    <Text style={[styles.metricLine, { color: text }]}>
-                      Net Force (F_net):{' '}
-                      <Text style={styles.metricValue}>{calculatedOutputs.calcs.netForce} N</Text>
-                    </Text>
-                    <Text style={[styles.metricLine, { color: text }]}>
-                      Upward Force (Drag Force):{' '}
-                      <Text style={styles.metricValue}>{calculatedOutputs.calcs.dragForce} N</Text>
-                    </Text>
-                    <Text
-                      style={[
-                        styles.gForceText,
-                        { color: getGForceRiskColor(calculatedOutputs.gForce) },
-                      ]}>
-                      Impact G-Force: {calculatedOutputs.gForce} g
-                    </Text>
-                  </View>
+                  <ExperimentReviewResults
+                    calculatedOutputs={calculatedOutputs}
+                    getGForceRiskColor={getGForceRiskColor}
+                  />
                   <PrimaryButton
                     label="Save and Lock Trial Results"
                     variant="secondary"
@@ -789,9 +945,9 @@ export default function ParachuteScreen() {
 
               <StepPanel step={5} colour={EXPERIMENT_STEP_COLOURS[4]} title="Your attempts">
                 {attempts.length === 0 ? (
-                  <Text style={[styles.emptyHint, { color: textSecondary }]}>
+                  <PanelMuted style={styles.emptyHint}>
                     Awaiting valid experiment metrics updates.
-                  </Text>
+                  </PanelMuted>
                 ) : (
                   attempts.map((item, index) => (
                     <AttemptRow
@@ -980,18 +1136,65 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginBottom: Spacing.sm,
   },
-  listContainer: {
-    gap: Spacing.sm,
+  equipmentIntro: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    fontWeight: FontWeight.semibold,
   },
-  listRow: {
+  equipmentSelectHint: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    marginBottom: Spacing.xs,
+  },
+  equipmentChecklist: {
+    gap: Spacing.xs,
+  },
+  equipmentCheckRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+    borderWidth: 2,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
   },
-  listItem: {
+  equipmentCheckLabel: {
     flex: 1,
     fontSize: FontSize.sm,
-    lineHeight: 20,
+    lineHeight: 18,
+  },
+  equipmentStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    borderWidth: 2,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  equipmentStatusText: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
+    flex: 1,
+  },
+  missingEquipmentBlock: {
+    flex: 1,
+    gap: 4,
+  },
+  missingEquipmentItem: {
+    fontSize: FontSize.sm,
+    lineHeight: 18,
+    fontWeight: FontWeight.semibold,
+  },
+  sectionDivider: {
+    height: 2,
+    opacity: 0.35,
+    marginVertical: Spacing.md,
+  },
+  stepsSectionTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    marginBottom: Spacing.xs,
   },
   instructionRow: {
     flexDirection: 'row',
@@ -1060,6 +1263,7 @@ const styles = StyleSheet.create({
   calcOutputBox: {
     padding: Spacing.md,
     borderRadius: Radius.md,
+    borderWidth: 1,
     gap: 4,
   },
   metricLine: {
