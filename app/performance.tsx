@@ -112,6 +112,83 @@ function MovementImageFrame({ index }: { index: 0 | 1 | 2 }) {
   );
 }
 
+function OverviewEquipmentChecklist() {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const success = useThemeColor({}, 'success');
+  const error = useThemeColor({}, 'error');
+
+  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
+  );
+
+  const missingItems = EQUIPMENT_ITEMS.filter((item) => !checked[item]);
+  const allGathered = missingItems.length === 0;
+  const hasStartedSelecting = EQUIPMENT_ITEMS.some((item) => checked[item]);
+
+  const toggleEquipment = (item: string) => {
+    setChecked((prev) => ({ ...prev, [item]: !prev[item] }));
+  };
+
+  return (
+    <>
+      <PanelMuted style={styles.bodyMuted}>Select all equipment you have gathered</PanelMuted>
+
+      <View style={styles.equipmentChecklist}>
+        {EQUIPMENT_ITEMS.map((item) => {
+          const isChecked = checked[item];
+          return (
+            <Pressable
+              key={item}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isChecked }}
+              accessibilityLabel={item}
+              onPress={() => toggleEquipment(item)}
+              style={[
+                styles.equipmentRow,
+                {
+                  borderColor: isChecked ? success : borderColor,
+                  backgroundColor: cardIconBg,
+                },
+              ]}>
+              <MaterialIcons
+                name={isChecked ? 'check-box' : 'check-box-outline-blank'}
+                size={20}
+                color={isChecked ? success : borderColor}
+              />
+              <Text
+                style={[
+                  styles.equipmentText,
+                  { color: textColor, fontWeight: isChecked ? '700' : '600' },
+                ]}>
+                {item}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {allGathered ? (
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
+          <MaterialIcons name="celebration" size={20} color={success} />
+          <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
+        </View>
+      ) : hasStartedSelecting ? (
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
+          <MaterialIcons name="warning" size={20} color={error} />
+          <View style={styles.missingEquipmentBlock}>
+            <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
+            {missingItems.map((m) => (
+              <Text key={m} style={[styles.missingEquipmentItem, { color: error }]}>
+                • {m}
+              </Text>
+            ))}
+          </View>
+        </View>
+      ) : null}
+    </>
+  );
+}
+
 
 type Attempt = {
   memberName: string;
@@ -406,15 +483,7 @@ export default function PerformanceScreen() {
 
       <ColorPanel colour="yellow">
         <PanelTitle>Equipment checklist</PanelTitle>
-        <PanelMuted style={styles.bodyMuted}>Select all equipment you have gathered</PanelMuted>
-        <View style={styles.equipmentChecklist}>
-          {EQUIPMENT_ITEMS.map((item) => (
-            <View key={item} style={[styles.equipmentRow, { borderColor: border, backgroundColor: backgroundSecondary }]}>
-              <MaterialIcons name="check-box-outline-blank" size={20} color={border} />
-              <Text style={[styles.equipmentText, { color: text }]}>{item}</Text>
-            </View>
-          ))}
-        </View>
+        <OverviewEquipmentChecklist />
       </ColorPanel>
 
       <ColorPanel colour="sky">
@@ -695,8 +764,38 @@ const styles = StyleSheet.create({
   bodyMuted: { fontSize: 13, lineHeight: 19, opacity: 0.88 },
   bulletPrompt: { fontSize: 13, lineHeight: 19, opacity: 0.88, marginTop: 6 },
   equipmentChecklist: { gap: Spacing.xs, marginTop: Spacing.sm },
-  equipmentRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderWidth: 2, borderRadius: Radius.md, padding: Spacing.sm },
+  equipmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderWidth: 2,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+  },
   equipmentText: { flex: 1, fontSize: 13, fontWeight: '600' },
+  equipmentStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    borderWidth: 2,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  equipmentStatusText: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
+    flex: 1,
+  },
+  missingEquipmentBlock: {
+    flex: 1,
+    gap: 4,
+  },
+  missingEquipmentItem: {
+    fontSize: FontSize.sm,
+    lineHeight: 18,
+    fontWeight: FontWeight.semibold,
+  },
   movementLabel: { marginTop: Spacing.xs, fontSize: 14, fontWeight: '900' },
   diagramWrap: { marginTop: Spacing.xs, borderWidth: 1, borderRadius: Radius.md, overflow: 'hidden', padding: Spacing.sm },
   diagramImage: { width: '100%', aspectRatio: 680 / 382 },
