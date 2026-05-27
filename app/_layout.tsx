@@ -35,9 +35,11 @@ function RootNavigation() {
         <Stack.Screen name="setup-year" options={{ headerShown: false }} />
         <Stack.Screen name="setup-team" options={{ headerShown: false }} />
         <Stack.Screen name="parachute" options={{ headerShown: false }} />
+        <Stack.Screen name="handfan" options={{ headerShown: false }} />
         <Stack.Screen name="sound" options={{ headerShown: false }} />
         <Stack.Screen name="earthquake" options={{ headerShown: false }} />
         <Stack.Screen name="reaction" options={{ headerShown: false }} />
+        <Stack.Screen name="performance" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
