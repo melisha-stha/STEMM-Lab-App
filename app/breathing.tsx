@@ -455,17 +455,6 @@ export default function BreathingScreen() {
             <PanelMuted style={styles.heroBody}>
               Students analyse chest expansion breathing frequency shifts at rest and after intense aerobic exercise routines.
             </PanelMuted>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setScreenTab('activity')}
-              style={[
-                styles.heroCta,
-                { backgroundColor: primary, borderColor: primary, borderBottomColor: primaryDark },
-              ]}>
-              <Text style={[styles.heroCtaText, { color: onPrimary, fontFamily: pixelFontLoaded ? pixelFamily : undefined }]}>
-                ▶  Start activity
-              </Text>
-            </Pressable>
               </ColorPanel>
 
               <ColorPanel colour="yellow">
@@ -483,6 +472,28 @@ export default function BreathingScreen() {
                 <PanelMuted style={[styles.bodyMuted, { marginTop: Spacing.md }]}>Placement diagram</PanelMuted>
                 <BreathingDiagramFrame />
               </ColorPanel>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setScreenTab('activity')}
+                style={[
+                  styles.heroCta,
+                  {
+                    backgroundColor: primary,
+                    borderColor: primary,
+                    borderBottomColor: primaryDark,
+                    alignSelf: 'stretch',
+                    justifyContent: 'center',
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.heroCtaText,
+                    { color: onPrimary, textAlign: 'center', fontFamily: pixelFontLoaded ? pixelFamily : undefined },
+                  ]}>
+                  ▶  Start activity
+                </Text>
+              </Pressable>
             </View>
           )}
 

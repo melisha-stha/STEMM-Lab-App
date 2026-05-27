@@ -975,19 +975,6 @@ export default function EarthquakeScreen() {
                   Design structures that withstand vibration, like real earthquakes. Test how folds and
                   pillars reduce movement across three prototypes.
                 </PanelMuted>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setScreenTab('experiment')}
-                  style={[
-                    styles.heroCta,
-                    {
-                      backgroundColor: primary,
-                      borderColor: primary,
-                      borderBottomColor: primaryDark,
-                    },
-                  ]}>
-                  <Text style={[styles.heroCtaText, { color: onPrimary }]}>▶  Start experiment</Text>
-                </Pressable>
               </ColorPanel>
 
               <ColorPanel colour="yellow">
@@ -997,6 +984,24 @@ export default function EarthquakeScreen() {
               <ColorPanel colour="sky">
                 <OverviewStepByStep />
               </ColorPanel>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setScreenTab('experiment')}
+                style={[
+                  styles.heroCta,
+                  {
+                    backgroundColor: primary,
+                    borderColor: primary,
+                    borderBottomColor: primaryDark,
+                    alignSelf: 'stretch',
+                    justifyContent: 'center',
+                  },
+                ]}>
+                <Text style={[styles.heroCtaText, { color: onPrimary, textAlign: 'center' }]}>
+                  ▶  Start experiment
+                </Text>
+              </Pressable>
             </View>
           )}
 

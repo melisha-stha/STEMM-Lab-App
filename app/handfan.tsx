@@ -481,15 +481,6 @@ export default function HandFanScreen() {
             <PanelMuted style={styles.heroBody}>
               Students test how air movement affects flexible materials. By designing and using hand fans, teams discover how air force, material stiffness, and distance affect how much a paper strip bends.
             </PanelMuted>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setScreenTab('experiment')}
-              style={[
-                styles.heroCta,
-                { backgroundColor: primary, borderColor: primary, borderBottomColor: primaryDark },
-              ]}>
-              <Text style={[styles.heroCtaText, { color: onPrimary }]}>▶  Start experiment</Text>
-            </Pressable>
           </ColorPanel>
 
           <ColorPanel colour="yellow">
@@ -514,6 +505,24 @@ export default function HandFanScreen() {
             <PanelMuted style={[styles.bodyMuted, { marginTop: Spacing.md }]}>Setup diagram</PanelMuted>
             <HandFanDiagramFrame />
           </ColorPanel>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setScreenTab('experiment')}
+            style={[
+              styles.heroCta,
+              {
+                backgroundColor: primary,
+                borderColor: primary,
+                borderBottomColor: primaryDark,
+                alignSelf: 'stretch',
+                justifyContent: 'center',
+              },
+            ]}>
+            <Text style={[styles.heroCtaText, { color: onPrimary, textAlign: 'center' }]}>
+              ▶  Start experiment
+            </Text>
+          </Pressable>
         </View>
       )}
 

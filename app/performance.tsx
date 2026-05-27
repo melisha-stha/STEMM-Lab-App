@@ -470,15 +470,6 @@ export default function PerformanceScreen() {
         <PanelMuted style={styles.heroBody}>
           Students investigate how the human body moves by measuring speed, smoothness, and coordination during controlled stretching activities. The phone&apos;s accelerometer measures how gracefully you move — the lower the reading, the smoother the movement.
         </PanelMuted>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setScreenTab('experiment')}
-          style={[
-            styles.heroCta,
-            { backgroundColor: primary, borderColor: primary, borderBottomColor: primaryDark },
-          ]}>
-          <Text style={[styles.heroCtaText, { color: onPrimary }]}>▶  Start experiment</Text>
-        </Pressable>
       </ColorPanel>
 
       <ColorPanel colour="yellow">
@@ -510,6 +501,24 @@ export default function PerformanceScreen() {
           </View>
         ))}
       </ColorPanel>
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => setScreenTab('experiment')}
+        style={[
+          styles.heroCta,
+          {
+            backgroundColor: primary,
+            borderColor: primary,
+            borderBottomColor: primaryDark,
+            alignSelf: 'stretch',
+            justifyContent: 'center',
+          },
+        ]}>
+        <Text style={[styles.heroCtaText, { color: onPrimary, textAlign: 'center' }]}>
+          ▶  Start experiment
+        </Text>
+      </Pressable>
     </View>
   );
 

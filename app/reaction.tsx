@@ -820,19 +820,6 @@ export default function ReactionScreen() {
                   Measure reaction speed and hand–eye coordination across three phases — dominant
                   hand, non-dominant hand, then tracing a moving target.
                 </PanelMuted>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setScreenTab('activity')}
-                  style={[
-                    styles.heroCta,
-                    {
-                      backgroundColor: primary,
-                      borderColor: primary,
-                      borderBottomColor: primaryDark,
-                    },
-                  ]}>
-                  <Text style={[styles.heroCtaText, { color: onPrimary }]}>▶  Start activity</Text>
-                </Pressable>
               </ColorPanel>
 
               <ColorPanel colour="yellow">
@@ -842,6 +829,24 @@ export default function ReactionScreen() {
               <ColorPanel colour="sky">
                 <OverviewStepByStepActivity />
               </ColorPanel>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setScreenTab('activity')}
+                style={[
+                  styles.heroCta,
+                  {
+                    backgroundColor: primary,
+                    borderColor: primary,
+                    borderBottomColor: primaryDark,
+                    alignSelf: 'stretch',
+                    justifyContent: 'center',
+                  },
+                ]}>
+                <Text style={[styles.heroCtaText, { color: onPrimary, textAlign: 'center' }]}>
+                  ▶  Start activity
+                </Text>
+              </Pressable>
             </View>
           )}
 
@@ -918,7 +923,6 @@ export default function ReactionScreen() {
                 <ReactionRoundArena
                   activePhase={activePhase}
                   roundActive={roundActive}
-                  memberName={memberName}
                   timeLeftMs={timeLeftMs}
                   timeBarWidthPercent={timeBarWidthPercent}
                   liveAccuracy={liveAccuracy}

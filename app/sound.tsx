@@ -742,19 +742,6 @@ export default function SoundScreen() {
                 <PanelMuted style={styles.heroBody}>
                   Measure and compare sound intensity levels from different actions in your classroom.
                 </PanelMuted>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setScreenTab('experiment')}
-                  style={[
-                    styles.heroCta,
-                    {
-                      backgroundColor: primary,
-                      borderColor: primary,
-                      borderBottomColor: primaryDark,
-                    },
-                  ]}>
-                  <Text style={[styles.heroCtaText, { color: onPrimary }]}>▶  Start experiment</Text>
-                </Pressable>
               </ColorPanel>
 
               <ColorPanel colour="yellow">
@@ -764,6 +751,24 @@ export default function SoundScreen() {
               <ColorPanel colour="sky">
                 <OverviewStepByStep />
               </ColorPanel>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setScreenTab('experiment')}
+                style={[
+                  styles.heroCta,
+                  {
+                    backgroundColor: primary,
+                    borderColor: primary,
+                    borderBottomColor: primaryDark,
+                    alignSelf: 'stretch',
+                    justifyContent: 'center',
+                  },
+                ]}>
+                <Text style={[styles.heroCtaText, { color: onPrimary, textAlign: 'center' }]}>
+                  ▶  Start experiment
+                </Text>
+              </Pressable>
             </View>
           )}
 
