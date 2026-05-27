@@ -15,6 +15,7 @@ import {
   EXPERIMENT_CHALLENGE_LIMIT_MS,
   ExperimentChallengeTimer,
 } from '@/components/ui/experiment-challenge-timer';
+import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { insertTrial } from '@/hooks/database';
@@ -70,6 +71,9 @@ interface EarthquakeAttempt {
   designName: string;
   score: number;
   duration: number;
+  folds?: number;
+  pillars?: number;
+  prediction?: 'low' | 'medium' | 'high';
 }
 
 const ZERO_VECTOR: SensorVector = { x: 0, y: 0, z: 0 };
@@ -83,10 +87,13 @@ const SCREEN_TAB_LABELS: Record<ScreenTab, string> = {
 };
 
 const DESIGN_CONFIGURATIONS = [
-  'Design 1 (e.g. 4 folds + 4 pillars)',
-  'Design 2 (e.g. 10 folds + 4 pillars)',
-  'Design 3 (e.g. 3 folds and 6 pillars)',
+  'Recommended design 1: 4 folds + 4 pillars',
+  'Recommended design 2: 10 folds + 4 pillars',
+  'Recommended design 3: 3 folds + 6 pillars',
 ] as const;
+
+const OPTIONAL_CUSTOM_DESIGN = 'Custom design (Design 4)' as const;
+const DESIGN_CONFIGURATIONS_ALL = [...DESIGN_CONFIGURATIONS, OPTIONAL_CUSTOM_DESIGN] as const;
 
 const EQUIPMENT_ITEMS = [
   'Cardboard, paper, scissors, and sticky tape',
@@ -195,7 +202,7 @@ function OverviewInstructionList() {
   );
 }
 
-function OverviewConductExperiment() {
+function OverviewHowToConduct() {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
   const success = useThemeColor({}, 'success');
   const error = useThemeColor({}, 'error');
@@ -272,9 +279,16 @@ function OverviewConductExperiment() {
           </View>
         </View>
       ) : null}
+    </>
+  );
+}
 
-      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
+function OverviewStepByStep() {
+  const { textColor } = usePanelTheme();
 
+  return (
+    <>
+      <PanelTitle>Step-by-step</PanelTitle>
       <Text style={[styles.stepsSectionTitle, { color: textColor }]}>Step-by-step instructions</Text>
       <OverviewInstructionList />
 
@@ -283,6 +297,78 @@ function OverviewConductExperiment() {
       </PanelMuted>
       <OverviewDiagramFrame />
     </>
+  );
+}
+
+function CustomDesignOptions({
+  customFolds,
+  setCustomFolds,
+  customPillars,
+  setCustomPillars,
+  customPrediction,
+  setCustomPrediction,
+}: {
+  customFolds: string;
+  setCustomFolds: (v: string) => void;
+  customPillars: string;
+  setCustomPillars: (v: string) => void;
+  customPrediction: 'low' | 'medium' | 'high' | null;
+  setCustomPrediction: (v: 'low' | 'medium' | 'high') => void;
+}) {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const primary = useThemeColor({}, 'primary');
+
+  return (
+    <View style={styles.customDesignWrap}>
+      <PanelMuted style={[styles.customDesignHint, { color: textColor }]}>
+        Custom design details (shown only for design 4)
+      </PanelMuted>
+      <Input
+        label="Folds (number of folds)"
+        placeholder="e.g. 6"
+        value={customFolds}
+        onChangeText={setCustomFolds}
+        keyboardType="number-pad"
+      />
+      <Input
+        label="Pillars (number of pillars)"
+        placeholder="e.g. 4"
+        value={customPillars}
+        onChangeText={setCustomPillars}
+        keyboardType="number-pad"
+      />
+
+      <PanelMuted style={[styles.predictionLabel, { color: textColor }]}>Prediction</PanelMuted>
+      <View style={styles.predictionRow}>
+        {(['low', 'medium', 'high'] as const).map((opt) => {
+          const selected = customPrediction === opt;
+          return (
+            <Pressable
+              key={opt}
+              accessibilityRole="button"
+              accessibilityLabel={`Prediction ${opt}`}
+              onPress={() => setCustomPrediction(opt)}
+              style={[
+                styles.predictionPill,
+                selected && styles.predictionPillSelected,
+                {
+                  borderColor: selected ? primary : borderColor,
+                  backgroundColor: selected ? `${primary}22` : cardIconBg,
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.predictionPillText,
+                  selected && styles.predictionPillTextSelected,
+                  { color: selected ? primary : textColor },
+                ]}>
+                {opt.toUpperCase()}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -308,7 +394,7 @@ function StructureDesignsPanel({
       <PanelMuted style={styles.designIntro}>
         Test each design in order. Build the structure, then run the shaker test for that design.
       </PanelMuted>
-      {DESIGN_CONFIGURATIONS.map((label) => {
+      {DESIGN_CONFIGURATIONS_ALL.map((label) => {
         const isCurrent = designName === label;
         const isComplete = attempts.some((a) => a.designName === label);
         return (
@@ -353,6 +439,7 @@ type EarthquakeStabilityMonitorProps = {
   stabilityLabel: string;
   isSyncing: boolean;
   attemptsCount: number;
+  hasOptionalAttempt: boolean;
   bestScore: number | null;
   onToggleTest: () => void;
   onReset: () => void;
@@ -370,11 +457,13 @@ function EarthquakeStabilityMonitor({
   stabilityLabel,
   isSyncing,
   attemptsCount,
+  hasOptionalAttempt,
   bestScore,
   onToggleTest,
   onReset,
 }: EarthquakeStabilityMonitorProps) {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const isOptionalSelected = designName === OPTIONAL_CUSTOM_DESIGN;
 
   if (Platform.OS === 'web') {
     return (
@@ -417,7 +506,7 @@ function EarthquakeStabilityMonitor({
       <PrimaryButton
         label={isActive ? 'Stop & record' : 'Start shaker test'}
         variant={isActive ? 'danger' : 'primary'}
-        disabled={isSyncing || (!isActive && attemptsCount >= MAX_ATTEMPTS)}
+        disabled={isSyncing || (!isActive && (isOptionalSelected ? hasOptionalAttempt : attemptsCount >= MAX_ATTEMPTS))}
         onPress={onToggleTest}
       />
 
@@ -491,6 +580,9 @@ export default function EarthquakeScreen() {
   const [locationStatus, setLocationStatus] = useState('📡 Searching...');
   const [designName, setDesignName] = useState<string>(DESIGN_CONFIGURATIONS[0]);
   const [movementHistory, setMovementHistory] = useState<number[]>(new Array(MAX_GRAPH_POINTS).fill(0));
+  const [customFolds, setCustomFolds] = useState('');
+  const [customPillars, setCustomPillars] = useState('');
+  const [customPrediction, setCustomPrediction] = useState<'low' | 'medium' | 'high' | null>(null);
 
   const [challengeTimerStarted, setChallengeTimerStarted] = useState(false);
   const [challengeTimerRunning, setChallengeTimerRunning] = useState(false);
@@ -514,6 +606,12 @@ export default function EarthquakeScreen() {
   const { color: stabilityColor, label: stabilityLabel } = useStabilityPresentation(liveScore);
   const bestScore =
     attempts.length > 0 ? Math.max(...attempts.map((attempt) => attempt.score)) : null;
+
+  const requiredAttempts = attempts.filter((a) =>
+    (DESIGN_CONFIGURATIONS as readonly string[]).includes(a.designName)
+  );
+  const requiredAttemptsCount = requiredAttempts.length;
+  const hasOptionalAttempt = attempts.some((a) => a.designName === OPTIONAL_CUSTOM_DESIGN);
 
   const clearChallengeInterval = useCallback(() => {
     if (challengeIntervalRef.current) {
@@ -656,6 +754,26 @@ export default function EarthquakeScreen() {
       Alert.alert('Configuration Required', 'Select a design before starting the shaker test.');
       return;
     }
+
+    if (designName === OPTIONAL_CUSTOM_DESIGN) {
+      const folds = Number.parseInt(customFolds, 10);
+      const pillars = Number.parseInt(customPillars, 10);
+      if (!Number.isFinite(folds) || folds < 0 || !Number.isFinite(pillars) || pillars < 0 || !customPrediction) {
+        Alert.alert(
+          'Custom Design Details Required',
+          'Enter folds, pillars, and a prediction (low/medium/high) before starting Design 4.'
+        );
+        return;
+      }
+      if (hasOptionalAttempt) {
+        Alert.alert('Already logged', 'Optional design 4 has already been recorded.');
+        return;
+      }
+    } else if (requiredAttemptsCount >= MAX_ATTEMPTS) {
+      Alert.alert('Required designs complete', 'You have already logged designs 1–3.');
+      return;
+    }
+
     setTime(0);
     timeRef.current = 0;
     minScoreRef.current = INITIAL_MIN_SCORE;
@@ -674,25 +792,38 @@ export default function EarthquakeScreen() {
     const finalTime = timeRef.current;
     const minScore = minScoreRef.current;
     
-    if (finalTime > 0 && attempts.length < MAX_ATTEMPTS) {
+    if (finalTime > 0) {
+      const isOptional = designName === OPTIONAL_CUSTOM_DESIGN;
+      if (!isOptional && requiredAttemptsCount >= MAX_ATTEMPTS) return;
+      if (isOptional && hasOptionalAttempt) return;
+
+      const maybeCustom =
+        isOptional
+          ? {
+              folds: Number.parseInt(customFolds, 10),
+              pillars: Number.parseInt(customPillars, 10),
+              prediction: customPrediction ?? undefined,
+            }
+          : {};
+
       setAttempts((prev) => [
-        ...prev, 
-        { designName: designName.trim(), score: minScore, duration: finalTime }
+        ...prev,
+        { designName: designName.trim(), score: minScore, duration: finalTime, ...maybeCustom },
       ]);
       setTime(0);
       timeRef.current = 0;
       minScoreRef.current = INITIAL_MIN_SCORE;
       setLiveScore(INITIAL_MIN_SCORE);
       
-      const nextDesignIndex = attempts.length + 1;
-      if (nextDesignIndex < MAX_ATTEMPTS) {
-        setDesignName(DESIGN_CONFIGURATIONS[nextDesignIndex]);
-        Alert.alert(
-          `Trial ${nextDesignIndex} logged`,
-          `Ready for ${DESIGN_CONFIGURATIONS[nextDesignIndex]}.`
-        );
-      } else {
-        Alert.alert('All trials logged', 'You can finish and save your results.');
+      // Auto-advance only through required designs (1–3).
+      if (!isOptional) {
+        const nextDesignIndex = requiredAttemptsCount + 1;
+        if (nextDesignIndex < MAX_ATTEMPTS) {
+          setDesignName(DESIGN_CONFIGURATIONS[nextDesignIndex]);
+          Alert.alert(`Trial ${nextDesignIndex} logged`, `Ready for ${DESIGN_CONFIGURATIONS[nextDesignIndex]}.`);
+        } else {
+          Alert.alert('All required designs logged', 'You can upload your results (Design 4 is optional).');
+        }
       }
     }
   };
@@ -710,6 +841,9 @@ export default function EarthquakeScreen() {
     setDesignName(DESIGN_CONFIGURATIONS[0]);
     setGyroData(ZERO_VECTOR);
     setAccelData(ZERO_VECTOR);
+    setCustomFolds('');
+    setCustomPillars('');
+    setCustomPrediction(null);
   };
 
   const finishAndSave = async (): Promise<void> => {
@@ -718,8 +852,11 @@ export default function EarthquakeScreen() {
       Alert.alert('Sign in required', 'Please log in to save your results.');
       return;
     }
-    if (attempts.length < MAX_ATTEMPTS) {
-      Alert.alert('Incomplete Trials', `Please log all ${MAX_ATTEMPTS} structure design attempts before processing records.`);
+    if (requiredAttemptsCount < MAX_ATTEMPTS) {
+      Alert.alert(
+        'Incomplete Trials',
+        `Please log all ${MAX_ATTEMPTS} required structure design attempts before processing records.`
+      );
       return;
     }
 
@@ -733,7 +870,7 @@ export default function EarthquakeScreen() {
       }
 
       const teamData = await getTeamData();
-      const bestAttempt = attempts.reduce((best, attempt) =>
+      const bestAttempt = requiredAttempts.reduce((best, attempt) =>
         attempt.score > best.score ? attempt : best
       );
 
@@ -853,8 +990,12 @@ export default function EarthquakeScreen() {
                 </Pressable>
               </ColorPanel>
 
+              <ColorPanel colour="yellow">
+                <OverviewHowToConduct />
+              </ColorPanel>
+
               <ColorPanel colour="sky">
-                <OverviewConductExperiment />
+                <OverviewStepByStep />
               </ColorPanel>
             </View>
           )}
@@ -885,7 +1026,7 @@ export default function EarthquakeScreen() {
                 <View style={[styles.statusPill, { backgroundColor: primarySoft }]}>
                   <MaterialIcons name="architecture" size={14} color={primary} />
                   <Text style={[styles.statusPillText, { color: primary }]}>
-                    Designs {attempts.length} / {MAX_ATTEMPTS}
+                    Designs {requiredAttemptsCount} / {MAX_ATTEMPTS}
                   </Text>
                 </View>
               </View>
@@ -897,6 +1038,17 @@ export default function EarthquakeScreen() {
                   isActive={isActive}
                   onSelectDesign={setDesignName}
                 />
+
+                {designName === OPTIONAL_CUSTOM_DESIGN ? (
+                  <CustomDesignOptions
+                    customFolds={customFolds}
+                    setCustomFolds={setCustomFolds}
+                    customPillars={customPillars}
+                    setCustomPillars={setCustomPillars}
+                    customPrediction={customPrediction}
+                    setCustomPrediction={setCustomPrediction}
+                  />
+                ) : null}
               </StepPanel>
 
               <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Run shaker test">
@@ -911,7 +1063,8 @@ export default function EarthquakeScreen() {
                   stabilityColor={stabilityColor}
                   stabilityLabel={stabilityLabel}
                   isSyncing={isSyncing}
-                  attemptsCount={attempts.length}
+                  attemptsCount={requiredAttemptsCount}
+                  hasOptionalAttempt={hasOptionalAttempt}
                   bestScore={bestScore}
                   onToggleTest={() => (isActive ? stopAttempt() : startAttempt())}
                   onReset={resetAll}
@@ -936,7 +1089,7 @@ export default function EarthquakeScreen() {
                     ))}
                   </View>
                 )}
-                {attempts.length >= MAX_ATTEMPTS && (
+                {requiredAttemptsCount >= MAX_ATTEMPTS && (
                   <PrimaryButton
                     label={isSyncing ? 'Syncing...' : 'Upload results'}
                     variant="primary"
@@ -1233,6 +1386,45 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.sm,
     lineHeight: 18,
+  },
+  customDesignWrap: {
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  customDesignHint: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  predictionLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+    marginTop: 2,
+  },
+  predictionRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  predictionPill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: Radius.full,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    opacity: 0.9,
+  },
+  predictionPillSelected: {
+    opacity: 1,
+    transform: [{ translateY: -1 }],
+  },
+  predictionPillText: {
+    fontSize: 12,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 1,
+  },
+  predictionPillTextSelected: {
+    textDecorationLine: 'underline',
   },
   scoreValue: {
     marginTop: Spacing.sm,

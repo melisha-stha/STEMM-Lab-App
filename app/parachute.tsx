@@ -150,7 +150,7 @@ function OverviewDiagramFrame() {
   );
 }
 
-function OverviewConductExperiment() {
+function OverviewHowToConduct() {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
   const success = useThemeColor({}, 'success');
   const error = useThemeColor({}, 'error');
@@ -227,9 +227,16 @@ function OverviewConductExperiment() {
           </View>
         </View>
       ) : null}
+    </>
+  );
+}
 
-      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
+function OverviewStepByStep() {
+  const { textColor } = usePanelTheme();
 
+  return (
+    <>
+      <PanelTitle>Step-by-step</PanelTitle>
       <Text style={[styles.stepsSectionTitle, { color: textColor }]}>Step-by-step instructions</Text>
       <OverviewInstructionList />
 
@@ -394,12 +401,14 @@ function DiscussionGForceContent() {
         multiples of gravity where g = 9.8 m/s².
       </PanelMuted>
       <View style={[styles.matrixTableGrid, { borderColor }]}>
-        <View style={[styles.matrixHeaderRow, { borderBottomColor: borderColor }]}>
+        <View
+          style={[
+            styles.matrixHeaderRow,
+            { borderBottomColor: borderColor, alignItems: 'flex-start' },
+          ]}>
           <Text style={[styles.tableHeaderCell, { color: textColor, width: 85 }]}>G-Force Range</Text>
-          <Text style={[styles.tableHeaderCell, { color: textColor, width: 130 }]}>
-            Real-World Examples
-          </Text>
-          <Text style={[styles.tableHeaderCell, { color: textColor, width: 115 }]}>
+          <Text style={[styles.tableHeaderCell, { color: textColor, width: 130 }]}>Real-World Examples</Text>
+          <Text style={[styles.tableHeaderCell, { color: textColor, flex: 1, flexShrink: 1 }]}>
             Likely Structural Effects
           </Text>
         </View>
@@ -414,7 +423,11 @@ function DiscussionGForceContent() {
             key={index}
             style={[
               styles.matrixDataRow,
-              { borderBottomWidth: index === 4 ? 0 : 1, borderBottomColor: borderColor },
+              {
+                borderBottomWidth: index === 4 ? 0 : 1,
+                borderBottomColor: borderColor,
+                alignItems: 'flex-start',
+              },
             ]}>
             <Text style={[styles.tableBodyCell, { color: textColor, fontWeight: '700', width: 85 }]}>
               {item.range}
@@ -422,7 +435,11 @@ function DiscussionGForceContent() {
             <Text style={[styles.tableBodyCell, { color: textColor, opacity: 0.78, width: 130 }]}>
               {item.ex}
             </Text>
-            <Text style={[styles.tableBodyCell, { color: textColor, opacity: 0.78, width: 115 }]}>
+            <Text
+              style={[
+                styles.tableBodyCell,
+                { color: textColor, opacity: 0.78, flex: 1, flexShrink: 1 },
+              ]}>
               {item.effect}
             </Text>
           </View>
@@ -841,8 +858,12 @@ export default function ParachuteScreen() {
                 </Pressable>
               </ColorPanel>
 
+              <ColorPanel colour="yellow">
+                <OverviewHowToConduct />
+              </ColorPanel>
+
               <ColorPanel colour="sky">
-                <OverviewConductExperiment />
+                <OverviewStepByStep />
               </ColorPanel>
             </View>
           )}

@@ -206,7 +206,7 @@ function OverviewInstructionList() {
   );
 }
 
-function OverviewConductExperiment() {
+function OverviewHowToConduct() {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
   const success = useThemeColor({}, 'success');
   const error = useThemeColor({}, 'error');
@@ -283,9 +283,16 @@ function OverviewConductExperiment() {
           </View>
         </View>
       ) : null}
+    </>
+  );
+}
 
-      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
+function OverviewStepByStep() {
+  const { textColor } = usePanelTheme();
 
+  return (
+    <>
+      <PanelTitle>Step-by-step</PanelTitle>
       <Text style={[styles.stepsSectionTitle, { color: textColor }]}>Step-by-step instructions</Text>
       <OverviewInstructionList />
 
@@ -750,8 +757,12 @@ export default function SoundScreen() {
                 </Pressable>
               </ColorPanel>
 
+              <ColorPanel colour="yellow">
+                <OverviewHowToConduct />
+              </ColorPanel>
+
               <ColorPanel colour="sky">
-                <OverviewConductExperiment />
+                <OverviewStepByStep />
               </ColorPanel>
             </View>
           )}

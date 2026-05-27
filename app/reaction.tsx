@@ -208,7 +208,7 @@ function PhaseActivityGuide({ phase }: { phase: ActivityPhase }) {
   );
 }
 
-function OverviewConductExperiment() {
+function OverviewHowToConductActivity() {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
   const success = useThemeColor({}, 'success');
   const error = useThemeColor({}, 'error');
@@ -285,11 +285,20 @@ function OverviewConductExperiment() {
           </View>
         </View>
       ) : null}
+    </>
+  );
+}
 
-      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
+function OverviewStepByStepActivity() {
+  const { textColor, borderColor } = usePanelTheme();
 
+  return (
+    <>
+      <PanelTitle>Step-by-step</PanelTitle>
       <Text style={[styles.stepsSectionTitle, { color: textColor }]}>Overview</Text>
       <InstructionStepList steps={INSTRUCTION_STEPS} />
+
+      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
 
       <Text style={[styles.stepsSectionTitle, { color: textColor, marginTop: Spacing.md }]}>
         {PHASE_LABELS[1]}
@@ -804,7 +813,7 @@ export default function ReactionScreen() {
 
           {screenTab === 'instructions' && (
             <View style={styles.tabContent}>
-              <ColorPanel colour="yellow">
+              <ColorPanel colour="lavender">
                 {pixelFontLoaded ? <OverviewHeroTitle pixelFamily={pixelFamily} /> : null}
                 <PanelMuted style={styles.heroSubtitle}>Health · Neuroscience</PanelMuted>
                 <PanelMuted style={styles.heroBody}>
@@ -826,8 +835,12 @@ export default function ReactionScreen() {
                 </Pressable>
               </ColorPanel>
 
+              <ColorPanel colour="yellow">
+                <OverviewHowToConductActivity />
+              </ColorPanel>
+
               <ColorPanel colour="sky">
-                <OverviewConductExperiment />
+                <OverviewStepByStepActivity />
               </ColorPanel>
             </View>
           )}
