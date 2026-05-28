@@ -9,7 +9,7 @@ import { clearTeamData, getTeamData, saveTeamData } from '@/hooks/storage';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { type Href, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TeamScreenBackground, useTeamScreenBackground } from '@/components/ui/team-screen-background';
@@ -42,6 +42,7 @@ export default function TeamTabScreen() {
   } | null>(null);
   const [trials, setTrials] = useState<any[]>([]);
   const [editOpen, setEditOpen] = useState(false);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState<{
     teamName: string;
@@ -257,8 +258,16 @@ export default function TeamTabScreen() {
               },
             ]}>
             <View style={styles.profileRow}>
-              <View style={[styles.avatarFrame, { borderColor: cardLavenderText }]}>
-                <Image source={activeAvatar.source} style={styles.avatarImage} contentFit="cover" />
+              <View style={styles.avatarColumn}>
+                <View style={[styles.avatarFrame, { borderColor: cardLavenderText }]}>
+                  <Image source={activeAvatar.source} style={styles.avatarImage} contentFit="cover" />
+                </View>
+                <PrimaryButton
+                  label={avatarPickerOpen ? 'Hide avatars' : 'Edit avatar'}
+                  variant="secondary"
+                  onPress={() => setAvatarPickerOpen((v) => !v)}
+                  style={styles.editAvatarBtn}
+                />
               </View>
               <View style={styles.profileMeta}>
                 {pixelFontLoaded ? (
@@ -279,52 +288,49 @@ export default function TeamTabScreen() {
             </View>
           </View>
 
-          <SectionCard style={styles.sectionCardTight}>
-            <View style={styles.sectionTitleRow}>
-              {pixelFontLoaded ? (
-                <Text style={[styles.sectionTitle, { color: text, fontFamily: pixelFamily }]}>Choose Team Avatar</Text>
-              ) : (
-                <Text style={[styles.sectionTitle, { color: text }]}>Choose Team Avatar</Text>
-              )}
-            </View>
+          {avatarPickerOpen ? (
+            <SectionCard style={styles.sectionCardTight}>
+              <View style={styles.sectionTitleRow}>
+                {pixelFontLoaded ? (
+                  <Text style={[styles.sectionTitle, { color: text, fontFamily: pixelFamily }]}>Choose Team Avatar</Text>
+                ) : (
+                  <Text style={[styles.sectionTitle, { color: text }]}>Choose Team Avatar</Text>
+                )}
+              </View>
 
-            <View style={styles.avatarGrid} accessibilityRole="radiogroup">
-              {AVATARS.map((a) => {
-                const selected = a.key === avatarKey;
-                return (
-                  <View key={a.key} style={styles.avatarCell}>
-                    <View
-                      style={[
-                        styles.avatarChoiceOuter,
-                        {
-                          borderColor: selected ? primary : border,
-                          borderBottomColor: selected ? primaryDark : border,
-                          backgroundColor: selected ? primarySoft : 'transparent',
-                        },
-                      ]}>
-                      <Text style={styles.srOnly}>{selected ? 'Selected' : ''}</Text>
-                      <View style={styles.avatarChoiceInner}>
+              <View style={styles.avatarGrid} accessibilityRole="radiogroup">
+                {AVATARS.map((a) => {
+                  const selected = a.key === avatarKey;
+                  return (
+                    <View key={a.key} style={styles.avatarCell}>
+                      <Pressable
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={`Select avatar: ${a.label}`}
+                        onPress={() => void setAvatar(a.key)}
+                        style={[
+                          styles.avatarChoiceOuter,
+                          {
+                            borderColor: selected ? primary : border,
+                            borderBottomColor: selected ? primaryDark : border,
+                            backgroundColor: selected ? primarySoft : 'transparent',
+                          },
+                        ]}>
                         <View style={[styles.avatarChoiceFrame, { borderColor: selected ? primary : border }]}>
                           <Image source={a.source} style={styles.avatarChoiceImage} contentFit="cover" />
                         </View>
-                        <Text style={[styles.avatarChoiceLabel, { color: text }]}>{a.label}</Text>
-                      </View>
-                      <View style={StyleSheet.absoluteFill} pointerEvents="box-only">
-                        <Text />
-                      </View>
+                        {selected ? (
+                          <View style={[styles.avatarSelectedBadge, { backgroundColor: primary }]}>
+                            <MaterialIcons name="check" size={14} color={onPrimary} />
+                          </View>
+                        ) : null}
+                      </Pressable>
                     </View>
-                    <View style={styles.avatarChoiceTap}>
-                      <PrimaryButton
-                        label={selected ? 'Selected' : 'Select'}
-                        variant={selected ? 'primary' : 'secondary'}
-                        onPress={() => void setAvatar(a.key)}
-                      />
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </SectionCard>
+                  );
+                })}
+              </View>
+            </SectionCard>
+          ) : null}
 
           <View style={styles.sectionHeaderRow}>
             {pixelFontLoaded ? (
@@ -514,6 +520,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   profileRow: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
+  avatarColumn: { alignItems: 'center', gap: Spacing.xs },
   avatarFrame: {
     width: 96,
     height: 96,
@@ -523,6 +530,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
   avatarImage: { width: '100%', height: '100%' },
+  editAvatarBtn: { minHeight: 38, paddingHorizontal: 10, borderRadius: 999 },
   profileMeta: { flex: 1, gap: 4 },
   teamName: { fontSize: 22, fontWeight: '900', letterSpacing: 1 },
   metaLine: { ...Typography.small, fontSize: 13, fontWeight: '700' },
@@ -542,15 +550,21 @@ const styles = StyleSheet.create({
   sectionTitleRow: { marginBottom: Spacing.sm },
   sectionTitle: { ...Typography.section, fontSize: 18, fontWeight: '900', letterSpacing: 0.6 },
   sectionCardTight: { padding: Spacing.md },
-  avatarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
-  avatarCell: { width: '48%', gap: Spacing.xs },
+  avatarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: Spacing.md,
+  },
+  avatarCell: { width: '31.5%' },
   avatarChoiceOuter: {
     borderWidth: 2,
     borderBottomWidth: 4,
     borderRadius: 18,
     padding: Spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  avatarChoiceInner: { alignItems: 'center', gap: 6 },
   avatarChoiceFrame: {
     width: 72,
     height: 72,
@@ -560,8 +574,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.05)',
   },
   avatarChoiceImage: { width: '100%', height: '100%' },
-  avatarChoiceLabel: { ...Typography.small, fontSize: 12, fontWeight: '800' },
-  avatarChoiceTap: { marginTop: 2 },
+  avatarSelectedBadge: {
+    position: 'absolute',
+    right: 8,
+    bottom: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   srOnly: { height: 0, width: 0, opacity: 0 },
   editIntro: { ...Typography.small, marginBottom: Spacing.sm },
   editLabel: { ...Typography.small, fontSize: 13, fontWeight: '800' },
