@@ -9,6 +9,7 @@ import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/co
 import { usePixelFont } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -21,21 +22,35 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   subscribeToBreathingLeaderboard,
   subscribeToEarthquakeLeaderboard,
+  subscribeToHandFanLeaderboard,
   subscribeToLeaderboard,
+  subscribeToPerformanceLeaderboard,
   subscribeToReactionLeaderboard,
   subscribeToSoundLeaderboard,
 } from '../hooks/firestore';
+import { getTeamData } from '../hooks/storage';
 
-const ACTIVITIES = ['parachute', 'sound', 'earthquake', 'reaction', 'breathing'] as const;
+const ACTIVITIES = [
+  'parachute',
+  'sound',
+  'handfan',
+  'earthquake',
+  'performance',
+  'reaction',
+  'breathing',
+] as const;
 type Activity = (typeof ACTIVITIES)[number];
 
 const ACTIVITY_LABELS: Record<Activity, string> = {
   parachute: 'Parachute',
   sound: 'Sound',
+  handfan: 'Hand Fan',
   earthquake: 'Earthquake',
+  performance: 'Performance',
   reaction: 'Reaction',
   breathing: 'Breathing',
 };
@@ -43,7 +58,9 @@ const ACTIVITY_LABELS: Record<Activity, string> = {
 const ACTIVITY_DISPLAY_NAMES: Record<Activity, string> = {
   parachute: 'Parachute Drop',
   sound: 'Sound Pollution',
+  handfan: 'Hand Fan Challenge',
   earthquake: 'Earthquake',
+  performance: 'Human Performance Lab',
   reaction: 'Reaction Board',
   breathing: 'Breathing Pace',
 };
@@ -51,22 +68,44 @@ const ACTIVITY_DISPLAY_NAMES: Record<Activity, string> = {
 const ACTIVITY_COLOURS: Record<Activity, ActivityCardColour> = {
   parachute: 'mint',
   sound: 'peach',
+  handfan: 'orange',
   earthquake: 'lavender',
+  performance: 'pink',
   reaction: 'yellow',
   breathing: 'sky',
 };
 
 type LeaderboardResult = {
   id: string;
+  teamName?: string;
   grade?: string;
+  yearLevel?: string;
+  learningLevel?: string;
   teamId?: string | number;
+  avatarKey?: string | null;
   userId?: string;
   bestTime?: number;
   measurements?: { db: number; label: string }[];
   peakDb?: number;
+  bestBendAngle?: number;
   bestScore?: number;
-  bestReactionTime?: number;
-  restingBpm?: number;
+  avgReactionTimeMs?: number | null;
+  sessionsCount?: number;
+  bestControlScore?: number | null;
+};
+
+const AVATAR_SOURCE: Record<string, any> = {
+  ben: require('@/assets/images/boy-avatar.png'),
+  girl: require('@/assets/images/girl-avatar.png'),
+  frog: require('@/assets/images/frog-avatar.png'),
+  bunny: require('@/assets/images/bunny-avatar.png'),
+  cat: require('@/assets/images/cat-avatar.png'),
+  fox: require('@/assets/images/fox-avatar.png'),
+};
+
+const getAvatarSource = (key?: string) => {
+  if (!key) return null;
+  return AVATAR_SOURCE[key] ?? null;
 };
 
 const getTeamDiscriminator = (result: LeaderboardResult): string => {
@@ -82,6 +121,12 @@ const getTeamDiscriminator = (result: LeaderboardResult): string => {
   return '—';
 };
 
+const getYearLabel = (result: LeaderboardResult): string | null => {
+  const raw = (result.yearLevel ?? result.grade ?? '').toString().trim();
+  if (!raw) return null;
+  return /^year\s+/i.test(raw) ? raw : `Year ${raw}`;
+};
+
 const getActivityMetric = (
   activity: Activity,
   result: LeaderboardResult
@@ -90,7 +135,7 @@ const getActivityMetric = (
     case 'parachute':
       return {
         primary: result.bestTime != null ? `${(result.bestTime / 1000).toFixed(2)}s` : '—',
-        label: 'Drop time',
+        label: 'Longest drop time',
       };
     case 'sound': {
       const peakDb =
@@ -101,23 +146,33 @@ const getActivityMetric = (
             : 0;
       return {
         primary: `${peakDb.toFixed(1)} dB`,
-        label: 'Peak sound',
+        label: 'Highest detection',
       };
     }
+    case 'handfan':
+      return {
+        primary: result.bestBendAngle != null ? `${Number(result.bestBendAngle).toFixed(0)}°` : '—',
+        label: 'Largest bend angle',
+      };
     case 'earthquake':
       return {
         primary: result.bestScore != null ? `${result.bestScore}/100` : '—',
-        label: 'Stability score',
+        label: 'Highest stability score',
+      };
+    case 'performance':
+      return {
+        primary: result.bestControlScore != null ? `${result.bestControlScore}` : '—',
+        label: 'Highest control score',
       };
     case 'reaction':
       return {
-        primary: result.bestReactionTime != null ? `${result.bestReactionTime} ms` : '—',
-        label: 'Best reaction time',
+        primary: result.avgReactionTimeMs != null ? `${result.avgReactionTimeMs} ms` : '—',
+        label: 'Fastest average reaction',
       };
     case 'breathing':
       return {
-        primary: result.restingBpm != null ? `${result.restingBpm} BPM` : '—',
-        label: 'Resting breath rate',
+        primary: result.sessionsCount != null ? `${result.sessionsCount}` : '0',
+        label: 'Sessions recorded',
       };
   }
 };
@@ -133,8 +188,10 @@ function LeaderboardHeroTitle({ pixelFamily }: { pixelFamily: string | undefined
 
 type LeaderboardRowProps = {
   rank: number;
-  teamLabel: string;
-  grade: string;
+  avatarKey?: string;
+  teamName: string;
+  discriminator: string;
+  yearLabel?: string | null;
   metricPrimary: string;
   metricLabel: string;
 };
@@ -153,10 +210,19 @@ function LeaderboardEmptyState({ activityName }: { activityName: string }) {
   );
 }
 
-function LeaderboardRow({ rank, teamLabel, grade, metricPrimary, metricLabel }: LeaderboardRowProps) {
+function LeaderboardRow({
+  rank,
+  avatarKey,
+  teamName,
+  discriminator,
+  yearLabel,
+  metricPrimary,
+  metricLabel,
+}: LeaderboardRowProps) {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
   const gold = useThemeColor({}, 'gold');
   const isPodium = rank <= 3;
+  const avatarSource = getAvatarSource(avatarKey);
 
   return (
     <View
@@ -172,17 +238,22 @@ function LeaderboardRow({ rank, teamLabel, grade, metricPrimary, metricLabel }: 
           {RANK_MEDALS[rank - 1] ?? rank}
         </Text>
       </View>
+      <View style={[styles.avatarWrap, { borderColor: isPodium ? gold : borderColor }]}>
+        {avatarSource ? (
+          <Image source={avatarSource} style={styles.avatar} contentFit="cover" />
+        ) : null}
+      </View>
       <View style={styles.main}>
         <Text style={[styles.teamId, { color: textColor }]} numberOfLines={1}>
-          Team {teamLabel}
+          {teamName}
         </Text>
         <Text style={[styles.meta, { color: textColor, opacity: 0.75 }]} numberOfLines={1}>
-          Grade {grade}
+          Team ID {discriminator}
+          {yearLabel ? ` · ${yearLabel}` : ''}
         </Text>
-      </View>
-      <View style={styles.score}>
-        <Text style={[styles.metricValue, { color: borderColor }]}>{metricPrimary}</Text>
-        <Text style={[styles.metricLabel, { color: textColor, opacity: 0.75 }]}>{metricLabel}</Text>
+        <Text style={[styles.meta, { color: textColor, opacity: 0.9 }]} numberOfLines={1}>
+          {metricLabel}: {metricPrimary}
+        </Text>
       </View>
     </View>
   );
@@ -202,8 +273,21 @@ export default function LeaderboardScreen() {
   const [activeActivity, setActiveActivity] = useState<Activity>('parachute');
   const [results, setResults] = useState<LeaderboardResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [localTeam, setLocalTeam] = useState<any | null>(null);
 
   const activeColour = ACTIVITY_COLOURS[activeActivity];
+
+  useFocusEffect(
+    React.useCallback(() => {
+      let active = true;
+      void getTeamData().then((data) => {
+        if (active) setLocalTeam(data);
+      });
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -221,9 +305,19 @@ export default function LeaderboardScreen() {
         setResults(data);
         setLoading(false);
       });
+    } else if (activeActivity === 'handfan') {
+      unsubscribe = subscribeToHandFanLeaderboard((data) => {
+        setResults(data as any);
+        setLoading(false);
+      });
     } else if (activeActivity === 'earthquake') {
       unsubscribe = subscribeToEarthquakeLeaderboard((data) => {
         setResults(data);
+        setLoading(false);
+      });
+    } else if (activeActivity === 'performance') {
+      unsubscribe = subscribeToPerformanceLeaderboard((data) => {
+        setResults(data as any);
         setLoading(false);
       });
     } else if (activeActivity === 'reaction') {
@@ -301,12 +395,28 @@ export default function LeaderboardScreen() {
               <View style={styles.list}>
                 {results.map((result, idx) => {
                   const metric = getActivityMetric(activeActivity, result);
+                  const discriminator = getTeamDiscriminator(result);
+                  const isThisDeviceTeam =
+                    localTeam?.id != null && result.teamId != null
+                      ? String(localTeam.id) === String(result.teamId)
+                      : localTeam?.name && result.teamName
+                        ? String(localTeam.name).trim().toLowerCase() ===
+                          String(result.teamName).trim().toLowerCase()
+                        : false;
+                  const avatarKey =
+                    result.avatarKey != null
+                      ? result.avatarKey
+                      : isThisDeviceTeam
+                        ? localTeam?.avatarKey
+                        : undefined;
                   return (
                     <LeaderboardRow
                       key={result.id}
                       rank={idx + 1}
-                      teamLabel={getTeamDiscriminator(result)}
-                      grade={result.grade ?? '—'}
+                      avatarKey={avatarKey}
+                      teamName={result.teamName ?? `Team ${discriminator}`}
+                      discriminator={discriminator}
+                      yearLabel={getYearLabel(result)}
                       metricPrimary={metric.primary}
                       metricLabel={metric.label}
                     />
@@ -426,6 +536,19 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     fontVariant: ['tabular-nums'],
   },
+  avatarWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    flexShrink: 0,
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+  },
   main: {
     flex: 1,
     gap: 2,
@@ -437,21 +560,5 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: FontSize.xs,
-  },
-  score: {
-    alignItems: 'flex-end',
-    gap: 2,
-    flexShrink: 0,
-  },
-  metricValue: {
-    fontWeight: '900',
-    fontSize: FontSize.md,
-    fontVariant: ['tabular-nums'],
-  },
-  metricLabel: {
-    fontSize: 10,
-    fontWeight: FontWeight.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
   },
 });

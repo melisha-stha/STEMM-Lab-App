@@ -10,6 +10,7 @@ export const saveTeamData = async (teamName, members, grade, extra = {}) => {
       grade: grade,
       yearLevel: extra.yearLevel ?? existing?.yearLevel ?? grade,
       learningLevel: extra.learningLevel ?? existing?.learningLevel ?? null,
+      avatarKey: extra.avatarKey ?? existing?.avatarKey ?? 'frog',
       id: existing?.id ?? Math.floor(1000 + Math.random() * 9000),
     };
     const jsonValue = JSON.stringify(teamObj);
@@ -24,7 +25,12 @@ export const saveTeamData = async (teamName, members, grade, extra = {}) => {
 export const getTeamData = async () => {
   try {
     const jsonValue = await AsyncStorage.getItem('@team_info');
-    return jsonValue != null ? JSON.parse(jsonValue) : null;
+    if (jsonValue == null) return null;
+    const parsed = JSON.parse(jsonValue);
+    if (parsed && typeof parsed === 'object' && !parsed.avatarKey) {
+      parsed.avatarKey = 'frog';
+    }
+    return parsed;
   } catch (e) {
     console.error("Failed to load team data", e);
   }
