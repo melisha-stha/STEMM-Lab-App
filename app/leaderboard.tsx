@@ -26,19 +26,31 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   subscribeToBreathingLeaderboard,
   subscribeToEarthquakeLeaderboard,
+  subscribeToHandFanLeaderboard,
   subscribeToLeaderboard,
+  subscribeToPerformanceLeaderboard,
   subscribeToReactionLeaderboard,
   subscribeToSoundLeaderboard,
 } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
 
-const ACTIVITIES = ['parachute', 'sound', 'earthquake', 'reaction', 'breathing'] as const;
+const ACTIVITIES = [
+  'parachute',
+  'sound',
+  'handfan',
+  'earthquake',
+  'performance',
+  'reaction',
+  'breathing',
+] as const;
 type Activity = (typeof ACTIVITIES)[number];
 
 const ACTIVITY_LABELS: Record<Activity, string> = {
   parachute: 'Parachute',
   sound: 'Sound',
+  handfan: 'Hand Fan',
   earthquake: 'Earthquake',
+  performance: 'Performance',
   reaction: 'Reaction',
   breathing: 'Breathing',
 };
@@ -46,7 +58,9 @@ const ACTIVITY_LABELS: Record<Activity, string> = {
 const ACTIVITY_DISPLAY_NAMES: Record<Activity, string> = {
   parachute: 'Parachute Drop',
   sound: 'Sound Pollution',
+  handfan: 'Hand Fan Challenge',
   earthquake: 'Earthquake',
+  performance: 'Human Performance Lab',
   reaction: 'Reaction Board',
   breathing: 'Breathing Pace',
 };
@@ -54,7 +68,9 @@ const ACTIVITY_DISPLAY_NAMES: Record<Activity, string> = {
 const ACTIVITY_COLOURS: Record<Activity, ActivityCardColour> = {
   parachute: 'mint',
   sound: 'peach',
+  handfan: 'orange',
   earthquake: 'lavender',
+  performance: 'pink',
   reaction: 'yellow',
   breathing: 'sky',
 };
@@ -66,14 +82,16 @@ type LeaderboardResult = {
   yearLevel?: string;
   learningLevel?: string;
   teamId?: string | number;
-  avatarKey?: string;
+  avatarKey?: string | null;
   userId?: string;
   bestTime?: number;
   measurements?: { db: number; label: string }[];
   peakDb?: number;
+  bestBendAngle?: number;
   bestScore?: number;
-  bestReactionTime?: number;
-  restingBpm?: number;
+  avgReactionTimeMs?: number | null;
+  sessionsCount?: number;
+  bestControlScore?: number | null;
 };
 
 const AVATAR_SOURCE: Record<string, any> = {
@@ -117,7 +135,7 @@ const getActivityMetric = (
     case 'parachute':
       return {
         primary: result.bestTime != null ? `${(result.bestTime / 1000).toFixed(2)}s` : '—',
-        label: 'Drop time',
+        label: 'Longest drop time',
       };
     case 'sound': {
       const peakDb =
@@ -128,23 +146,33 @@ const getActivityMetric = (
             : 0;
       return {
         primary: `${peakDb.toFixed(1)} dB`,
-        label: 'Peak sound',
+        label: 'Highest detection',
       };
     }
+    case 'handfan':
+      return {
+        primary: result.bestBendAngle != null ? `${Number(result.bestBendAngle).toFixed(0)}°` : '—',
+        label: 'Largest bend angle',
+      };
     case 'earthquake':
       return {
         primary: result.bestScore != null ? `${result.bestScore}/100` : '—',
-        label: 'Stability score',
+        label: 'Highest stability score',
+      };
+    case 'performance':
+      return {
+        primary: result.bestControlScore != null ? `${result.bestControlScore}` : '—',
+        label: 'Highest control score',
       };
     case 'reaction':
       return {
-        primary: result.bestReactionTime != null ? `${result.bestReactionTime} ms` : '—',
-        label: 'Best reaction time',
+        primary: result.avgReactionTimeMs != null ? `${result.avgReactionTimeMs} ms` : '—',
+        label: 'Fastest average reaction',
       };
     case 'breathing':
       return {
-        primary: result.restingBpm != null ? `${result.restingBpm} BPM` : '—',
-        label: 'Resting breath rate',
+        primary: result.sessionsCount != null ? `${result.sessionsCount}` : '0',
+        label: 'Sessions recorded',
       };
   }
 };
@@ -224,7 +252,7 @@ function LeaderboardRow({
           {yearLabel ? ` · ${yearLabel}` : ''}
         </Text>
         <Text style={[styles.meta, { color: textColor, opacity: 0.9 }]} numberOfLines={1}>
-          Best {metricLabel.toLowerCase()}: {metricPrimary}
+          {metricLabel}: {metricPrimary}
         </Text>
       </View>
     </View>
@@ -277,9 +305,19 @@ export default function LeaderboardScreen() {
         setResults(data);
         setLoading(false);
       });
+    } else if (activeActivity === 'handfan') {
+      unsubscribe = subscribeToHandFanLeaderboard((data) => {
+        setResults(data as any);
+        setLoading(false);
+      });
     } else if (activeActivity === 'earthquake') {
       unsubscribe = subscribeToEarthquakeLeaderboard((data) => {
         setResults(data);
+        setLoading(false);
+      });
+    } else if (activeActivity === 'performance') {
+      unsubscribe = subscribeToPerformanceLeaderboard((data) => {
+        setResults(data as any);
         setLoading(false);
       });
     } else if (activeActivity === 'reaction') {

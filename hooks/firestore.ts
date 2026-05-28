@@ -228,6 +228,12 @@ export const uploadReactionResult = async (
     timedAttempts.length > 0
       ? Math.min(...timedAttempts.map((a) => a.reactionTime as number))
       : null;
+  const avgReactionTimeMs =
+    timedAttempts.length > 0
+      ? Math.round(
+          timedAttempts.reduce((sum, a) => sum + (a.reactionTime ?? 0), 0) / timedAttempts.length
+        )
+      : null;
 
   await addDoc(collection(db, 'reactionResults'), {
     userId,
@@ -241,6 +247,7 @@ export const uploadReactionResult = async (
     avgPhase1ReactionTime: avgPhase1,
     avgPhase2ReactionTime: avgPhase2,
     avgPhase3ReactionTime: avgPhase3,
+    avgReactionTimeMs,
     bestReactionTime,
     locationData: location
       ? { latitude: Number(location.latitude), longitude: Number(location.longitude) }
@@ -253,6 +260,10 @@ export type ReactionLeaderboardEntry = {
   id: string;
   teamName: string;
   grade: string;
+  yearLevel?: string;
+  teamId?: string | number;
+  avatarKey?: string | null;
+  avgReactionTimeMs?: number | null;
   bestReactionTime: number;
   avgPhase1ReactionTime: number | null;
   avgPhase2ReactionTime: number | null;
@@ -262,15 +273,15 @@ export type ReactionLeaderboardEntry = {
 };
 
 /**
- * Subscribes to top 10 reaction results ordered by bestReactionTime ascending.
- * Lower time = faster reaction = better result.
+ * Subscribes to top 10 reaction results ordered by avgReactionTimeMs ascending.
+ * Lower average time = faster reaction = better result.
  */
 export const subscribeToReactionLeaderboard = (
   callback: (results: ReactionLeaderboardEntry[]) => void
 ): (() => void) => {
   const q = query(
     collection(db, 'reactionResults'),
-    orderBy('bestReactionTime', 'asc'),
+    orderBy('avgReactionTimeMs', 'asc'),
     limit(10)
   );
   return onSnapshot(q, (snapshot) => {
@@ -292,8 +303,12 @@ export type BreathingLeaderboardEntry = {
   id: string;
   teamName: string;
   grade: string;
+  yearLevel?: string;
+  teamId?: string | number;
+  avatarKey?: string | null;
   sessions: BreathingSession[];
   restingBpm: number;
+  sessionsCount?: number;
   locationData?: { latitude: number; longitude: number } | null;
   createdAt: string;
 };
@@ -320,6 +335,7 @@ export const uploadBreathingResult = async (
     avatarKey: teamData?.avatarKey ?? null,
     sessions,
     restingBpm: restingSession?.bpm ?? 0,
+    sessionsCount: Array.isArray(sessions) ? sessions.length : 0,
     locationData: location
       ? { latitude: Number(location.latitude), longitude: Number(location.longitude) }
       : null,
@@ -328,15 +344,15 @@ export const uploadBreathingResult = async (
 };
 
 /**
- * Subscribes to top 10 breathing results ordered by restingBpm ascending.
- * Lower resting BPM = more relaxed = better baseline result.
+ * Subscribes to top 10 breathing results ordered by sessionsCount descending.
+ * Ranking is based on completion (how many sessions were recorded).
  */
 export const subscribeToBreathingLeaderboard = (
   callback: (results: BreathingLeaderboardEntry[]) => void
 ): (() => void) => {
   const q = query(
     collection(db, 'breathingResults'),
-    orderBy('restingBpm', 'asc'),
+    orderBy('sessionsCount', 'desc'),
     limit(10)
   );
   return onSnapshot(q, (snapshot) => {
@@ -354,6 +370,15 @@ export const uploadHandFanResult = async (
   designs: any[],
   locationData: any
 ) => {
+  const bestBendAngle =
+    Array.isArray(designs) && designs.length
+      ? Math.max(
+          ...designs.map((d) => {
+            const v = Number.parseFloat(String(d?.bendAngle ?? ''));
+            return Number.isFinite(v) ? v : 0;
+          })
+        )
+      : 0;
   const docRef = await addDoc(collection(db, 'handfanResults'), {
     userId,
     teamName: teamData?.name || 'unknown',
@@ -363,10 +388,39 @@ export const uploadHandFanResult = async (
     learningLevel: teamData?.learningLevel ?? null,
     avatarKey: teamData?.avatarKey ?? null,
     designs,
+    bestBendAngle,
     locationData,
     createdAt: new Date().toISOString(),
   });
   console.log('Hand Fan result saved with ID:', docRef.id);
+};
+
+export type HandFanLeaderboardEntry = {
+  id: string;
+  teamName: string;
+  grade: string;
+  yearLevel?: string;
+  teamId?: string | number;
+  avatarKey?: string | null;
+  bestBendAngle?: number;
+  createdAt: string;
+};
+
+/**
+ * Subscribes to top 10 hand fan results ordered by bestBendAngle descending.
+ * Higher bend angle = stronger fan effect.
+ */
+export const subscribeToHandFanLeaderboard = (
+  callback: (results: HandFanLeaderboardEntry[]) => void
+): (() => void) => {
+  const q = query(collection(db, 'handfanResults'), orderBy('bestBendAngle', 'desc'), limit(10));
+  return onSnapshot(q, (snapshot) => {
+    const results = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as HandFanLeaderboardEntry[];
+    callback(results);
+  });
 };
 
 export const uploadPerformanceResult = async (
@@ -375,6 +429,19 @@ export const uploadPerformanceResult = async (
   attempts: any[],
   locationData: any
 ) => {
+  const bestAvgForce =
+    Array.isArray(attempts) && attempts.length
+      ? Math.min(
+          ...attempts.map((a) => {
+            const v = Number(a?.averageForce);
+            return Number.isFinite(v) ? v : Number.POSITIVE_INFINITY;
+          })
+        )
+      : null;
+  const bestControlScore =
+    bestAvgForce == null || !Number.isFinite(bestAvgForce)
+      ? null
+      : Math.max(0, 1000 - Math.round(bestAvgForce * 1000));
   const docRef = await addDoc(collection(db, 'performanceResults'), {
     userId,
     teamName: teamData?.name || 'unknown',
@@ -384,8 +451,43 @@ export const uploadPerformanceResult = async (
     learningLevel: teamData?.learningLevel ?? null,
     avatarKey: teamData?.avatarKey ?? null,
     attempts,
+    bestAvgForce,
+    bestControlScore,
     locationData,
     createdAt: new Date().toISOString(),
   });
   console.log('Performance result saved with ID:', docRef.id);
+};
+
+export type PerformanceLeaderboardEntry = {
+  id: string;
+  teamName: string;
+  grade: string;
+  yearLevel?: string;
+  teamId?: string | number;
+  avatarKey?: string | null;
+  bestControlScore?: number | null;
+  bestAvgForce?: number | null;
+  createdAt: string;
+};
+
+/**
+ * Subscribes to top 10 performance results ordered by bestControlScore descending.
+ * Higher control score = smoother movement (less vibration).
+ */
+export const subscribeToPerformanceLeaderboard = (
+  callback: (results: PerformanceLeaderboardEntry[]) => void
+): (() => void) => {
+  const q = query(
+    collection(db, 'performanceResults'),
+    orderBy('bestControlScore', 'desc'),
+    limit(10)
+  );
+  return onSnapshot(q, (snapshot) => {
+    const results = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as PerformanceLeaderboardEntry[];
+    callback(results);
+  });
 };
