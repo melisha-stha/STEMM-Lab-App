@@ -11,6 +11,7 @@ import { getTeamData, saveEarthquakeResults } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 interface EarthquakeAttempt {
+  designName: string;
   score: number;
   duration: number;
 }
@@ -33,6 +34,8 @@ const formatTime = (ms: number): string => {
   return `${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
 };
 
+const shortDesignLabel = (designName: string): string => designName.split(' (')[0] ?? designName;
+
 const parseAttempts = (attemptsJson: string | string[] | undefined): EarthquakeAttempt[] => {
   if (!attemptsJson || Array.isArray(attemptsJson)) {
     return [];
@@ -46,6 +49,7 @@ const parseAttempts = (attemptsJson: string | string[] | undefined): EarthquakeA
       (item): item is EarthquakeAttempt =>
         typeof item === 'object' &&
         item !== null &&
+        typeof (item as EarthquakeAttempt).designName === 'string' &&
         typeof (item as EarthquakeAttempt).score === 'number' &&
         typeof (item as EarthquakeAttempt).duration === 'number'
     );
@@ -138,7 +142,7 @@ export default function EarthquakeResultsScreen() {
                     },
                   ]}>
                   <View style={styles.attemptRowLeft}>
-                    <Text style={[styles.attemptLabel, { color: mutedText }]}>Attempt {idx + 1}</Text>
+                    <Text style={[styles.attemptLabel, { color: mutedText }]}>{shortDesignLabel(item.designName)}</Text>
                     <Text style={[styles.attemptValue, { color: scoreColor }]}>{item.score} pts</Text>
                     <Text style={[styles.attemptMeta, { color: mutedText }]}>
                       Duration: {formatTime(item.duration)}s · {getStabilityLabel(item.score)}
@@ -200,10 +204,8 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   title: { ...Typography.hero, fontSize: 26 },
   subtitle: { marginTop: Spacing.xs, ...Typography.body },
-
   sectionTitle: { ...Typography.section, marginBottom: Spacing.sm },
   placeholder: { ...Typography.body, fontSize: 13, lineHeight: 19 },
-
   attemptsList: {
     borderTopWidth: 1,
     paddingTop: Spacing.sm,
@@ -232,12 +234,10 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
   },
   badgeText: { ...Typography.small, fontWeight: '800', letterSpacing: 0.2 },
-
   help: { ...Typography.body, fontSize: 13, lineHeight: 19, marginBottom: Spacing.sm },
   reflectionInput: {
     minHeight: 120,
     paddingTop: Spacing.sm,
   },
-
   actions: { gap: Spacing.sm },
 });

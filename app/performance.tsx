@@ -440,13 +440,21 @@ export default function PerformanceScreen() {
         content: {
           title: 'STEMM Lab Sync Complete',
           body: `Performance results for ${teamData?.name || 'your team'} have been saved!`,
-          data: { screen: 'performance' },
+          data: { screen: 'performance-results' },
         },
         trigger: null,
       });
 
       Alert.alert('Saved!', 'Your performance results have been saved.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') }
+        {
+          text: 'OK',
+          onPress: () => {
+            router.push({
+              pathname: '/performance-results' as any,
+              params: { attemptsJson: JSON.stringify(filteredAttempts) },
+            });
+          }
+        }
       ]);
     } catch (error) {
       console.error('Performance Save Error:', error);

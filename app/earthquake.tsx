@@ -146,7 +146,7 @@ const calculateStabilityScore = (gyro: SensorVector, accel: SensorVector): numbe
 function useStabilityPresentation(score: number) {
   const success = useThemeColor({}, 'success');
   const warning = useThemeColor({}, 'warning');
-  const error = useThemeColor({}, 'error');
+  const error = useThemeColor({}, 'error' as any) ?? '#EF4444';
   if (score >= 70) return { color: success, label: 'Stable' };
   if (score >= 40) return { color: warning, label: 'Moderate' };
   return { color: error, label: 'Unstable' };
@@ -205,7 +205,7 @@ function OverviewInstructionList() {
 function OverviewHowToConduct() {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
   const success = useThemeColor({}, 'success');
-  const error = useThemeColor({}, 'error');
+  const error = useThemeColor({}, 'error' as any) ?? '#EF4444';
 
   const [checked, setChecked] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
@@ -600,8 +600,8 @@ export default function EarthquakeScreen() {
   const text = useThemeColor({}, 'text');
   const border = useThemeColor({}, 'border');
   const primary = useThemeColor({}, 'primary');
-  const primaryDark = useThemeColor({}, 'primaryDark');
-  const primarySoft = useThemeColor({}, 'primarySoft');
+  const primaryDark = useThemeColor({}, 'primaryDark' as any) ?? '#6B21A8';
+  const primarySoft = useThemeColor({}, 'primarySoft' as any) ?? '#F3E8FF';
   const onPrimary = useThemeColor({}, 'onPrimary');
   const { color: stabilityColor, label: stabilityLabel } = useStabilityPresentation(liveScore);
   const bestScore =
@@ -713,7 +713,6 @@ export default function EarthquakeScreen() {
     const score = calculateStabilityScore(gyroData, accelData);
     setLiveScore(score);
     
-    // Convert stability reduction to absolute kinetic acceleration displacement
     const absoluteDisplacement = 100 - score;
     
     if (isActive) {
@@ -911,7 +910,6 @@ export default function EarthquakeScreen() {
     }
   };
 
-  // ✅ Inverted Waveform rendering: 0 maps to floor line (height-5), 100 spikes upwards (5)
   const generateGraphPath = (): string => {
     const width = 300;
     const height = 80;

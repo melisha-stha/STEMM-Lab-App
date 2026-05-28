@@ -7,9 +7,15 @@ import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
-import type { ReactionAttempt } from '@/hooks/firestore';
 import { getTeamData, saveReactionResults } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
+
+interface ParsedReactionAttempt {
+  phase: number;
+  reactionTime: number;
+  tooEarly: boolean;
+  accuracyPercent: number | null;
+}
 
 const REACTION_FAST_MS = 300;
 const REACTION_SLOW_MS = 500;
@@ -23,7 +29,7 @@ const getReactionColor = (ms: number): string => {
   return COLOR_REACTION_SLOW;
 };
 
-const parseAttempts = (attemptsJson: string | string[] | undefined): ReactionAttempt[] => {
+const parseAttempts = (attemptsJson: string | string[] | undefined): ParsedReactionAttempt[] => {
   if (!attemptsJson || Array.isArray(attemptsJson)) {
     return [];
   }
@@ -33,29 +39,15 @@ const parseAttempts = (attemptsJson: string | string[] | undefined): ReactionAtt
       return [];
     }
     return parsed.filter(
-      (item): item is ReactionAttempt =>
+      (item): item is ParsedReactionAttempt =>
         typeof item === 'object' &&
         item !== null &&
-        (item.phase === 1 || item.phase === 2 || item.phase === 3)
+        typeof (item as ParsedReactionAttempt).phase === 'number' &&
+        typeof (item as ParsedReactionAttempt).reactionTime === 'number'
     );
   } catch {
     return [];
   }
-};
-
-const averageReactionTime = (items: ReactionAttempt[], phase: 1 | 2 | 3): number | null => {
-  const times = items
-    .filter((a) => a.phase === phase && !a.tooEarly && a.reactionTime != null)
-    .map((a) => a.reactionTime as number);
-  if (!times.length) return null;
-  return Math.round(times.reduce((sum, t) => sum + t, 0) / times.length);
-};
-
-const bestReactionTime = (items: ReactionAttempt[]): number | null => {
-  const times = items
-    .filter((a) => !a.tooEarly && a.reactionTime != null)
-    .map((a) => a.reactionTime as number);
-  return times.length ? Math.min(...times) : null;
 };
 
 export default function ReactionResultsScreen() {
@@ -63,12 +55,33 @@ export default function ReactionResultsScreen() {
   const { attemptsJson } = useLocalSearchParams<{ attemptsJson?: string }>();
 
   const attempts = useMemo(() => parseAttempts(attemptsJson), [attemptsJson]);
-  const avgPhase1 = useMemo(() => averageReactionTime(attempts, 1), [attempts]);
-  const avgPhase2 = useMemo(() => averageReactionTime(attempts, 2), [attempts]);
-  const avgPhase3 = useMemo(() => averageReactionTime(attempts, 3), [attempts]);
-  const best = useMemo(() => bestReactionTime(attempts), [attempts]);
-  const handDiff =
-    avgPhase1 != null && avgPhase2 != null ? avgPhase2 - avgPhase1 : null;
+
+  const avgPhase1 = useMemo(() => {
+    const match = attempts.find(a => a.phase === 1);
+    return match ? match.reactionTime : null;
+  }, [attempts]);
+
+  const avgPhase2 = useMemo(() => {
+    const match = attempts.find(a => a.phase === 2);
+    return match ? match.reactionTime : null;
+  }, [attempts]);
+
+  const phase3Metrics = useMemo(() => {
+    const match = attempts.find(a => a.phase === 3);
+    return match ? { lagMs: match.reactionTime, accuracy: match.accuracyPercent } : null;
+  }, [attempts]);
+
+  const handDiff = useMemo(() => {
+    if (avgPhase1 !== null && avgPhase2 !== null) {
+      return avgPhase2 - avgPhase1;
+    }
+    return null;
+  }, [avgPhase1, avgPhase2]);
+
+  const bestTappingScore = useMemo(() => {
+    const scores = [avgPhase1, avgPhase2].filter((v): v is number => v !== null);
+    return scores.length ? Math.min(...scores) : null;
+  }, [avgPhase1, avgPhase2]);
 
   const [reflection, setReflection] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,7 +91,7 @@ export default function ReactionResultsScreen() {
   const mutedText = useThemeColor({}, 'mutedText');
   const border = useThemeColor({}, 'border');
   const card = useThemeColor({}, 'card');
-  const success = useThemeColor({}, 'success');
+  const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
 
   const handleSubmit = async (): Promise<void> => {
     if (!attempts.length) {
@@ -93,20 +106,28 @@ export default function ReactionResultsScreen() {
     setIsSubmitting(true);
     try {
       const team = await getTeamData();
+      const payloadAttempts = attempts.map(a => ({
+        phase: a.phase,
+        reactionTime: a.reactionTime,
+        tooEarly: a.tooEarly,
+      }));
+
       await saveReactionResults({
         activity: 'reaction',
         createdAt: Date.now(),
-        attempts,
+        attempts: payloadAttempts,
         avgPhase1ReactionTime: avgPhase1,
         avgPhase2ReactionTime: avgPhase2,
-        avgPhase3ReactionTime: avgPhase3,
-        bestReactionTime: best,
+        avgPhase3ReactionTime: phase3Metrics?.lagMs ?? null,
+        bestReactionTime: bestTappingScore,
         comment: reflection.trim(),
         teamName: team?.name ?? '—',
         teamId: team?.id ?? null,
         grade: team?.grade ?? '—',
       });
-      router.replace('/leaderboard');
+      router.replace('/leaderboard' as any);
+    } catch {
+      Alert.alert('Storage Error', 'Could not commit results to local storage.');
     } finally {
       setIsSubmitting(false);
     }
@@ -133,43 +154,43 @@ export default function ReactionResultsScreen() {
         ) : (
           <View style={[styles.summaryList, { borderTopColor: border }]}>
             <View style={[styles.summaryCard, { backgroundColor: card, borderColor: border }]}>
-              <Text style={[styles.summaryLabel, { color: mutedText }]}>Phase 1 average</Text>
+              <Text style={[styles.summaryLabel, { color: mutedText }]}>Phase 1 Average (Dominant)</Text>
               <Text style={[styles.summaryValue, { color: text }]}>
-                {avgPhase1 != null ? `${avgPhase1} ms` : '—'}
+                {avgPhase1 !== null ? `${avgPhase1} ms` : '—'}
               </Text>
             </View>
             <View style={[styles.summaryCard, { backgroundColor: card, borderColor: border }]}>
-              <Text style={[styles.summaryLabel, { color: mutedText }]}>Phase 2 average</Text>
+              <Text style={[styles.summaryLabel, { color: mutedText }]}>Phase 2 Average (Non Dominant)</Text>
               <Text style={[styles.summaryValue, { color: text }]}>
-                {avgPhase2 != null ? `${avgPhase2} ms` : '—'}
+                {avgPhase2 !== null ? `${avgPhase2} ms` : '—'}
               </Text>
             </View>
             <View style={[styles.summaryCard, { backgroundColor: card, borderColor: border }]}>
-              <Text style={[styles.summaryLabel, { color: mutedText }]}>Phase 3 average</Text>
+              <Text style={[styles.summaryLabel, { color: mutedText }]}>Phase 3 Tracking Metrics</Text>
               <Text style={[styles.summaryValue, { color: text }]}>
-                {avgPhase3 != null ? `${avgPhase3} ms` : '—'}
+                {phase3Metrics !== null ? `${phase3Metrics.accuracy}% accuracy · ${phase3Metrics.lagMs}ms lag` : '—'}
               </Text>
             </View>
             <View style={[styles.summaryCard, { backgroundColor: card, borderColor: border }]}>
               <Text style={[styles.summaryLabel, { color: mutedText }]}>
-                Dominant vs non-dominant
+                Dominant vs Non Dominant Delta
               </Text>
               <Text style={[styles.summaryValue, { color: text }]}>
-                {handDiff != null ? `${handDiff > 0 ? '+' : ''}${handDiff} ms` : '—'}
+                {handDiff !== null ? `${handDiff > 0 ? '+' : ''}${handDiff} ms` : '—'}
               </Text>
             </View>
             <View
               style={[
                 styles.summaryCard,
-                { backgroundColor: card, borderColor: best != null ? success : border },
+                { backgroundColor: card, borderColor: bestTappingScore !== null ? success : border },
               ]}>
-              <Text style={[styles.summaryLabel, { color: mutedText }]}>Best reaction time</Text>
+              <Text style={[styles.summaryLabel, { color: mutedText }]}>Best Tapping Reaction Speed</Text>
               <Text
                 style={[
                   styles.summaryValue,
-                  { color: best != null ? getReactionColor(best) : text },
+                  { color: bestTappingScore !== null ? getReactionColor(bestTappingScore) : text },
                 ]}>
-                {best != null ? `${best} ms` : '—'}
+                {bestTappingScore !== null ? `${bestTappingScore} ms` : '—'}
               </Text>
             </View>
           </View>

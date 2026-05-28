@@ -18,7 +18,7 @@ Notifications.setNotificationHandler({
 });
 
 export const unstable_settings = {
-  initialRouteName: 'index',
+  initialRouteName: '(tabs)',
 };
 
 function RootNavigation() {
@@ -30,16 +30,34 @@ function RootNavigation() {
         screenOptions={{
           contentStyle: { backgroundColor: 'transparent' },
         }}>
+        {/* Core Multi-Tab Shell Navigator Frame */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        
+        {/* Onboarding and Device Setup Configurations */}
+        <Stack.Screen name="welcome-screen" options={{ headerShown: false }} />
         <Stack.Screen name="setup-level" options={{ headerShown: false }} />
         <Stack.Screen name="setup-year" options={{ headerShown: false }} />
         <Stack.Screen name="setup-team" options={{ headerShown: false }} />
+        
+        {/* All 7 Fullscreen Lab Workspaces Registered for Expo Router */}
         <Stack.Screen name="parachute" options={{ headerShown: false }} />
-        <Stack.Screen name="handfan" options={{ headerShown: false }} />
         <Stack.Screen name="sound" options={{ headerShown: false }} />
         <Stack.Screen name="earthquake" options={{ headerShown: false }} />
         <Stack.Screen name="reaction" options={{ headerShown: false }} />
+        <Stack.Screen name="breathing" options={{ headerShown: false }} />
+        <Stack.Screen name="handfan" options={{ headerShown: false }} />
         <Stack.Screen name="performance" options={{ headerShown: false }} />
+
+        {/* Dedicated Fullscreen Lab Result Dashboards */}
+        <Stack.Screen name="breathing-results" options={{ headerShown: false }} />
+        <Stack.Screen name="earthquake-results" options={{ headerShown: false }} />
+        <Stack.Screen name="reaction-results" options={{ headerShown: false }} />
+        <Stack.Screen name="parachute-results" options={{ headerShown: false }} />
+        <Stack.Screen name="sound-results" options={{ headerShown: false }} />
+        <Stack.Screen name="handfan-results" options={{ headerShown: false }} />
+        <Stack.Screen name="performance-results" options={{ headerShown: false }} />
+
+        {/* System Overlays and Info Modals */}
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />

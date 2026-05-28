@@ -209,11 +209,9 @@ export default function HandFanScreen() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [locationStatus, setLocationStatus] = useState('Searching...');
 
-  // New Multi-User Trackers
   const [memberName, setMemberName] = useState('');
   const [attempts, setAttempts] = useState<DesignTrial[]>([]);
 
-  // Interactive Current Trial Inputs
   const [designName, setDesignName] = useState('');
   const [selectedDistance, setSelectedDistance] = useState<'15cm' | '30cm' | '45cm'>('30cm');
   const [selectedMaterialIndex, setSelectedMaterialIndex] = useState<number>(0);
@@ -292,19 +290,14 @@ export default function HandFanScreen() {
     })();
   }, []);
 
-  // LIVE AERODYNAMIC PHYSICS MATHEMATICAL ENGINE
   const computedForceOutput = useMemo(() => {
     const angleDegrees = parseFloat(bendAngleText);
     if (isNaN(angleDegrees) || angleDegrees <= 0) return null;
 
-    // 1. Convert degrees to structural radians: θ_rad = degrees × (π / 180)
     const radians = angleDegrees * (Math.PI / 180);
     const materialK = MATERIALS_LIST[selectedMaterialIndex].k;
-
-    // 2. Solve structural load formula: F = k × θ
     const rawForce = materialK * radians;
     
-    // Return formatted precision force metric
     return parseFloat(rawForce.toFixed(4));
   }, [bendAngleText, selectedMaterialIndex]);
 
@@ -324,7 +317,6 @@ export default function HandFanScreen() {
     }
   };
 
-  // Aggregates active parameters cleanly into the participant manifest array
   const logCurrentTrialToManifest = () => {
     if (!memberName.trim()) {
       Alert.alert('Identity Required', 'Please assign a student name to allocate lab trial records.');
@@ -358,7 +350,6 @@ export default function HandFanScreen() {
       newTrial,
     ]);
 
-    // Clear current test inputs to make room for another design trial
     setDesignName('');
     setBendAngleText('');
     setRecordedVideoUri(null);
@@ -396,11 +387,8 @@ export default function HandFanScreen() {
         locationData = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
       }
       const teamData = await getTeamData();
-      
-      // Select best trial result to baseline data pipelines
       const maxForceRecord = Math.max(...attempts.map((d) => d.computedForceN || 0));
 
-      // Map local UI dataset records smoothly into standard database schemas
       const mappedPayloadForFirestore = attempts.map((a) => ({
         design: a.designName,
         bendAngle: a.bendAngleDeg,
@@ -420,12 +408,21 @@ export default function HandFanScreen() {
         content: {
           title: 'STEMM Lab Sync Complete',
           body: `Hand Fan results for ${teamData?.name || 'your team'} have been saved!`,
+          data: { screen: 'handfan-results' },
         },
         trigger: null,
       });
 
       Alert.alert('Saved Successfully!', 'All group lab assets are uploaded into the cloud dashboard.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') },
+        { 
+          text: 'OK', 
+          onPress: () => {
+            router.push({
+              pathname: '/handfan-results' as any,
+              params: { attemptsJson: JSON.stringify(attempts) },
+            });
+          } 
+        },
       ]);
     } catch (error) {
       console.error('Hand Fan Save Error:', error);
