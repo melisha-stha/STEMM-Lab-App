@@ -1,20 +1,163 @@
+import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
+import { AttemptRow } from '@/components/ui/attempt-row';
+import {
+  ColorPanel,
+  PanelMuted,
+  PanelTitle,
+  usePanelTheme,
+} from '@/components/ui/activity-color-panel';
+import {
+  EXPERIMENT_CHALLENGE_LIMIT_MS,
+  ExperimentChallengeTimer,
+} from '@/components/ui/experiment-challenge-timer';
+import { HandFanScreenBackground, useHandFanScreenBackground } from '@/components/ui/handfan-screen-background';
+import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
-import { SectionCard } from '@/components/ui/section-card';
-import { Radius, Spacing, Typography } from '@/constants/design';
+import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { insertTrial } from '@/hooks/database';
+import { usePixelFont } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { ResizeMode, Video } from 'expo-av';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadHandFanResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
+
+const HAND_FAN_DIAGRAM = require('@/assets/images/handfan-diagram.jpeg');
+const HAND_FAN_DIAGRAM_ASPECT = 680 / 382;
+
+const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = ['lavender', 'sky', 'lavender'];
+
+type StepPanelProps = {
+  step: number;
+  title: string;
+  colour?: ActivityCardColour;
+  children: React.ReactNode;
+};
+
+function StepPanel({ step, title, colour = 'lavender', children }: StepPanelProps) {
+  const { textColor, cardIconBg } = useActivityCardColours(colour);
+
+  return (
+    <ColorPanel colour={colour}>
+      <View style={styles.stepHeader}>
+        <View style={[styles.stepBadge, { backgroundColor: cardIconBg }]}>
+          <Text style={[styles.stepBadgeText, { color: textColor }]}>Step {step}</Text>
+        </View>
+        <Text style={[styles.stepTitle, { color: textColor }]}>{title}</Text>
+      </View>
+      <View style={styles.stepBody}>{children}</View>
+    </ColorPanel>
+  );
+}
+
+function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
+  const { textColor } = usePanelTheme();
+  return (
+    <Text style={[styles.heroTitle, { color: textColor, fontFamily: pixelFamily }]}>
+      Hand Fan Challenge
+    </Text>
+  );
+}
+
+function HandFanDiagramFrame() {
+  const { borderColor, cardIconBg } = usePanelTheme();
+  return (
+    <View style={[styles.diagramWrap, { borderColor, backgroundColor: cardIconBg }]}>
+      <Image
+        source={HAND_FAN_DIAGRAM}
+        style={styles.diagramImage}
+        contentFit="contain"
+        accessibilityLabel="Diagram showing hand fan setup with paper strip and distance"
+      />
+    </View>
+  );
+}
+
+function OverviewEquipmentChecklist() {
+  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const success = useThemeColor({}, 'success');
+  const error = useThemeColor({}, 'error');
+
+  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
+  );
+
+  const missingItems = EQUIPMENT_ITEMS.filter((item) => !checked[item]);
+  const allGathered = missingItems.length === 0;
+  const hasStartedSelecting = EQUIPMENT_ITEMS.some((item) => checked[item]);
+
+  const toggleEquipment = (item: string) => {
+    setChecked((prev) => ({ ...prev, [item]: !prev[item] }));
+  };
+
+  return (
+    <>
+      <PanelMuted style={styles.equipmentSelectHint}>Select all equipment you have gathered</PanelMuted>
+
+      <View style={styles.equipmentChecklist}>
+        {EQUIPMENT_ITEMS.map((item) => {
+          const isChecked = checked[item];
+          return (
+            <Pressable
+              key={item}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isChecked }}
+              accessibilityLabel={item}
+              onPress={() => toggleEquipment(item)}
+              style={[
+                styles.equipmentCheckRow,
+                {
+                  borderColor: isChecked ? success : borderColor,
+                  backgroundColor: cardIconBg,
+                },
+              ]}>
+              <MaterialIcons
+                name={isChecked ? 'check-box' : 'check-box-outline-blank'}
+                size={22}
+                color={isChecked ? success : borderColor}
+              />
+              <Text
+                style={[
+                  styles.equipmentCheckLabel,
+                  { color: textColor, fontWeight: isChecked ? '700' : '500' },
+                ]}>
+                {item}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {allGathered ? (
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
+          <MaterialIcons name="celebration" size={20} color={success} />
+          <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
+        </View>
+      ) : hasStartedSelecting ? (
+        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
+          <MaterialIcons name="warning" size={20} color={error} />
+          <View style={styles.missingEquipmentBlock}>
+            <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
+            {missingItems.map((item) => (
+              <Text key={item} style={[styles.missingEquipmentItem, { color: error }]}>
+                • {item}
+              </Text>
+            ))}
+          </View>
+        </View>
+      ) : null}
+    </>
+  );
+}
 
 type ScreenTab = 'overview' | 'experiment' | 'writeup' | 'discussion';
 
@@ -25,6 +168,18 @@ const SCREEN_TAB_LABELS: Record<ScreenTab, string> = {
   writeup: 'Write-up',
   discussion: 'Discussion',
 };
+
+export const options = {
+  headerShown: false,
+};
+
+const EQUIPMENT_ITEMS = [
+  'Paper and cardboard',
+  'Scissors',
+  'Mobile phone',
+  'Sticky tape',
+  'STEMM Lab app',
+] as const;
 
 const MATERIALS_LIST = [
   { label: 'Thin printer paper', k: 0.05, thickness: '0.1' },
@@ -48,6 +203,8 @@ interface DesignTrial {
 
 export default function HandFanScreen() {
   const router = useRouter();
+  const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
+  const { overlayColor, imageOpacity } = useHandFanScreenBackground();
   const [screenTab, setScreenTab] = useState<ScreenTab>('overview');
   const [isSyncing, setIsSyncing] = useState(false);
   const [locationStatus, setLocationStatus] = useState('Searching...');
@@ -66,8 +223,65 @@ export default function HandFanScreen() {
   const mutedText = useThemeColor({}, 'mutedText');
   const border = useThemeColor({}, 'border');
   const primary = useThemeColor({}, 'primary');
-  const card = useThemeColor({}, 'card');
+  const primaryDark = useThemeColor({}, 'primaryDark');
+  const primarySoft = useThemeColor({}, 'primarySoft');
+  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   const onPrimary = useThemeColor({}, 'onPrimary' as any) ?? '#FFFFFF';
+
+  const [challengeTimerStarted, setChallengeTimerStarted] = useState(false);
+  const [challengeTimerRunning, setChallengeTimerRunning] = useState(false);
+  const [challengeTimerFinished, setChallengeTimerFinished] = useState(false);
+  const [challengeRemainingMs, setChallengeRemainingMs] = useState(EXPERIMENT_CHALLENGE_LIMIT_MS);
+  const challengeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearChallengeInterval = useCallback(() => {
+    if (challengeIntervalRef.current) clearInterval(challengeIntervalRef.current);
+    challengeIntervalRef.current = null;
+  }, []);
+
+  const runChallengeInterval = useCallback(() => {
+    clearChallengeInterval();
+    const endAt = Date.now() + challengeRemainingMs;
+    challengeIntervalRef.current = setInterval(() => {
+      const next = Math.max(0, endAt - Date.now());
+      setChallengeRemainingMs(next);
+      if (next <= 0) {
+        clearChallengeInterval();
+        setChallengeTimerRunning(false);
+        setChallengeTimerFinished(true);
+      }
+    }, 250);
+  }, [challengeRemainingMs, clearChallengeInterval]);
+
+  const startChallengeTimer = useCallback(() => {
+    if (challengeTimerFinished || challengeTimerRunning) return;
+    setChallengeTimerStarted(true);
+    setChallengeTimerRunning(true);
+    runChallengeInterval();
+  }, [challengeTimerFinished, challengeTimerRunning, runChallengeInterval]);
+
+  const pauseChallengeTimer = useCallback(() => {
+    if (!challengeTimerRunning) return;
+    clearChallengeInterval();
+    setChallengeTimerRunning(false);
+  }, [challengeTimerRunning, clearChallengeInterval]);
+
+  const resumeChallengeTimer = useCallback(() => {
+    if (challengeTimerFinished || challengeTimerRunning || challengeRemainingMs <= 0) return;
+    setChallengeTimerStarted(true);
+    setChallengeTimerRunning(true);
+    runChallengeInterval();
+  }, [challengeRemainingMs, challengeTimerFinished, challengeTimerRunning, runChallengeInterval]);
+
+  const stopChallengeTimer = useCallback(() => {
+    clearChallengeInterval();
+    setChallengeTimerStarted(false);
+    setChallengeTimerRunning(false);
+    setChallengeTimerFinished(true);
+    setChallengeRemainingMs(0);
+  }, [clearChallengeInterval]);
+
+  useEffect(() => () => clearChallengeInterval(), [clearChallengeInterval]);
 
   useEffect(() => {
     (async () => {
@@ -219,288 +433,515 @@ export default function HandFanScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: background }]} edges={['top']}>
-      <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color={text} />
-        </TouchableOpacity>
+    <View style={[styles.root, { backgroundColor: background }]}>
+      <HandFanScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
+          <TouchableOpacity
+            accessibilityLabel="Go back"
+            onPress={() => router.back()}
+            style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={24} color={text} />
+          </TouchableOpacity>
 
-        <View style={styles.tabRow}>
-          {SCREEN_TABS.map((tab) => {
-            const isActive = screenTab === tab;
-            return (
-              <Pressable
-                key={tab}
-                onPress={() => setScreenTab(tab)}
-                style={[styles.tabPill, { backgroundColor: isActive ? primary : card, borderColor: isActive ? primary : border }]}
-              >
-                <Text style={[styles.tabPillText, { color: isActive ? onPrimary : text }]}>{SCREEN_TAB_LABELS[tab]}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
+            {SCREEN_TABS.map((tab) => {
+              const isActiveTab = screenTab === tab;
+              return (
+                <Pressable
+                  key={tab}
+                  onPress={() => setScreenTab(tab)}
+                  style={[
+                    styles.tabPill,
+                    {
+                      backgroundColor: isActiveTab ? primary : primarySoft,
+                      borderColor: isActiveTab ? primary : border,
+                    },
+                  ]}>
+                  <Text style={[styles.tabPillText, { color: isActiveTab ? onPrimary : primary }]}>
+                    {SCREEN_TAB_LABELS[tab]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
 
-        {screenTab === 'overview' && (
-          <SectionCard>
-            <Text style={[styles.heroTitle, { color: text }]}>Hand Fan Challenge</Text>
-            <Text style={[styles.heroSubtitle, { color: mutedText }]}>Physics – Air Movement</Text>
-            <Text style={[styles.body, { color: mutedText, marginTop: Spacing.sm }]}>
+      {/* ==================== TAB 1: OVERVIEW ==================== */}
+      {screenTab === 'overview' && (
+        <View style={styles.tabContent}>
+          <ColorPanel colour="lavender">
+            {pixelFontLoaded ? <OverviewHeroTitle pixelFamily={pixelFamily} /> : <PanelTitle>Hand Fan Challenge</PanelTitle>}
+            <PanelMuted style={styles.heroSubtitle}>Physics · Air Movement</PanelMuted>
+            <PanelMuted style={styles.heroBody}>
               Students test how air movement affects flexible materials. By designing and using hand fans, teams discover how air force, material stiffness, and distance affect how much a paper strip bends.
-            </Text>
+            </PanelMuted>
+          </ColorPanel>
 
-            <Text style={[styles.sectionTitle, { color: text, marginTop: Spacing.md }]}>Equipment</Text>
-            <View style={[styles.bullets, { borderTopColor: border }]}>
-              {['Paper and cardboard', 'Scissors', 'Mobile phone', 'Sticky Tape', 'STEMM Mobile App'].map((item, i) => (
-                <Text key={i} style={[styles.bullet, { color: mutedText }]}>• {item}</Text>
-              ))}
+          <ColorPanel colour="yellow">
+            <PanelTitle>Equipment checklist</PanelTitle>
+            <OverviewEquipmentChecklist />
+          </ColorPanel>
+
+          <ColorPanel colour="sky">
+            <PanelTitle>Step-by-step</PanelTitle>
+            {[
+              'Stand paper upright on a table.',
+              'Fan air from 30 cm away.',
+              'Observe and record the bend angle.',
+              'Repeat with different fan designs.',
+              'Repeat at distances of 15cm, 30cm, and 45cm.',
+              'Repeat with cardboard instead of paper.',
+            ].map((step, i) => (
+              <PanelMuted key={step} style={styles.bulletPrompt}>
+                {i + 1}. {step}
+              </PanelMuted>
+            ))}
+            <PanelMuted style={[styles.bodyMuted, { marginTop: Spacing.md }]}>Setup diagram</PanelMuted>
+            <HandFanDiagramFrame />
+          </ColorPanel>
+
+          <View style={styles.overviewActions}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setScreenTab('experiment')}
+              style={[
+                styles.heroCta,
+                {
+                  backgroundColor: primary,
+                  borderColor: primary,
+                  borderBottomColor: primaryDark,
+                  alignSelf: 'stretch',
+                  justifyContent: 'center',
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.heroCtaText,
+                  {
+                    color: onPrimary,
+                    textAlign: 'center',
+                    fontFamily: pixelFontLoaded ? pixelFamily : undefined,
+                  },
+                ]}>
+                ▶  Start experiment
+              </Text>
+            </Pressable>
+            <PrimaryButton
+              label="Back to dashboard"
+              variant="secondary"
+              onPress={() => router.back()}
+              disabled={isSyncing}
+            />
+          </View>
+        </View>
+      )}
+
+      {/* ==================== TAB 2: ACTIVE EXPERIMENT MODELLING ==================== */}
+      {screenTab === 'experiment' && (
+        <View style={styles.tabContent}>
+          <ColorPanel colour="mint">
+            <ExperimentChallengeTimer
+              pixelFamily={pixelFontLoaded ? pixelFamily : undefined}
+              started={challengeTimerStarted}
+              running={challengeTimerRunning}
+              finished={challengeTimerFinished}
+              remainingMs={challengeRemainingMs}
+              onStart={startChallengeTimer}
+              onPause={pauseChallengeTimer}
+              onResume={resumeChallengeTimer}
+              onStop={stopChallengeTimer}
+            />
+          </ColorPanel>
+
+          <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up participant">
+            <Input
+              label="Participant identity name"
+              placeholder="Input user identity..."
+              value={memberName}
+              onChangeText={setMemberName}
+            />
+            <PanelMuted style={styles.helper}>GPS Module Lock: {locationStatus}</PanelMuted>
+          </StepPanel>
+
+          <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Log trial parameters">
+            <Input
+              label="Fan design label"
+              placeholder="e.g. 1cm Accordion Folds"
+              value={designName}
+              onChangeText={setDesignName}
+            />
+
+            <PanelMuted style={styles.fieldLabel}>Wind distance boundary</PanelMuted>
+            <View style={styles.selectorPillRow}>
+              {DISTANCES_LIST.map((dist) => {
+                const isChosen = selectedDistance === dist;
+                return (
+                  <TouchableOpacity
+                    key={dist}
+                    onPress={() => setSelectedDistance(dist as any)}
+                    style={[
+                      styles.pillSelectorItem,
+                      {
+                        backgroundColor: isChosen ? primary : backgroundSecondary,
+                        borderColor: isChosen ? primary : border,
+                      },
+                    ]}>
+                    <Text style={[styles.pillSelectorText, { color: isChosen ? onPrimary : text }]}>
+                      {dist}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            <Text style={[styles.sectionTitle, { color: text, marginTop: Spacing.md }]}>Instructions</Text>
-            <View style={[styles.bullets, { borderTopColor: border }]}>
-              {[
-                'Stand paper upright on a table.',
-                'Fan air from 30 cm away.',
-                'Observe and record the bend angle.',
-                'Repeat with different fan designs.',
-                'Repeat at distances of 15cm, 30cm, and 45cm.',
-                'Repeat with cardboard instead of paper.',
-              ].map((step, i) => (
-                <Text key={i} style={[styles.bullet, { color: mutedText }]}>{i + 1}. {step}</Text>
-              ))}
+            <PanelMuted style={styles.fieldLabel}>Standing target paper material</PanelMuted>
+            <View style={styles.materialBlockListColumn}>
+              {MATERIALS_LIST.map((mat, index) => {
+                const isChosen = selectedMaterialIndex === index;
+                return (
+                  <TouchableOpacity
+                    key={mat.label}
+                    onPress={() => setSelectedMaterialIndex(index)}
+                    style={[
+                      styles.materialRowSelector,
+                      {
+                        backgroundColor: isChosen ? primary : backgroundSecondary,
+                        borderColor: isChosen ? primary : border,
+                      },
+                    ]}>
+                    <Text
+                      style={[
+                        styles.materialRowText,
+                        { color: isChosen ? onPrimary : text, fontWeight: isChosen ? '700' : '400' },
+                      ]}>
+                      {mat.label} (k = {mat.k})
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            <Text style={[styles.sectionTitle, { color: text, marginTop: Spacing.md }]}>Calculations Framework</Text>
-            <Text style={[styles.body, { color: mutedText, marginBottom: Spacing.xs }]}>
-              Approximate force dynamically using F = k * theta where:
-            </Text>
-            <View style={[styles.bullets, { borderTopColor: border }]}>
-              <Text style={[styles.bullet, { color: mutedText }]}>• F = force applied in Newtons (N)</Text>
-              <Text style={[styles.bullet, { color: mutedText }]}>• theta = bend angle converted directly into radians</Text>
-              <Text style={[styles.bullet, { color: mutedText }]}>• k = material stiffness resistance parameter</Text>
+            <Input
+              label="Observed bend angle (°)"
+              placeholder="e.g. 30"
+              keyboardType="numeric"
+              value={bendAngleText}
+              onChangeText={setBendAngleText}
+            />
+
+            {computedForceOutput !== null ? (
+              <View style={[styles.physicsHUDMetricsBox, { borderColor: primary }]}>
+                <PanelMuted style={styles.hudLabelText}>COMPUTED AERODYNAMIC DRAG FORCE</PanelMuted>
+                <Text style={[styles.hudValueText, { color: primary }]}>{computedForceOutput} N</Text>
+              </View>
+            ) : null}
+
+            <View style={{ gap: Spacing.xs, marginTop: Spacing.sm }}>
+              <PrimaryButton
+                label={recordedVideoUri ? '🎬 Re-record Trial Motion' : '📹 Record Trial Motion'}
+                variant="secondary"
+                onPress={recordVideo}
+              />
+              {recordedVideoUri ? (
+                <Video
+                  source={{ uri: recordedVideoUri }}
+                  style={[styles.videoPlayer, { borderColor: border, borderWidth: 1 }]}
+                  useNativeControls
+                  resizeMode={ResizeMode.CONTAIN}
+                  shouldPlay={false}
+                />
+              ) : null}
             </View>
 
-            <Text style={[styles.bodyHeading, { color: text, marginTop: Spacing.md }]}>Material Stiffness Constants Reference</Text>
+            <View style={styles.actionControlRow}>
+              <View style={{ flex: 1 }}>
+                <PrimaryButton label="Log current trial" onPress={logCurrentTrialToManifest} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <PrimaryButton label="Reset form" variant="secondary" onPress={clearActiveFormInputs} />
+              </View>
+            </View>
+          </StepPanel>
+
+          <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Your results">
+            {attempts.length === 0 ? (
+              <PanelMuted>No experimental vectors stored down inside this sequence yet.</PanelMuted>
+            ) : (
+              <View style={styles.attemptsWrap}>
+                {attempts.map((item, index) => (
+                  <AttemptRow
+                    key={`${index}-${item.memberName}-${item.designName}`}
+                    index={index + 1}
+                    title={`${item.memberName} — ${item.designName}`}
+                    subtitle={`Material: ${item.materialLabel} · Dist: ${item.distance} · ${item.bendAngleDeg}° · ${item.computedForceN ?? 0} N`}
+                    isLast={index === attempts.length - 1}
+                  />
+                ))}
+              </View>
+            )}
+
+            {attempts.length > 0 ? (
+              <View style={{ gap: Spacing.sm, marginTop: Spacing.md }}>
+                <PrimaryButton
+                  label={isSyncing ? 'Syncing...' : 'Upload complete manifest'}
+                  onPress={handleSave}
+                  disabled={isSyncing}
+                />
+                <PrimaryButton
+                  label="Next team member setup"
+                  variant="secondary"
+                  onPress={clearForNextTeamMember}
+                  style={{ borderStyle: 'dashed', borderColor: primary }}
+                />
+              </View>
+            ) : null}
+          </StepPanel>
+        </View>
+      )}
+
+      {/* ==================== TAB 3: WRITEUP MANIFEST ==================== */}
+      {screenTab === 'writeup' && (
+        <View style={styles.tabContent}>
+          <ColorPanel colour="lavender">
+            <PanelTitle>Write-up prompts</PanelTitle>
+            <PanelMuted style={styles.bodyMuted}>
+              Use the analytical evaluation checks below to wrap up notebook submissions inside your exercise text blocks.
+            </PanelMuted>
+
+          {[
+            'Predict which fan design makes the paper move the most.',
+            'Record the results.',
+            'Were you right? Any surprises?',
+            'How does material stiffness affect the bend angle?',
+            'How does fan design influence air velocity and resulting paper movement?',
+            'How does distance from the fan affect bending?',
+          ].map((q, i) => (
+            <View key={i} style={[styles.questionBlock, { borderTopColor: border }]}>
+              <Text style={[styles.questionNumber, { color: primary }]}>{i + 1}.</Text>
+              <Text style={[styles.questionText, { color: text }]}>{q}</Text>
+            </View>
+          ))}
+          </ColorPanel>
+        </View>
+      )}
+
+      {/* ==================== TAB 4: DISCUSSION ==================== */}
+      {screenTab === 'discussion' && (
+        <View style={styles.tabContent}>
+          <ColorPanel colour="sky">
+            <PanelTitle>Discussion analysis</PanelTitle>
+            <PanelMuted style={styles.bodyMuted}>
+              Moving air currents transfer dynamic vector kinetic energy into static barriers. Cardboard profiles display significantly amplified $k$ stiffness coefficient parameters over basic paper fibers, layout links needing much higher air velocities to reach matched baseline spatial deformation limits.
+            </PanelMuted>
+          </ColorPanel>
+
+          <ColorPanel colour="lavender">
+            <PanelTitle>Calculations framework</PanelTitle>
+            <PanelMuted style={styles.bodyMuted}>
+              Approximate force dynamically using \(F \\approx k \\cdot \\theta\) where:
+            </PanelMuted>
+            <PanelMuted style={styles.bulletPrompt}>• \(F\) = force applied in Newtons (N)</PanelMuted>
+            <PanelMuted style={styles.bulletPrompt}>• \(\u03B8\) = bend angle converted into radians</PanelMuted>
+            <PanelMuted style={styles.bulletPrompt}>• \(k\) = material stiffness resistance parameter</PanelMuted>
+
+            <PanelMuted style={[styles.bodyMuted, { marginTop: Spacing.md }]}>
+              Material stiffness constants reference
+            </PanelMuted>
             <View style={[styles.table, { borderColor: border }]}>
-              <View style={[styles.tableHeaderRow, { backgroundColor: card, borderBottomColor: border }]}>
-                {['Material', 'Thick (mm)', 'k (N/rad)'].map((h, i) => (
-                  <Text key={i} style={[styles.tableHeaderCell, { color: text, flex: 1 }]}>{h}</Text>
+              <View style={[styles.tableHeaderRow, { borderBottomColor: border }]}>
+                {['Material', 'Thick (mm)', 'k (N/rad)'].map((h) => (
+                  <Text key={h} style={[styles.tableHeaderCell, { color: text, flex: 1 }]}>
+                    {h}
+                  </Text>
                 ))}
               </View>
               {MATERIALS_LIST.map((row, i) => (
-                <View key={i} style={[styles.tableRow, { backgroundColor: i % 2 === 0 ? background : card, borderBottomColor: border }]}>
-                  <Text style={[styles.tableCell, { color: text, flex: 1, fontWeight: '700' }]}>{row.label}</Text>
-                  <Text style={[styles.tableCell, { color: mutedText, flex: 1 }]}>{row.thickness}</Text>
+                <View
+                  key={row.label}
+                  style={[
+                    styles.tableRow,
+                    { backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.18)', borderBottomColor: border },
+                  ]}>
+                  <Text style={[styles.tableCell, { color: text, flex: 1, fontWeight: '700' }]}>
+                    {row.label}
+                  </Text>
+                  <Text style={[styles.tableCell, { color: text, opacity: 0.75, flex: 1 }]}>{row.thickness}</Text>
                   <Text style={[styles.tableCell, { color: primary, flex: 1, fontWeight: '700' }]}>{row.k}</Text>
                 </View>
               ))}
             </View>
-          </SectionCard>
-        )}
+          </ColorPanel>
+        </View>
+      )}
 
-        {screenTab === 'experiment' && (
-          <View style={styles.experimentWrap}>
-            <View style={[styles.infoCard, { borderColor: border, backgroundColor: card }]}>
-              <Text style={[styles.inputLabel, { color: text, marginTop: 0 }]}>Participant Identity Name</Text>
-              <TextInput
-                style={[styles.inputBox, { borderColor: border, color: text, backgroundColor: background, marginBottom: Spacing.sm }]}
-                placeholder="Input user identity..."
-                placeholderTextColor={mutedText}
-                value={memberName}
-                onChangeText={setMemberName}
-              />
-              <Text style={[styles.helper, { color: mutedText }]}>GPS Module Lock: {locationStatus}</Text>
-            </View>
-
-            <SectionCard>
-              <Text style={[styles.sectionTitle, { color: text }]}>Log Active Trial Parameters</Text>
-
-              <Text style={[styles.inputLabel, { color: text }]}>Fan Design Label</Text>
-              <TextInput
-                style={[styles.inputBox, { borderColor: border, color: text, backgroundColor: background }]}
-                placeholder="e.g. 1cm Accordion Folds"
-                placeholderTextColor={mutedText}
-                value={designName}
-                onChangeText={setDesignName}
-              />
-
-              <Text style={[styles.inputLabel, { color: text }]}>Wind Distance Boundary</Text>
-              <View style={styles.selectorPillRow}>
-                {DISTANCES_LIST.map((dist) => {
-                  const isChosen = selectedDistance === dist;
-                  return (
-                    <TouchableOpacity
-                      key={dist}
-                      onPress={() => setSelectedDistance(dist as any)}
-                      style={[styles.pillSelectorItem, { backgroundColor: isChosen ? primary : card, borderColor: border }]}
-                    >
-                      <Text style={[styles.pillSelectorText, { color: isChosen ? onPrimary : text }]}>{dist}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <Text style={[styles.inputLabel, { color: text }]}>Standing target paper material</Text>
-              <View style={styles.materialBlockListColumn}>
-                {MATERIALS_LIST.map((mat, index) => {
-                  const isChosen = selectedMaterialIndex === index;
-                  return (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => setSelectedMaterialIndex(index)}
-                      style={[styles.materialRowSelector, { backgroundColor: isChosen ? primary : card, borderColor: border }]}
-                    >
-                      <Text style={[styles.materialRowText, { color: isChosen ? onPrimary : text, fontWeight: isChosen ? '700' : '400' }]}>
-                        {mat.label} (k = {mat.k})
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <View style={styles.rowFields}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.inputLabel, { color: text }]}>Observed Bend Angle (°)</Text>
-                  <TextInput
-                    style={[styles.inputBox, { borderColor: border, color: text, backgroundColor: background }]}
-                    placeholder="e.g. 30"
-                    placeholderTextColor={mutedText}
-                    keyboardType="numeric"
-                    value={bendAngleText}
-                    onChangeText={setBendAngleText}
-                  />
-                </View>
-              </View>
-
-              {computedForceOutput !== null && (
-                <View style={[styles.physicsHUDMetricsBox, { backgroundColor: background, borderColor: primary }]}>
-                  <Text style={[styles.hudLabelText, { color: mutedText }]}>COMPUTED AERODYNAMIC DRAG FORCE</Text>
-                  <Text style={[styles.hudValueText, { color: primary }]}>{computedForceOutput} N</Text>
-                </View>
-              )}
-
-              <View style={{ gap: Spacing.xs, marginTop: Spacing.md }}>
-                <PrimaryButton label={recordedVideoUri ? 'Re-record Trial Motion' : 'Record Trial Motion'} variant="secondary" onPress={recordVideo} />
-                {recordedVideoUri && (
-                  <Video source={{ uri: recordedVideoUri }} style={[styles.videoPlayer, { borderColor: border, borderWidth: 1 }]} useNativeControls resizeMode={ResizeMode.CONTAIN} shouldPlay={false} />
-                )}
-              </View>
-
-              <View style={styles.actionControlRow}>
-                <View style={{ flex: 1 }}>
-                  <PrimaryButton label="Log Current Trial" onPress={logCurrentTrialToManifest} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <PrimaryButton label="Reset Form" variant="secondary" onPress={clearActiveFormInputs} />
-                </View>
-              </View>
-            </SectionCard>
-
-            <SectionCard>
-              <Text style={[styles.sectionTitle, { color: text }]}>Group Performance Records Manifest Log</Text>
-              {attempts.length === 0 ? (
-                <Text style={[styles.bullet, { color: mutedText }]}>No experimental vectors stored down inside this sequence yet.</Text>
-              ) : (
-                attempts.map((item, index) => (
-                  <View key={index} style={[styles.attemptRowListItem, { borderBottomColor: border }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.body, { color: text, fontWeight: '700' }]}>{item.memberName} — {item.designName}</Text>
-                      <Text style={[styles.body, { color: mutedText, fontSize: 11 }]}>
-                        Material: {item.materialLabel} | Dist: {item.distance}
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={[styles.body, { color: primary, fontWeight: '700' }]}>{item.computedForceN ?? 0} N</Text>
-                      <Text style={[styles.body, { color: mutedText, fontSize: 11 }]}>{item.bendAngleDeg}° Bend</Text>
-                    </View>
-                  </View>
-                ))
-              )}
-
-              {attempts.length > 0 && (
-                <View style={{ gap: Spacing.sm, marginTop: Spacing.md }}>
-                  <PrimaryButton label={isSyncing ? 'Syncing...' : 'Upload Complete Manifest'} onPress={handleSave} disabled={isSyncing} />
-                  <PrimaryButton label="Next Team Member Setup" variant="secondary" onPress={clearForNextTeamMember} style={{ borderStyle: 'dashed', borderColor: primary }} />
-                </View>
-              )}
-            </SectionCard>
-          </View>
-        )}
-
-        {screenTab === 'writeup' && (
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Write-up (on paper)</Text>
-            <Text style={[styles.body, { color: mutedText, marginBottom: Spacing.md }]}>
-              Use the analytical evaluation checks below to wrap up notebook submissions inside your exercise text blocks.
-            </Text>
-
-            {[
-              'Predict which fan design makes the paper move the most.',
-              'Record the results.',
-              'Were you right? Any surprises?',
-              'How does material stiffness affect the bend angle?',
-              'How does fan design influence air velocity and resulting paper movement?',
-              'How does distance from the fan affect bending?',
-            ].map((q, i) => (
-              <View key={i} style={[styles.questionBlock, { borderTopColor: border }]}>
-                <Text style={[styles.questionNumber, { color: primary }]}>{i + 1}.</Text>
-                <Text style={[styles.questionText, { color: text }]}>{q}</Text>
-              </View>
-            ))}
-          </SectionCard>
-        )}
-
-        {screenTab === 'discussion' && (
-          <SectionCard>
-            <Text style={[styles.sectionTitle, { color: text }]}>Discussion Analysis</Text>
-            <Text style={[styles.body, { color: mutedText, lineHeight: 19 }]}>
-              Moving air currents transfer dynamic vector kinetic energy into static barriers. Cardboard profiles display significantly amplified k stiffness coefficient parameters over basic paper fibers, layout links needing much higher air velocities to reach matched baseline spatial deformation limits.
-            </Text>
-          </SectionCard>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+      {screenTab !== 'overview' && (
+        <PrimaryButton label="Back to dashboard" variant="secondary" onPress={() => router.back()} disabled={isSyncing} />
+      )}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   safe: { flex: 1 },
-  page: { flex: 1 },
-  content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
+  scroll: { flex: 1 },
+  content: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    gap: Spacing.md,
+    paddingBottom: SCREEN_BOTTOM_INSET,
+  },
   backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
-  tabRow: { flexDirection: 'row', gap: Spacing.sm },
-  tabPill: { flex: 1, minHeight: 40, borderRadius: Radius.pill, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.xs },
-  tabPillText: { ...Typography.small, fontWeight: '700', textAlign: 'center' },
-  heroTitle: { ...Typography.hero, fontSize: 24 },
-  heroSubtitle: { marginTop: Spacing.xs, ...Typography.body },
-  sectionTitle: { ...Typography.section, marginBottom: Spacing.sm },
-  bodyHeading: { ...Typography.section, fontSize: 14, marginBottom: Spacing.xs },
-  body: { ...Typography.body, fontSize: 13, lineHeight: 19 },
-  bullets: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: 6 },
-  bullet: { ...Typography.body, fontSize: 13, lineHeight: 19 },
-  experimentWrap: { gap: Spacing.md },
-  infoCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md },
-  helper: { ...Typography.small },
-  inputLabel: { ...Typography.small, marginBottom: 6, marginTop: Spacing.sm, fontWeight: '700' },
-  inputBox: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm, height: 40, fontSize: 13 },
-  rowFields: { flexDirection: 'row', marginTop: Spacing.xs },
-  videoPlayer: { width: '100%', height: 180, borderRadius: Radius.lg, marginTop: Spacing.xs },
-  questionBlock: { flexDirection: 'row', gap: Spacing.sm, borderTopWidth: 1, paddingVertical: Spacing.sm, alignItems: 'flex-start' },
-  questionNumber: { ...Typography.section, fontSize: 14, minWidth: 20 },
-  questionText: { ...Typography.body, fontSize: 13, lineHeight: 20, flex: 1 },
-  table: { borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden', marginTop: Spacing.sm },
-  tableHeaderRow: { flexDirection: 'row', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, borderBottomWidth: 1, alignItems: 'center' },
-  tableHeaderCell: { ...Typography.small, fontWeight: '800', fontSize: 11 },
-  tableRow: { flexDirection: 'row', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
-  tableCell: { ...Typography.small, fontSize: 11, lineHeight: 16 },
+  tabRow: { gap: Spacing.sm, paddingBottom: Spacing.sm },
+  tabPill: {
+    minHeight: 40,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabPillText: { fontSize: FontSize.xs, fontWeight: FontWeight.bold },
+  tabContent: { gap: Spacing.lg },
+
+  heroTitle: { fontSize: 28, fontWeight: '900', letterSpacing: 2 },
+  heroSubtitle: { marginTop: Spacing.xs, fontSize: 12, opacity: 0.85 },
+  heroBody: { marginTop: Spacing.sm, fontSize: 13, lineHeight: 18, opacity: 0.85 },
+  heroCta: {
+    alignSelf: 'flex-start',
+    marginTop: Spacing.sm,
+    borderRadius: Radius.full,
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm + 2,
+  },
+  heroCtaText: { fontSize: 14, fontWeight: '800', letterSpacing: 1 },
+  overviewActions: {
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+
+  bodyMuted: { fontSize: 13, lineHeight: 19, opacity: 0.88 },
+  bulletPrompt: { fontSize: 13, lineHeight: 19, opacity: 0.88, marginTop: 6 },
+  equipmentSelectHint: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    marginBottom: Spacing.xs,
+    fontWeight: FontWeight.semibold,
+  },
+  equipmentChecklist: {
+    gap: Spacing.xs,
+  },
+  equipmentCheckRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderWidth: 2,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  equipmentCheckLabel: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    lineHeight: 18,
+  },
+  equipmentStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    borderWidth: 2,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  equipmentStatusText: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
+    flex: 1,
+  },
+  missingEquipmentBlock: {
+    flex: 1,
+    gap: 4,
+  },
+  missingEquipmentItem: {
+    fontSize: FontSize.sm,
+    lineHeight: 18,
+    fontWeight: FontWeight.semibold,
+  },
+
+  diagramWrap: {
+    marginTop: Spacing.xs,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    padding: Spacing.sm,
+  },
+  diagramImage: { width: '100%', aspectRatio: HAND_FAN_DIAGRAM_ASPECT },
+
+  stepHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
+  stepBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: Radius.full },
+  stepBadgeText: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  stepTitle: { flex: 1, fontSize: 16, fontWeight: '900' },
+  stepBody: { gap: Spacing.sm },
+
+  helper: { fontSize: 12, opacity: 0.85 },
+  fieldLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5, opacity: 0.9, marginTop: 4 },
+
   selectorPillRow: { flexDirection: 'row', gap: Spacing.sm, marginVertical: 2 },
-  pillSelectorItem: { flex: 1, height: 36, borderWidth: 1, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
-  pillSelectorText: { ...Typography.small, fontWeight: '700' },
+  pillSelectorItem: {
+    flex: 1,
+    height: 36,
+    borderWidth: 1,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillSelectorText: { fontSize: 12, fontWeight: '800' },
   materialBlockListColumn: { gap: 6, marginVertical: 2 },
-  materialRowSelector: { padding: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, justifyContent: 'center' },
-  materialRowText: { ...Typography.small, fontSize: 12 },
-  physicsHUDMetricsBox: { borderWidth: 1, padding: Spacing.md, borderRadius: Radius.lg, alignItems: 'center', marginTop: Spacing.md },
-  hudLabelText: { fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  hudValueText: { fontSize: 28, fontWeight: '900', marginTop: 4 },
+  materialRowSelector: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm },
+  materialRowText: { fontSize: 12 },
+
+  physicsHUDMetricsBox: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.md, marginTop: Spacing.sm },
+  hudLabelText: { fontSize: 10, fontWeight: '800', letterSpacing: 1, opacity: 0.85 },
+  hudValueText: { fontSize: 24, fontWeight: '900', marginTop: 4, fontVariant: ['tabular-nums'] },
+
+  videoPlayer: { width: '100%', height: 180, borderRadius: Radius.lg, marginTop: Spacing.xs },
   actionControlRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md },
-  attemptRowListItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)', alignItems: 'center' }
+
+  attemptsWrap: { gap: Spacing.xs },
+
+  questionBlock: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    borderTopWidth: 1,
+    paddingVertical: Spacing.sm,
+    alignItems: 'flex-start',
+  },
+  questionNumber: { fontSize: 14, fontWeight: '900', minWidth: 20 },
+  questionText: { fontSize: 13, lineHeight: 20, flex: 1, fontWeight: '600' },
+
+  table: { borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden', marginTop: Spacing.sm },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderBottomWidth: 1,
+    alignItems: 'center',
+  },
+  tableHeaderCell: { fontSize: 11, fontWeight: '900' },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+  },
+  tableCell: { fontSize: 11, lineHeight: 16 },
 });

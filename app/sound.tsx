@@ -206,7 +206,7 @@ function OverviewInstructionList() {
   );
 }
 
-function OverviewConductExperiment() {
+function OverviewHowToConduct() {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
   const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
   const error = useThemeColor({}, 'error' as any) ?? '#F44336';
@@ -283,9 +283,16 @@ function OverviewConductExperiment() {
           </View>
         </View>
       ) : null}
+    </>
+  );
+}
 
-      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
+function OverviewStepByStep() {
+  const { textColor } = usePanelTheme();
 
+  return (
+    <>
+      <PanelTitle>Step-by-step</PanelTitle>
       <Text style={[styles.stepsSectionTitle, { color: textColor }]}>Step-by-step instructions</Text>
       <OverviewInstructionList />
 
@@ -743,6 +750,17 @@ export default function SoundScreen() {
                 <PanelMuted style={styles.heroBody}>
                   Measure and compare sound intensity levels from different actions in your classroom.
                 </PanelMuted>
+              </ColorPanel>
+
+              <ColorPanel colour="yellow">
+                <OverviewHowToConduct />
+              </ColorPanel>
+
+              <ColorPanel colour="sky">
+                <OverviewStepByStep />
+              </ColorPanel>
+
+              <View style={styles.overviewActions}>
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => setScreenTab('experiment')}
@@ -752,15 +770,29 @@ export default function SoundScreen() {
                       backgroundColor: primary,
                       borderColor: primary,
                       borderBottomColor: primaryDark,
+                      alignSelf: 'stretch',
+                      justifyContent: 'center',
                     },
                   ]}>
-                  <Text style={[styles.heroCtaText, { color: onPrimary }]}>Start experiment</Text>
+                  <Text
+                    style={[
+                      styles.heroCtaText,
+                      {
+                        color: onPrimary,
+                        textAlign: 'center',
+                        fontFamily: pixelFontLoaded ? pixelFamily : undefined,
+                      },
+                    ]}>
+                    ▶  Start experiment
+                  </Text>
                 </Pressable>
-              </ColorPanel>
-
-              <ColorPanel colour="sky">
-                <OverviewConductExperiment />
-              </ColorPanel>
+                <PrimaryButton
+                  label="Back to dashboard"
+                  variant="secondary"
+                  onPress={() => router.back()}
+                  disabled={isSyncing}
+                />
+              </View>
             </View>
           )}
 
@@ -908,6 +940,16 @@ export default function SoundScreen() {
               </ColorPanel>
             </View>
           )}
+
+          {screenTab !== 'overview' && (
+            <PrimaryButton
+              label="Back to dashboard"
+              variant="secondary"
+              onPress={() => router.back()}
+              disabled={isSyncing}
+              style={{ marginTop: Spacing.sm }}
+            />
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -1000,8 +1042,13 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm + 2,
   },
   heroCtaText: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.bold,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  overviewActions: {
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
   },
   equipmentIntro: {
     fontSize: FontSize.sm,

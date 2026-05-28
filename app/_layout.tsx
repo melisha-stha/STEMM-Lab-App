@@ -47,11 +47,15 @@ function RootNavigation() {
         <Stack.Screen name="breathing" options={{ headerShown: false }} />
         <Stack.Screen name="handfan" options={{ headerShown: false }} />
         <Stack.Screen name="performance" options={{ headerShown: false }} />
-        
+
         {/* Dedicated Fullscreen Lab Result Dashboards */}
         <Stack.Screen name="breathing-results" options={{ headerShown: false }} />
         <Stack.Screen name="earthquake-results" options={{ headerShown: false }} />
         <Stack.Screen name="reaction-results" options={{ headerShown: false }} />
+        <Stack.Screen name="parachute-results" options={{ headerShown: false }} />
+        <Stack.Screen name="sound-results" options={{ headerShown: false }} />
+        <Stack.Screen name="handfan-results" options={{ headerShown: false }} />
+        <Stack.Screen name="performance-results" options={{ headerShown: false }} />
 
         {/* System Overlays and Info Modals */}
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />

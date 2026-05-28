@@ -209,7 +209,7 @@ function PhaseActivityGuide({ phase }: { phase: ActivityPhase }) {
   );
 }
 
-function OverviewConductExperiment() {
+function OverviewHowToConductActivity() {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
   const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
   const error = useThemeColor({}, 'error' as any) ?? '#F44336';
@@ -286,11 +286,20 @@ function OverviewConductExperiment() {
           </View>
         </View>
       ) : null}
+    </>
+  );
+}
 
-      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
+function OverviewStepByStepActivity() {
+  const { textColor, borderColor } = usePanelTheme();
 
+  return (
+    <>
+      <PanelTitle>Step-by-step</PanelTitle>
       <Text style={[styles.stepsSectionTitle, { color: textColor }]}>Overview</Text>
       <InstructionStepList steps={INSTRUCTION_STEPS} />
+
+      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
 
       <Text style={[styles.stepsSectionTitle, { color: textColor, marginTop: Spacing.md }]}>
         {PHASE_LABELS[1]}
@@ -827,13 +836,24 @@ export default function ReactionScreen() {
 
           {screenTab === 'instructions' && (
             <View style={styles.tabContent}>
-              <ColorPanel colour="yellow">
+              <ColorPanel colour="lavender">
                 {pixelFontLoaded ? <OverviewHeroTitle pixelFamily={pixelFamily} /> : null}
                 <PanelMuted style={styles.heroSubtitle}>Health · Neuroscience</PanelMuted>
                 <PanelMuted style={styles.heroBody}>
                   Measure reaction speed and hand eye coordination across three phases — dominant
                   hand, non-dominant hand, then tracing a moving target.
                 </PanelMuted>
+              </ColorPanel>
+
+              <ColorPanel colour="yellow">
+                <OverviewHowToConductActivity />
+              </ColorPanel>
+
+              <ColorPanel colour="sky">
+                <OverviewStepByStepActivity />
+              </ColorPanel>
+
+              <View style={styles.overviewActions}>
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => setScreenTab('activity')}
@@ -843,15 +863,29 @@ export default function ReactionScreen() {
                       backgroundColor: primary,
                       borderColor: primary,
                       borderBottomColor: primaryDark,
+                      alignSelf: 'stretch',
+                      justifyContent: 'center',
                     },
                   ]}>
-                  <Text style={[styles.heroCtaText, { color: onPrimary }]}>Start activity</Text>
+                  <Text
+                    style={[
+                      styles.heroCtaText,
+                      {
+                        color: onPrimary,
+                        textAlign: 'center',
+                        fontFamily: pixelFontLoaded ? pixelFamily : undefined,
+                      },
+                    ]}>
+                    ▶  Start activity
+                  </Text>
                 </Pressable>
-              </ColorPanel>
-
-              <ColorPanel colour="sky">
-                <OverviewConductExperiment />
-              </ColorPanel>
+                <PrimaryButton
+                  label="Back to dashboard"
+                  variant="secondary"
+                  onPress={() => router.back()}
+                  disabled={isSyncing}
+                />
+              </View>
             </View>
           )}
 
@@ -991,6 +1025,16 @@ export default function ReactionScreen() {
               </ColorPanel>
             </View>
           )}
+
+          {screenTab !== 'instructions' && (
+            <PrimaryButton
+              label="Back to dashboard"
+              variant="secondary"
+              onPress={() => router.back()}
+              disabled={isSyncing}
+              style={{ marginTop: Spacing.sm }}
+            />
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -1065,8 +1109,13 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm + 2,
   },
   heroCtaText: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.bold,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  overviewActions: {
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
   },
   heroImageWrap: {
     borderRadius: Radius.lg,

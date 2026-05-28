@@ -162,7 +162,7 @@ function OverviewInstructionList() {
   );
 }
 
-function OverviewConductExperiment() {
+function OverviewHowToConduct() {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
   const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
   const error = useThemeColor({}, 'error' as any) ?? '#F44336';
@@ -239,9 +239,16 @@ function OverviewConductExperiment() {
           </View>
         </View>
       ) : null}
+    </>
+  );
+}
 
-      <View style={[styles.sectionDivider, { backgroundColor: borderColor }]} />
+function OverviewStepByStep() {
+  const { textColor } = usePanelTheme();
 
+  return (
+    <>
+      <PanelTitle>Step-by-step</PanelTitle>
       <Text style={[styles.stepsSectionTitle, { color: textColor }]}>Step-by-step instructions</Text>
       <OverviewInstructionList />
 
@@ -390,12 +397,14 @@ function DiscussionGForceContent() {
         multiples of gravity where g = 9.8 m/s².
       </PanelMuted>
       <View style={[styles.matrixTableGrid, { borderColor }]}>
-        <View style={[styles.matrixHeaderRow, { borderBottomColor: borderColor }]}>
+        <View
+          style={[
+            styles.matrixHeaderRow,
+            { borderBottomColor: borderColor, alignItems: 'flex-start' },
+          ]}>
           <Text style={[styles.tableHeaderCell, { color: textColor, width: 85 }]}>G-Force Range</Text>
-          <Text style={[styles.tableHeaderCell, { color: textColor, width: 130 }]}>
-            Real-World Examples
-          </Text>
-          <Text style={[styles.tableHeaderCell, { color: textColor, width: 115 }]}>
+          <Text style={[styles.tableHeaderCell, { color: textColor, width: 130 }]}>Real-World Examples</Text>
+          <Text style={[styles.tableHeaderCell, { color: textColor, flex: 1, flexShrink: 1 }]}>
             Likely Structural Effects
           </Text>
         </View>
@@ -410,7 +419,11 @@ function DiscussionGForceContent() {
             key={index}
             style={[
               styles.matrixDataRow,
-              { borderBottomWidth: index === 4 ? 0 : 1, borderBottomColor: borderColor },
+              {
+                borderBottomWidth: index === 4 ? 0 : 1,
+                borderBottomColor: borderColor,
+                alignItems: 'flex-start',
+              },
             ]}>
             <Text style={[styles.tableBodyCell, { color: textColor, fontWeight: '700', width: 85 }]}>
               {item.range}
@@ -418,7 +431,11 @@ function DiscussionGForceContent() {
             <Text style={[styles.tableBodyCell, { color: textColor, opacity: 0.78, width: 130 }]}>
               {item.ex}
             </Text>
-            <Text style={[styles.tableBodyCell, { color: textColor, opacity: 0.78, width: 115 }]}>
+            <Text
+              style={[
+                styles.tableBodyCell,
+                { color: textColor, opacity: 0.78, flex: 1, flexShrink: 1 },
+              ]}>
               {item.effect}
             </Text>
           </View>
@@ -828,6 +845,17 @@ export default function ParachuteScreen() {
                   Design, build, and test a parachute for a small toy. Slow the landing and reduce
                   impact force — then improve your design across up to three attempts.
                 </PanelMuted>
+              </ColorPanel>
+
+              <ColorPanel colour="yellow">
+                <OverviewHowToConduct />
+              </ColorPanel>
+
+              <ColorPanel colour="sky">
+                <OverviewStepByStep />
+              </ColorPanel>
+
+              <View style={styles.overviewActions}>
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => setScreenTab('experiment')}
@@ -837,15 +865,29 @@ export default function ParachuteScreen() {
                       backgroundColor: primary,
                       borderColor: primary,
                       borderBottomColor: primaryDark,
+                      alignSelf: 'stretch',
+                      justifyContent: 'center',
                     },
                   ]}>
-                  <Text style={[styles.heroCtaText, { color: onPrimary }]}>▶  Start experiment</Text>
+                  <Text
+                    style={[
+                      styles.heroCtaText,
+                      {
+                        color: onPrimary,
+                        textAlign: 'center',
+                        fontFamily: pixelFontLoaded ? pixelFamily : undefined,
+                      },
+                    ]}>
+                    ▶  Start experiment
+                  </Text>
                 </Pressable>
-              </ColorPanel>
-
-              <ColorPanel colour="sky">
-                <OverviewConductExperiment />
-              </ColorPanel>
+                <PrimaryButton
+                  label="Back to dashboard"
+                  variant="secondary"
+                  onPress={() => router.back()}
+                  disabled={isSyncing}
+                />
+              </View>
             </View>
           )}
 
@@ -1036,6 +1078,16 @@ export default function ParachuteScreen() {
               </ColorPanel>
             </View>
           )}
+
+          {screenTab !== 'overview' && (
+            <PrimaryButton
+              label="Back to dashboard"
+              variant="secondary"
+              onPress={() => router.back()}
+              disabled={isSyncing}
+              style={{ marginTop: Spacing.sm }}
+            />
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -1127,6 +1179,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 1,
+  },
+  overviewActions: {
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
   },
   softPanelTitle: {
     fontSize: FontSize.lg,
