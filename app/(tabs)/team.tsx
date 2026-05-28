@@ -44,6 +44,7 @@ export default function TeamTabScreen() {
   const [editOpen, setEditOpen] = useState(false);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [pendingAvatarKey, setPendingAvatarKey] = useState<AvatarKey>('frog');
   const [form, setForm] = useState<{
     teamName: string;
     yearLevel: string;
@@ -98,6 +99,7 @@ export default function TeamTabScreen() {
       setTeam(data);
 
       const avatarKey = (data?.avatarKey as AvatarKey) || 'frog';
+      setPendingAvatarKey(avatarKey);
       setForm({
         teamName: data?.name ?? '',
         yearLevel: (data?.yearLevel ?? '').toString().replace(/^Year\s*/i, ''),
@@ -136,7 +138,11 @@ export default function TeamTabScreen() {
     ]);
   };
 
-  const yearDisplay = team?.yearLevel ? `Year ${team.yearLevel}` : team?.grade || '—';
+  const yearDisplay = (() => {
+    const raw = (team?.yearLevel ?? team?.grade ?? '').toString().trim();
+    if (!raw) return '—';
+    return /^year\s+/i.test(raw) ? raw : `Year ${raw}`;
+  })();
   const levelDisplay =
     team?.learningLevel === 'lower_secondary'
       ? 'Lower Secondary'
@@ -171,15 +177,26 @@ export default function TeamTabScreen() {
 
   const syncStatus = auth?.currentUser ? 'Signed in (cloud sync ready)' : 'Local only';
 
-  const setAvatar = async (next: AvatarKey) => {
-    setTeam((prev) => (prev ? { ...prev, avatarKey: next } : prev));
+  const selectAvatar = (next: AvatarKey) => {
+    setPendingAvatarKey(next);
     setForm((f) => ({ ...f, avatarKey: next }));
+  };
+
+  const saveAvatar = async () => {
     if (!team) return;
-    await saveTeamData(team.name, team.members, team.grade, {
-      yearLevel: team.yearLevel ?? team.grade,
-      learningLevel: team.learningLevel ?? null,
-      avatarKey: next,
-    });
+    setIsSaving(true);
+    try {
+      await saveTeamData(team.name, team.members, team.grade, {
+        yearLevel: team.yearLevel ?? team.grade,
+        learningLevel: team.learningLevel ?? null,
+        avatarKey: pendingAvatarKey,
+      });
+      const refreshed = await getTeamData();
+      setTeam(refreshed);
+      setAvatarPickerOpen(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const openEdit = () => {
@@ -265,7 +282,10 @@ export default function TeamTabScreen() {
                 <PrimaryButton
                   label={avatarPickerOpen ? 'Hide avatars' : 'Edit avatar'}
                   variant="secondary"
-                  onPress={() => setAvatarPickerOpen((v) => !v)}
+                  onPress={() => {
+                    setPendingAvatarKey(avatarKey);
+                    setAvatarPickerOpen((v) => !v);
+                  }}
                   style={styles.editAvatarBtn}
                 />
               </View>
@@ -300,14 +320,14 @@ export default function TeamTabScreen() {
 
               <View style={styles.avatarGrid} accessibilityRole="radiogroup">
                 {AVATARS.map((a) => {
-                  const selected = a.key === avatarKey;
+                  const selected = a.key === pendingAvatarKey;
                   return (
                     <View key={a.key} style={styles.avatarCell}>
                       <Pressable
                         accessibilityRole="radio"
                         accessibilityState={{ selected }}
                         accessibilityLabel={`Select avatar: ${a.label}`}
-                        onPress={() => void setAvatar(a.key)}
+                        onPress={() => selectAvatar(a.key)}
                         style={[
                           styles.avatarChoiceOuter,
                           {
@@ -328,6 +348,23 @@ export default function TeamTabScreen() {
                     </View>
                   );
                 })}
+              </View>
+
+              <View style={{ marginTop: Spacing.md, gap: Spacing.sm }}>
+                <PrimaryButton
+                  label={isSaving ? 'Saving…' : 'Save avatar'}
+                  onPress={() => void saveAvatar()}
+                  disabled={isSaving || !team || pendingAvatarKey === avatarKey}
+                />
+                <PrimaryButton
+                  label="Cancel"
+                  variant="secondary"
+                  onPress={() => {
+                    setPendingAvatarKey(avatarKey);
+                    setAvatarPickerOpen(false);
+                  }}
+                  disabled={isSaving}
+                />
               </View>
             </SectionCard>
           ) : null}

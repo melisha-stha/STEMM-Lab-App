@@ -43,6 +43,10 @@ export const uploadParachuteResult = async (userId: string, teamData: any, attem
   try {
     const finalTeamName = teamData?.name || "Anonymous Team";
     const finalGrade = teamData?.grade || "N/A";
+    const teamId = teamData?.id ?? null;
+    const yearLevel = teamData?.yearLevel ?? null;
+    const learningLevel = teamData?.learningLevel ?? null;
+    const avatarKey = teamData?.avatarKey ?? null;
 
     const sanitizedLocation = location ? {
       latitude: Number(location.latitude),
@@ -53,6 +57,10 @@ export const uploadParachuteResult = async (userId: string, teamData: any, attem
       userId: userId,
       teamName: finalTeamName, 
       grade: finalGrade,       
+      teamId,
+      yearLevel,
+      learningLevel,
+      avatarKey,
       attempts: attempts,
       bestTime: Math.max(...attempts.map(a => a.time)), 
       location: sanitizedLocation,
@@ -96,6 +104,10 @@ export const uploadSoundResult = async (
     userId,
     teamName: teamData?.name || 'unknown',
     grade: teamData?.grade || '',
+    teamId: teamData?.id ?? null,
+    yearLevel: teamData?.yearLevel ?? null,
+    learningLevel: teamData?.learningLevel ?? null,
+    avatarKey: teamData?.avatarKey ?? null,
     measurements,
     peakDb,
     locationData,
@@ -120,6 +132,10 @@ export const uploadEarthquakeResult = async (
     userId,
     teamName: teamData?.name ?? 'Anonymous Team',
     grade: teamData?.grade ?? 'N/A',
+    teamId: teamData?.id ?? null,
+    yearLevel: teamData?.yearLevel ?? null,
+    learningLevel: teamData?.learningLevel ?? null,
+    avatarKey: teamData?.avatarKey ?? null,
     attempts,
     bestScore: bestAttempt.score,
     locationData: location
@@ -217,6 +233,10 @@ export const uploadReactionResult = async (
     userId,
     teamName: teamData?.name ?? 'Anonymous Team',
     grade: teamData?.grade ?? 'N/A',
+    teamId: teamData?.id ?? null,
+    yearLevel: teamData?.yearLevel ?? null,
+    learningLevel: teamData?.learningLevel ?? null,
+    avatarKey: teamData?.avatarKey ?? null,
     attempts,
     avgPhase1ReactionTime: avgPhase1,
     avgPhase2ReactionTime: avgPhase2,
@@ -294,6 +314,10 @@ export const uploadBreathingResult = async (
     userId,
     teamName: teamData?.name ?? 'Anonymous Team',
     grade: teamData?.grade ?? 'N/A',
+    teamId: teamData?.id ?? null,
+    yearLevel: teamData?.yearLevel ?? null,
+    learningLevel: teamData?.learningLevel ?? null,
+    avatarKey: teamData?.avatarKey ?? null,
     sessions,
     restingBpm: restingSession?.bpm ?? 0,
     locationData: location
@@ -334,6 +358,10 @@ export const uploadHandFanResult = async (
     userId,
     teamName: teamData?.name || 'unknown',
     grade: teamData?.grade || '',
+    teamId: teamData?.id ?? null,
+    yearLevel: teamData?.yearLevel ?? null,
+    learningLevel: teamData?.learningLevel ?? null,
+    avatarKey: teamData?.avatarKey ?? null,
     designs,
     locationData,
     createdAt: new Date().toISOString(),
@@ -351,6 +379,10 @@ export const uploadPerformanceResult = async (
     userId,
     teamName: teamData?.name || 'unknown',
     grade: teamData?.grade || '',
+    teamId: teamData?.id ?? null,
+    yearLevel: teamData?.yearLevel ?? null,
+    learningLevel: teamData?.learningLevel ?? null,
+    avatarKey: teamData?.avatarKey ?? null,
     attempts,
     locationData,
     createdAt: new Date().toISOString(),
