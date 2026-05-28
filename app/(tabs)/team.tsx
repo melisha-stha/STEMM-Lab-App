@@ -1,17 +1,36 @@
 import { InfoRow } from '@/components/ui/info-row';
+import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
-import { Spacing, Typography } from '@/constants/design';
+import { SCREEN_BOTTOM_INSET, Spacing, Typography } from '@/constants/design';
+import { usePixelFont } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { clearTeamData, getTeamData } from '@/hooks/storage';
+import { clearTeamData, getTeamData, saveTeamData } from '@/hooks/storage';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { type Href, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TeamScreenBackground, useTeamScreenBackground } from '@/components/ui/team-screen-background';
+import { auth } from '@/hooks/firebaseConfig';
+import { getTrials } from '@/hooks/database';
+
+type AvatarKey = 'ben' | 'girl' | 'frog' | 'bunny' | 'cat' | 'fox';
+
+const AVATARS: { key: AvatarKey; label: string; source: any }[] = [
+  { key: 'ben', label: 'Ben', source: require('@/assets/images/boy-avatar.png') },
+  { key: 'girl', label: 'Girl', source: require('@/assets/images/girl-avatar.png') },
+  { key: 'frog', label: 'Frog', source: require('@/assets/images/frog-avatar.png') },
+  { key: 'bunny', label: 'Bunny', source: require('@/assets/images/bunny-avatar.png') },
+  { key: 'cat', label: 'Cat', source: require('@/assets/images/cat-avatar.png') },
+  { key: 'fox', label: 'Fox', source: require('@/assets/images/fox-avatar.png') },
+];
 
 export default function TeamTabScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const [team, setTeam] = useState<{
     name: string;
     id: number;
@@ -19,14 +38,83 @@ export default function TeamTabScreen() {
     grade: string;
     yearLevel?: string;
     learningLevel?: string;
+    avatarKey?: AvatarKey;
   } | null>(null);
+  const [trials, setTrials] = useState<any[]>([]);
+  const [editOpen, setEditOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState<{
+    teamName: string;
+    yearLevel: string;
+    learningLevel: 'lower_secondary' | 'upper_primary' | '';
+    members: string[];
+    avatarKey: AvatarKey;
+  }>({
+    teamName: '',
+    yearLevel: '',
+    learningLevel: '',
+    members: [''],
+    avatarKey: 'frog',
+  });
+  const [errors, setErrors] = useState<{
+    teamName?: string;
+    yearLevel?: string;
+    members?: string;
+  }>({});
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
   const mutedText = useThemeColor({}, 'mutedText');
+  const primary = useThemeColor({}, 'primary');
+  const primarySoft = useThemeColor({}, 'primarySoft');
+  const primaryDark = useThemeColor({}, 'primaryDark');
+  const onPrimary = useThemeColor({}, 'onPrimary');
+  const border = useThemeColor({}, 'border');
+  const danger = useThemeColor({}, 'danger');
+
+  const cardLavender = useThemeColor({}, 'cardLavender');
+  const cardLavenderBorder = useThemeColor({}, 'cardLavenderBorder');
+  const cardLavenderShadow = useThemeColor({}, 'cardLavenderShadow');
+  const cardLavenderText = useThemeColor({}, 'cardLavenderText');
+  const cardSky = useThemeColor({}, 'cardSky');
+  const cardSkyBorder = useThemeColor({}, 'cardSkyBorder');
+  const cardSkyShadow = useThemeColor({}, 'cardSkyShadow');
+  const cardSkyText = useThemeColor({}, 'cardSkyText');
+  const cardMint = useThemeColor({}, 'cardMint');
+  const cardMintBorder = useThemeColor({}, 'cardMintBorder');
+  const cardMintShadow = useThemeColor({}, 'cardMintShadow');
+  const cardMintText = useThemeColor({}, 'cardMintText');
+  const cardYellow = useThemeColor({}, 'cardYellow');
+  const cardYellowBorder = useThemeColor({}, 'cardYellowBorder');
+  const cardYellowShadow = useThemeColor({}, 'cardYellowShadow');
+  const cardYellowText = useThemeColor({}, 'cardYellowText');
+
+  const { overlayColor, imageOpacity } = useTeamScreenBackground();
 
   useEffect(() => {
-    void getTeamData().then(setTeam);
+    const load = async () => {
+      const data = await getTeamData();
+      setTeam(data);
+
+      const avatarKey = (data?.avatarKey as AvatarKey) || 'frog';
+      setForm({
+        teamName: data?.name ?? '',
+        yearLevel: (data?.yearLevel ?? '').toString().replace(/^Year\s*/i, ''),
+        learningLevel: (data?.learningLevel as any) ?? '',
+        members: Array.isArray(data?.members) && data.members.length ? data.members : [''],
+        avatarKey,
+      });
+    };
+    void load();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const rows = getTrials();
+      setTrials(Array.isArray(rows) ? rows : []);
+    } catch {
+      setTrials([]);
+    }
   }, []);
 
   const handleResetTeam = () => {
@@ -55,48 +143,442 @@ export default function TeamTabScreen() {
         ? 'Upper Primary'
         : '—';
 
+  const avatarKey: AvatarKey = (team?.avatarKey as AvatarKey) || 'frog';
+  const activeAvatar = AVATARS.find((a) => a.key === avatarKey) ?? AVATARS.find((a) => a.key === 'frog')!;
+
+  const teamName = team?.name?.trim() || 'Team';
+  const teamTrials = trials.filter((t) => (t?.teamName ?? '').trim() === teamName);
+  const activitiesCompleted = new Set(teamTrials.map((t) => t?.activity).filter(Boolean)).size;
+  const savedAttempts = teamTrials.length;
+  const latestActivityKey = teamTrials.length ? teamTrials[teamTrials.length - 1]?.activity : null;
+  const latestActivityLabel =
+    latestActivityKey === 'parachute'
+      ? 'Parachute Drop'
+      : latestActivityKey === 'sound'
+        ? 'Sound Pollution Hunter'
+        : latestActivityKey === 'earthquake'
+          ? 'Earthquake Structure'
+          : latestActivityKey === 'reaction'
+            ? 'Reaction Board'
+            : latestActivityKey === 'breathing'
+              ? 'Breathing Pace Trainer'
+              : latestActivityKey === 'handfan'
+                ? 'Hand Fan Challenge'
+                : latestActivityKey === 'performance'
+                  ? 'Human Performance Lab'
+                  : 'Not started';
+
+  const syncStatus = auth?.currentUser ? 'Signed in (cloud sync ready)' : 'Local only';
+
+  const setAvatar = async (next: AvatarKey) => {
+    setTeam((prev) => (prev ? { ...prev, avatarKey: next } : prev));
+    setForm((f) => ({ ...f, avatarKey: next }));
+    if (!team) return;
+    await saveTeamData(team.name, team.members, team.grade, {
+      yearLevel: team.yearLevel ?? team.grade,
+      learningLevel: team.learningLevel ?? null,
+      avatarKey: next,
+    });
+  };
+
+  const openEdit = () => {
+    setErrors({});
+    setEditOpen(true);
+  };
+
+  const closeEdit = () => {
+    setErrors({});
+    setEditOpen(false);
+  };
+
+  const validate = () => {
+    const next: typeof errors = {};
+    if (!form.teamName.trim()) next.teamName = 'Team name is required.';
+    if (!form.yearLevel.trim()) next.yearLevel = 'Year level is required.';
+    const cleanedMembers = form.members.map((m) => m.trim()).filter(Boolean);
+    if (cleanedMembers.length === 0) next.members = 'At least one first name is required.';
+    setErrors(next);
+    return { ok: Object.keys(next).length === 0, cleanedMembers };
+  };
+
+  const handleSaveEdits = async () => {
+    const { ok, cleanedMembers } = validate();
+    if (!ok || !team) return;
+
+    setIsSaving(true);
+    try {
+      const yearLabel = form.yearLevel.trim().toLowerCase().startsWith('year ')
+        ? form.yearLevel.trim()
+        : `Year ${form.yearLevel.trim()}`;
+
+      await saveTeamData(form.teamName.trim(), cleanedMembers, team.grade || yearLabel, {
+        yearLevel: yearLabel,
+        learningLevel: form.learningLevel || team.learningLevel || null,
+        avatarKey: form.avatarKey,
+      });
+
+      const refreshed = await getTeamData();
+      setTeam(refreshed);
+      setEditOpen(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: background }]} edges={['top']}>
-      <ScrollView
-        style={styles.page}
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: Math.max(Spacing.sm, insets.top + Spacing.sm) },
-        ]}>
-        <Text style={[styles.title, { color: text }]}>Your Team</Text>
-        <Text style={[styles.subtitle, { color: mutedText }]}>
-          Team details are saved locally on this device.
-        </Text>
+    <View style={[styles.root, { backgroundColor: background }]}>
+      <TeamScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScrollView
+          style={styles.page}
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: Math.max(Spacing.sm, insets.top + Spacing.sm), paddingBottom: SCREEN_BOTTOM_INSET },
+          ]}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            {pixelFontLoaded ? (
+              <Text style={[styles.title, { color: text, fontFamily: pixelFamily }]}>Team Lab Profile</Text>
+            ) : (
+              <Text style={[styles.title, { color: text }]}>Team Lab Profile</Text>
+            )}
+            <Text style={[styles.subtitle, { color: mutedText }]}>
+              Manage your team identity, progress, and privacy-safe lab details.
+            </Text>
+          </View>
 
-        <SectionCard>
-          <InfoRow label="Team name" value={team?.name || '—'} />
-          <InfoRow label="Team ID" value={team?.id ? String(team.id) : '—'} />
-          <InfoRow label="Year level" value={yearDisplay} />
-          <InfoRow label="Learning level" value={levelDisplay} />
-          <InfoRow label="Members" value={team?.members?.length ? team.members.join(', ') : '—'} />
-        </SectionCard>
+          <View
+            style={[
+              styles.profileCard,
+              {
+                backgroundColor: cardLavender,
+                borderColor: cardLavenderBorder,
+                borderBottomColor: cardLavenderShadow,
+              },
+            ]}>
+            <View style={styles.profileRow}>
+              <View style={[styles.avatarFrame, { borderColor: cardLavenderText }]}>
+                <Image source={activeAvatar.source} style={styles.avatarImage} contentFit="cover" />
+              </View>
+              <View style={styles.profileMeta}>
+                {pixelFontLoaded ? (
+                  <Text style={[styles.teamName, { color: cardLavenderText, fontFamily: pixelFamily }]}>
+                    {team?.name || '—'}
+                  </Text>
+                ) : (
+                  <Text style={[styles.teamName, { color: cardLavenderText }]}>{team?.name || '—'}</Text>
+                )}
+                <Text style={[styles.metaLine, { color: cardLavenderText, opacity: 0.9 }]}>{yearDisplay}</Text>
+                <Text style={[styles.metaLine, { color: cardLavenderText, opacity: 0.9 }]}>{levelDisplay}</Text>
 
-        <PrimaryButton label="Reset team setup" variant="danger" onPress={handleResetTeam} />
-      </ScrollView>
-    </SafeAreaView>
+                <View style={[styles.idBadge, { backgroundColor: primarySoft, borderColor: primary }]}>
+                  <MaterialIcons name="verified" size={16} color={primary} />
+                  <Text style={[styles.idBadgeText, { color: primary }]}>Team ID: {team?.id ? String(team.id) : '—'}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          <SectionCard style={styles.sectionCardTight}>
+            <View style={styles.sectionTitleRow}>
+              {pixelFontLoaded ? (
+                <Text style={[styles.sectionTitle, { color: text, fontFamily: pixelFamily }]}>Choose Team Avatar</Text>
+              ) : (
+                <Text style={[styles.sectionTitle, { color: text }]}>Choose Team Avatar</Text>
+              )}
+            </View>
+
+            <View style={styles.avatarGrid} accessibilityRole="radiogroup">
+              {AVATARS.map((a) => {
+                const selected = a.key === avatarKey;
+                return (
+                  <View key={a.key} style={styles.avatarCell}>
+                    <View
+                      style={[
+                        styles.avatarChoiceOuter,
+                        {
+                          borderColor: selected ? primary : border,
+                          borderBottomColor: selected ? primaryDark : border,
+                          backgroundColor: selected ? primarySoft : 'transparent',
+                        },
+                      ]}>
+                      <Text style={styles.srOnly}>{selected ? 'Selected' : ''}</Text>
+                      <View style={styles.avatarChoiceInner}>
+                        <View style={[styles.avatarChoiceFrame, { borderColor: selected ? primary : border }]}>
+                          <Image source={a.source} style={styles.avatarChoiceImage} contentFit="cover" />
+                        </View>
+                        <Text style={[styles.avatarChoiceLabel, { color: text }]}>{a.label}</Text>
+                      </View>
+                      <View style={StyleSheet.absoluteFill} pointerEvents="box-only">
+                        <Text />
+                      </View>
+                    </View>
+                    <View style={styles.avatarChoiceTap}>
+                      <PrimaryButton
+                        label={selected ? 'Selected' : 'Select'}
+                        variant={selected ? 'primary' : 'secondary'}
+                        onPress={() => void setAvatar(a.key)}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </SectionCard>
+
+          <View style={styles.sectionHeaderRow}>
+            {pixelFontLoaded ? (
+              <Text style={[styles.sectionTitle, { color: text, fontFamily: pixelFamily }]}>Team details</Text>
+            ) : (
+              <Text style={[styles.sectionTitle, { color: text }]}>Team details</Text>
+            )}
+          </View>
+
+          <SectionCard>
+            <InfoRow label="Team name" value={team?.name || '—'} />
+            <InfoRow label="Team ID" value={team?.id ? String(team.id) : '—'} />
+            <InfoRow label="Year level" value={yearDisplay} />
+            <InfoRow label="Learning level" value={levelDisplay} />
+            <InfoRow label="Members" value={team?.members?.length ? team.members.join(', ') : '—'} />
+          </SectionCard>
+
+          <PrimaryButton label={editOpen ? 'Close editor' : 'Edit team details'} variant="secondary" onPress={editOpen ? closeEdit : openEdit} />
+
+          {editOpen ? (
+            <SectionCard>
+              <Text style={[styles.editIntro, { color: mutedText }]}>
+                First names only. Please avoid private information.
+              </Text>
+
+              <Input
+                label="Team name"
+                value={form.teamName}
+                onChangeText={(v) => setForm((f) => ({ ...f, teamName: v }))}
+                error={errors.teamName}
+                placeholder="e.g. Falcon Engineers"
+              />
+
+              <Input
+                label="Year level"
+                value={form.yearLevel}
+                onChangeText={(v) => setForm((f) => ({ ...f, yearLevel: v }))}
+                error={errors.yearLevel}
+                placeholder="e.g. 7"
+                keyboardType="number-pad"
+              />
+
+              <View style={{ marginTop: Spacing.sm }}>
+                <Text style={[styles.editLabel, { color: text }]}>Learning level</Text>
+                <View style={styles.pillRow}>
+                  {[
+                    { key: 'upper_primary', label: 'Upper Primary' },
+                    { key: 'lower_secondary', label: 'Lower Secondary' },
+                  ].map((opt) => {
+                    const selected = form.learningLevel === (opt.key as any);
+                    return (
+                      <PrimaryButton
+                        key={opt.key}
+                        label={opt.label}
+                        variant={selected ? 'primary' : 'secondary'}
+                        onPress={() => setForm((f) => ({ ...f, learningLevel: opt.key as any }))}
+                        style={styles.pillBtn}
+                      />
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={{ marginTop: Spacing.sm }}>
+                <Text style={[styles.editLabel, { color: text }]}>Members (first names)</Text>
+                {errors.members ? (
+                  <Text style={[styles.inlineError, { color: danger }]}>{errors.members}</Text>
+                ) : null}
+                <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
+                  {form.members.map((m, idx) => (
+                    <Input
+                      key={`m-${idx}`}
+                      label={idx === 0 ? 'Team member 1' : `Team member ${idx + 1} (optional)`}
+                      value={m}
+                      onChangeText={(v) =>
+                        setForm((f) => ({
+                          ...f,
+                          members: f.members.map((x, i) => (i === idx ? v : x)),
+                        }))
+                      }
+                      placeholder="First name"
+                    />
+                  ))}
+                  {form.members.length < 5 ? (
+                    <PrimaryButton
+                      label="Add another member"
+                      variant="secondary"
+                      onPress={() => setForm((f) => ({ ...f, members: [...f.members, ''] }))}
+                    />
+                  ) : null}
+                </View>
+              </View>
+
+              <View style={{ gap: Spacing.sm, marginTop: Spacing.md }}>
+                <PrimaryButton label={isSaving ? 'Saving…' : 'Save changes'} onPress={() => void handleSaveEdits()} disabled={isSaving} />
+                <PrimaryButton label="Cancel" variant="secondary" onPress={closeEdit} disabled={isSaving} />
+              </View>
+            </SectionCard>
+          ) : null}
+
+          <View
+            style={[
+              styles.profileCard,
+              { backgroundColor: cardSky, borderColor: cardSkyBorder, borderBottomColor: cardSkyShadow },
+            ]}>
+            {pixelFontLoaded ? (
+              <Text style={[styles.cardTitle, { color: cardSkyText, fontFamily: pixelFamily }]}>Privacy friendly</Text>
+            ) : (
+              <Text style={[styles.cardTitle, { color: cardSkyText }]}>Privacy friendly</Text>
+            )}
+            <Text style={[styles.cardBody, { color: cardSkyText, opacity: 0.9 }]}>
+              STEMM Lab only uses first names, a team name, and a generated Team ID. Do not enter full
+              names, school names, emails, or private student information.
+            </Text>
+          </View>
+
+          <View style={styles.sectionHeaderRow}>
+            {pixelFontLoaded ? (
+              <Text style={[styles.sectionTitle, { color: text, fontFamily: pixelFamily }]}>Progress</Text>
+            ) : (
+              <Text style={[styles.sectionTitle, { color: text }]}>Progress</Text>
+            )}
+          </View>
+
+          <View style={styles.statsRow}>
+            <View
+              style={[
+                styles.statCard,
+                { backgroundColor: cardMint, borderColor: cardMintBorder, borderBottomColor: cardMintShadow },
+              ]}>
+              <Text style={[styles.statValue, { color: cardMintText }]}>{activitiesCompleted}</Text>
+              <Text style={[styles.statLabel, { color: cardMintText }]}>Activities completed</Text>
+            </View>
+            <View
+              style={[
+                styles.statCard,
+                { backgroundColor: cardYellow, borderColor: cardYellowBorder, borderBottomColor: cardYellowShadow },
+              ]}>
+              <Text style={[styles.statValue, { color: cardYellowText }]}>{savedAttempts}</Text>
+              <Text style={[styles.statLabel, { color: cardYellowText }]}>Saved attempts</Text>
+            </View>
+          </View>
+
+          <SectionCard>
+            <InfoRow label="Latest activity" value={latestActivityLabel || 'Not started'} />
+            <InfoRow label="Sync status" value={syncStatus} />
+          </SectionCard>
+
+          <View style={styles.sectionHeaderRow}>
+            {pixelFontLoaded ? (
+              <Text style={[styles.sectionTitle, { color: text, fontFamily: pixelFamily }]}>Danger Zone</Text>
+            ) : (
+              <Text style={[styles.sectionTitle, { color: text }]}>Danger Zone</Text>
+            )}
+            <Text style={[styles.dangerHint, { color: mutedText }]}>
+              Resetting will clear this device’s team setup. Saved cloud results may still exist.
+            </Text>
+          </View>
+
+          <PrimaryButton label="Reset team setup" variant="danger" onPress={handleResetTeam} />
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   safe: { flex: 1 },
-  page: { flex: 1 },
+  page: { flex: 1, backgroundColor: 'transparent' },
   content: {
     padding: Spacing.lg,
     gap: Spacing.md,
-    paddingBottom: Spacing['2xl'],
   },
-  title: {
-    ...Typography.hero,
-    fontSize: 26,
-  },
+  header: { gap: Spacing.xs, paddingHorizontal: Spacing.xs },
+  title: { ...Typography.hero, fontSize: 28, fontWeight: '900', letterSpacing: 1.2 },
   subtitle: {
     ...Typography.body,
     fontSize: 14,
     lineHeight: 20,
   },
+  profileCard: {
+    borderRadius: 24,
+    borderWidth: 2,
+    borderBottomWidth: 5,
+    padding: Spacing.lg,
+    overflow: 'hidden',
+  },
+  profileRow: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
+  avatarFrame: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 3,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  avatarImage: { width: '100%', height: '100%' },
+  profileMeta: { flex: 1, gap: 4 },
+  teamName: { fontSize: 22, fontWeight: '900', letterSpacing: 1 },
+  metaLine: { ...Typography.small, fontSize: 13, fontWeight: '700' },
+  idBadge: {
+    alignSelf: 'flex-start',
+    marginTop: Spacing.xs,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  idBadgeText: { ...Typography.small, fontSize: 12, fontWeight: '800' },
+  sectionHeaderRow: { gap: 6, paddingHorizontal: Spacing.xs, marginTop: Spacing.sm },
+  sectionTitleRow: { marginBottom: Spacing.sm },
+  sectionTitle: { ...Typography.section, fontSize: 18, fontWeight: '900', letterSpacing: 0.6 },
+  sectionCardTight: { padding: Spacing.md },
+  avatarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
+  avatarCell: { width: '48%', gap: Spacing.xs },
+  avatarChoiceOuter: {
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    borderRadius: 18,
+    padding: Spacing.sm,
+  },
+  avatarChoiceInner: { alignItems: 'center', gap: 6 },
+  avatarChoiceFrame: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  avatarChoiceImage: { width: '100%', height: '100%' },
+  avatarChoiceLabel: { ...Typography.small, fontSize: 12, fontWeight: '800' },
+  avatarChoiceTap: { marginTop: 2 },
+  srOnly: { height: 0, width: 0, opacity: 0 },
+  editIntro: { ...Typography.small, marginBottom: Spacing.sm },
+  editLabel: { ...Typography.small, fontSize: 13, fontWeight: '800' },
+  inlineError: { ...Typography.small, marginTop: Spacing.xs },
+  pillRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs, flexWrap: 'wrap' },
+  pillBtn: { flexGrow: 1 },
+  cardTitle: { ...Typography.section, fontSize: 18, fontWeight: '900', letterSpacing: 0.8 },
+  cardBody: { ...Typography.body, marginTop: Spacing.sm, lineHeight: 20 },
+  statsRow: { flexDirection: 'row', gap: Spacing.md },
+  statCard: {
+    flex: 1,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    padding: Spacing.md,
+  },
+  statValue: { fontSize: 34, fontWeight: '900', fontFamily: 'monospace' },
+  statLabel: { ...Typography.small, marginTop: 4, fontWeight: '800' },
+  dangerHint: { ...Typography.small, lineHeight: 18 },
 });
