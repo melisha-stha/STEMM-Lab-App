@@ -1,25 +1,26 @@
 import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
-import { AttemptRow } from '@/components/ui/attempt-row';
 import {
   ColorPanel,
   PanelMuted,
   PanelTitle,
   usePanelTheme,
 } from '@/components/ui/activity-color-panel';
+import { AttemptRow } from '@/components/ui/attempt-row';
 import {
   EXPERIMENT_CHALLENGE_LIMIT_MS,
   ExperimentChallengeTimer,
 } from '@/components/ui/experiment-challenge-timer';
+import { Input } from '@/components/ui/input';
 import {
   PerformanceScreenBackground,
   usePerformanceScreenBackground,
 } from '@/components/ui/performance-screen-background';
-import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { insertTrial } from '@/hooks/database';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useBatteryTracker } from '@/hooks/useBatteryTracker';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
@@ -27,11 +28,12 @@ import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { Accelerometer } from 'expo-sensors';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadPerformanceResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
+
 
 export const options = {
   headerShown: false,
@@ -207,6 +209,7 @@ type Attempt = {
 
 export default function PerformanceScreen() {
   const router = useRouter();
+  const { getOptimizedLocation } = useBatteryTracker();
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = usePerformanceScreenBackground();
 
@@ -432,8 +435,7 @@ export default function PerformanceScreen() {
       let locationData = null;
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({});
-        locationData = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+        locationData = await getOptimizedLocation();
       }
       const teamData = await getTeamData();
       const bestAvg = Math.min(...filteredAttempts.map(a => a.averageForce));

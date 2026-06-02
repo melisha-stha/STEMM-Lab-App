@@ -21,9 +21,10 @@ import type { BreathingSession as BaseBreathingSession } from '@/hooks/firestore
 import { uploadBreathingResult } from '@/hooks/firestore';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useBatteryTracker } from '@/hooks/useBatteryTracker';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import * as Location from 'expo-location';
 import { Image } from 'expo-image';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { Accelerometer } from 'expo-sensors';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -179,6 +180,7 @@ const formatDuration = (ms: number): string => {
 
 export default function BreathingScreen() {
   const router = useRouter();
+  const { getOptimizedLocation } = useBatteryTracker();
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = useBreathingScreenBackground();
 
@@ -390,8 +392,7 @@ export default function BreathingScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       let locationData = null;
       if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({});
-        locationData = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+        locationData = await getOptimizedLocation();
       }
 
       const teamData = await getTeamData();

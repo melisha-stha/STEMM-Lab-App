@@ -20,6 +20,7 @@ import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/co
 import { insertTrial } from '@/hooks/database';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useBatteryTracker } from '@/hooks/useBatteryTracker';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Audio } from 'expo-av';
 import { Image } from 'expo-image';
@@ -496,6 +497,7 @@ function MeasurementRow({ index, measurement, isLoudest }: MeasurementRowProps) 
 
 export default function SoundScreen() {
   const router = useRouter();
+  const { getOptimizedLocation } = useBatteryTracker();
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = useSoundScreenBackground();
 
@@ -664,8 +666,7 @@ export default function SoundScreen() {
       let locationData = null;
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({});
-        locationData = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+        locationData = await getOptimizedLocation();      
       }
 
       const teamData = await getTeamData();
