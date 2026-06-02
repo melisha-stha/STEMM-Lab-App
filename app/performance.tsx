@@ -782,7 +782,25 @@ export default function PerformanceScreen() {
           {screenTab === 'discussion' && renderDiscussionTab()}
 
           {screenTab !== 'overview' && (
-            <PrimaryButton label="Back to dashboard" variant="secondary" onPress={() => router.back()} disabled={isSyncing} />
+            <>
+              {screenTab === 'experiment' ? (
+                <PrimaryButton
+                  label="Go to write-up"
+                  variant="secondary"
+                  onPress={() => {
+                    setScreenTab('writeup');
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
+                  disabled={isSyncing}
+                />
+              ) : null}
+              <PrimaryButton
+                label="Back to dashboard"
+                variant="secondary"
+                onPress={() => router.back()}
+                disabled={isSyncing}
+              />
+            </>
           )}
         </ScrollView>
       </SafeAreaView>

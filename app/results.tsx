@@ -70,7 +70,7 @@ export default function ResultsScreen() {
         teamId: team?.id ?? null,
         grade: team?.grade ?? '—',
       });
-      router.replace('/leaderboard');
+      Alert.alert('Saved', 'Reflection saved.', [{ text: 'OK', onPress: () => router.back() }]);
     } finally {
       setIsSubmitting(false);
     }

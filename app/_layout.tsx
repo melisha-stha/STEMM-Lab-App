@@ -29,6 +29,7 @@ function RootNavigation() {
       <Stack
         screenOptions={{
           contentStyle: { backgroundColor: 'transparent' },
+          headerShown: false,
         }}>
         {/* Core Multi-Tab Shell Navigator Frame */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -58,7 +59,7 @@ function RootNavigation() {
         <Stack.Screen name="performance-results" options={{ headerShown: false }} />
 
         {/* System Overlays and Info Modals */}
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: false }} />
       </Stack>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>

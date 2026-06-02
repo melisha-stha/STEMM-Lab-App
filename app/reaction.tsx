@@ -1121,13 +1121,27 @@ export default function ReactionScreen() {
           )}
 
           {screenTab !== 'instructions' && (
-            <PrimaryButton
-              label="Back to dashboard"
-              variant="secondary"
-              onPress={() => router.back()}
-              disabled={isSyncing}
-              style={{ marginTop: Spacing.sm }}
-            />
+            <>
+              {screenTab === 'activity' ? (
+                <PrimaryButton
+                  label="Go to discussion"
+                  variant="secondary"
+                  onPress={() => {
+                    setScreenTab('discussion');
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
+                  disabled={isSyncing}
+                  style={{ marginTop: Spacing.sm }}
+                />
+              ) : null}
+              <PrimaryButton
+                label="Back to dashboard"
+                variant="secondary"
+                onPress={() => router.back()}
+                disabled={isSyncing}
+                style={{ marginTop: Spacing.sm }}
+              />
+            </>
           )}
         </ScrollView>
       </SafeAreaView>

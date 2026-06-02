@@ -1106,13 +1106,27 @@ export default function ParachuteScreen() {
           )}
 
           {screenTab !== 'overview' && (
-            <PrimaryButton
-              label="Back to dashboard"
-              variant="secondary"
-              onPress={() => router.back()}
-              disabled={isSyncing}
-              style={{ marginTop: Spacing.sm }}
-            />
+            <>
+              {screenTab === 'experiment' ? (
+                <PrimaryButton
+                  label="Go to write-up"
+                  variant="secondary"
+                  onPress={() => {
+                    setScreenTab('writeup');
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
+                  disabled={isSyncing}
+                  style={{ marginTop: Spacing.sm }}
+                />
+              ) : null}
+              <PrimaryButton
+                label="Back to dashboard"
+                variant="secondary"
+                onPress={() => router.back()}
+                disabled={isSyncing}
+                style={{ marginTop: Spacing.sm }}
+              />
+            </>
           )}
         </ScrollView>
       </SafeAreaView>
