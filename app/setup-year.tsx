@@ -14,7 +14,8 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const UPPER_YEARS = ['4', '5', '6'] as const;
@@ -29,10 +30,13 @@ export default function SetupYearScreen() {
   const { overlayColor, imageOpacity } = useSetupScreenBackground();
 
   const text = useThemeColor({}, 'text');
+  const surface = useThemeColor({}, 'surface');
+  const primarySoft = useThemeColor({}, 'primarySoft');
+  const border = useThemeColor({}, 'border');
   const isDark = colorScheme === 'dark';
   const pixelShadow = isDark ? '#000000' : PIXEL_BRAND.purpleBorder;
-  const helperBg = isDark ? 'rgba(28, 28, 30, 0.92)' : 'rgba(243, 232, 255, 0.94)';
-  const helperBorder = isDark ? '#9CA3AF' : PIXEL_BRAND.purpleBorder;
+  const helperBg = isDark ? surface : primarySoft;
+  const helperBorder = isDark ? border : PIXEL_BRAND.purpleBorder;
 
   const years = useMemo(
     () => (level === 'lower_secondary' ? LOWER_YEARS : UPPER_YEARS),

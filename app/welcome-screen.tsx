@@ -95,19 +95,25 @@ export default function WelcomeScreen() {
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
 
   const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';
+  const text = useThemeColor({}, 'text');
   const surface = useThemeColor({}, 'surface');
+  const primary = useThemeColor({}, 'primary');
+  const primarySoft = useThemeColor({}, 'primarySoft');
+  const primaryDark = useThemeColor({}, 'primaryDark');
+  const onPrimary = useThemeColor({}, 'onPrimary');
+  const border = useThemeColor({}, 'border');
   const isDark = colorScheme === 'dark';
-  const welcomeTitleColor = isDark ? BRAND.white : BRAND.purple;
+  const welcomeTitleColor = isDark ? text : primary;
   const welcomeMutedColor = isDark ? textSecondary : BRAND.textMuted;
   const pixelShadow = isDark ? '#000000' : BRAND.purpleBorder;
 
-  const primaryBg = isDark ? BRAND.purpleLight : BRAND.purple;
-  const primaryBorder = isDark ? '#000000' : BRAND.purpleBorder;
-  const primaryText = BRAND.white;
+  const primaryBg = primary;
+  const primaryBorder = isDark ? '#000000' : primaryDark;
+  const primaryText = onPrimary;
 
-  const secondaryBg = isDark ? surface : BRAND.purpleSoft;
-  const secondaryBorder = isDark ? '#9CA3AF' : BRAND.purpleBorder;
-  const secondaryText = isDark ? BRAND.white : BRAND.purple;
+  const secondaryBg = isDark ? surface : primarySoft;
+  const secondaryBorder = isDark ? border : BRAND.purpleBorder;
+  const secondaryText = isDark ? text : primary;
 
   const { overlayColor, imageOpacity } = useAuthScreenBackground();
   const insets = useSafeAreaInsets();
