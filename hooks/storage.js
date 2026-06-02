@@ -1,8 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from './firebaseConfig';
+
+const TEAM_INFO_LEGACY_KEY = '@team_info';
+const TEAM_INFO_OWNER_UID_KEY = '@team_info_owner_uid';
+const TEAM_INFO_KEY_PREFIX = '@team_info:';
+
+const teamInfoKeyForUid = (uid) => `${TEAM_INFO_KEY_PREFIX}${uid}`;
 
 // Logic to SAVE the team info
 export const saveTeamData = async (teamName, members, grade, extra = {}) => {
   try {
+    const uid = auth?.currentUser?.uid ?? null;
     const existing = await getTeamData();
     const teamObj = {
       name: teamName,
@@ -14,7 +22,14 @@ export const saveTeamData = async (teamName, members, grade, extra = {}) => {
       id: existing?.id ?? Math.floor(1000 + Math.random() * 9000),
     };
     const jsonValue = JSON.stringify(teamObj);
-    await AsyncStorage.setItem('@team_info', jsonValue);
+    if (uid) {
+      await AsyncStorage.setItem(teamInfoKeyForUid(uid), jsonValue);
+      await AsyncStorage.setItem(TEAM_INFO_OWNER_UID_KEY, uid);
+    } else {
+      // Fallback (should be rare): only used when not authenticated.
+      await AsyncStorage.setItem(TEAM_INFO_LEGACY_KEY, jsonValue);
+      await AsyncStorage.removeItem(TEAM_INFO_OWNER_UID_KEY);
+    }
     console.log("Success: Team data saved locally.");
   } catch (e) {
     console.error("Failed to save team data", e);
@@ -24,7 +39,26 @@ export const saveTeamData = async (teamName, members, grade, extra = {}) => {
 // Logic to LOAD the team info later
 export const getTeamData = async () => {
   try {
-    const jsonValue = await AsyncStorage.getItem('@team_info');
+    const uid = auth?.currentUser?.uid ?? null;
+    let jsonValue = null;
+
+    if (uid) {
+      jsonValue = await AsyncStorage.getItem(teamInfoKeyForUid(uid));
+      if (jsonValue == null) {
+        // Backward-compat: only trust legacy key if we know it was written by this uid.
+        const ownerUid = await AsyncStorage.getItem(TEAM_INFO_OWNER_UID_KEY);
+        if (ownerUid && ownerUid === uid) {
+          jsonValue = await AsyncStorage.getItem(TEAM_INFO_LEGACY_KEY);
+          if (jsonValue != null) {
+            // Migrate forward.
+            await AsyncStorage.setItem(teamInfoKeyForUid(uid), jsonValue);
+          }
+        }
+      }
+    } else {
+      jsonValue = await AsyncStorage.getItem(TEAM_INFO_LEGACY_KEY);
+    }
+
     if (jsonValue == null) return null;
     const parsed = JSON.parse(jsonValue);
     if (parsed && typeof parsed === 'object' && !parsed.avatarKey) {
@@ -38,7 +72,12 @@ export const getTeamData = async () => {
 
 export const clearTeamData = async () => {
   try {
-    await AsyncStorage.removeItem('@team_info');
+    const uid = auth?.currentUser?.uid ?? null;
+    if (uid) {
+      await AsyncStorage.removeItem(teamInfoKeyForUid(uid));
+    }
+    await AsyncStorage.removeItem(TEAM_INFO_LEGACY_KEY);
+    await AsyncStorage.removeItem(TEAM_INFO_OWNER_UID_KEY);
     console.log('Success: Team data cleared.');
   } catch (e) {
     console.error('Failed to clear team data', e);
