@@ -19,7 +19,7 @@ import { Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { insertTrial } from '@/hooks/database';
 import type { BreathingSession as BaseBreathingSession } from '@/hooks/firestore';
 import { uploadBreathingResult } from '@/hooks/firestore';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
@@ -121,7 +121,7 @@ function BreathingDiagramFrame() {
 function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
   const { textColor } = usePanelTheme();
   return (
-    <Text style={[styles.heroTitle, { color: textColor, fontFamily: pixelFamily }]}>
+    <Text style={withPixelFontStyle(pixelFamily, styles.heroTitle, { color: textColor })}>
       Breathing Pace Trainer
     </Text>
   );
@@ -521,6 +521,7 @@ export default function BreathingScreen() {
                   }}
                   style={[
                     styles.heroCta,
+                    androidPixelPressableBox(),
                     {
                       backgroundColor: primary,
                       borderColor: primary,
@@ -530,14 +531,11 @@ export default function BreathingScreen() {
                     },
                   ]}>
                   <Text
-                    style={[
+                    style={withPixelFontStyle(
+                      pixelFontLoaded ? pixelFamily : undefined,
                       styles.heroCtaText,
-                      {
-                        color: onPrimary,
-                        textAlign: 'center',
-                        fontFamily: pixelFontLoaded ? pixelFamily : undefined,
-                      },
-                    ]}>
+                      { color: onPrimary, textAlign: 'center' }
+                    )}>
                     ▶  Start activity
                   </Text>
                 </Pressable>

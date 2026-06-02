@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { SCREEN_BOTTOM_INSET, Spacing, Typography } from '@/constants/design';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { clearTeamData, getTeamData, saveTeamData } from '@/hooks/storage';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -288,7 +288,9 @@ export default function TeamTabScreen() {
           showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             {pixelFontLoaded ? (
-              <Text style={[styles.title, { color: text, fontFamily: pixelFamily }]}>Team Lab Profile</Text>
+              <Text style={withPixelFontStyle(pixelFamily, styles.title, { color: text })}>
+                Team Lab Profile
+              </Text>
             ) : (
               <Text style={[styles.title, { color: text }]}>Team Lab Profile</Text>
             )}
@@ -323,7 +325,7 @@ export default function TeamTabScreen() {
               </View>
               <View style={styles.profileMeta}>
                 {pixelFontLoaded ? (
-                  <Text style={[styles.teamName, { color: cardLavenderText, fontFamily: pixelFamily }]}>
+                  <Text style={withPixelFontStyle(pixelFamily, styles.teamName, { color: cardLavenderText })}>
                     {team?.name || '—'}
                   </Text>
                 ) : (
@@ -344,7 +346,9 @@ export default function TeamTabScreen() {
             <SectionCard style={styles.sectionCardTight}>
               <View style={styles.sectionTitleRow}>
                 {pixelFontLoaded ? (
-                  <Text style={[styles.sectionTitle, { color: text, fontFamily: pixelFamily }]}>Choose Team Avatar</Text>
+                  <Text style={withPixelFontStyle(pixelFamily, styles.sectionTitle, { color: text })}>
+                    Choose Team Avatar
+                  </Text>
                 ) : (
                   <Text style={[styles.sectionTitle, { color: text }]}>Choose Team Avatar</Text>
                 )}
@@ -403,7 +407,9 @@ export default function TeamTabScreen() {
 
           <View style={styles.sectionHeaderRow}>
             {pixelFontLoaded ? (
-              <Text style={[styles.sectionTitle, { color: text, fontFamily: pixelFamily }]}>Team details</Text>
+              <Text style={withPixelFontStyle(pixelFamily, styles.sectionTitle, { color: text })}>
+                Team details
+              </Text>
             ) : (
               <Text style={[styles.sectionTitle, { color: text }]}>Team details</Text>
             )}
@@ -506,7 +512,9 @@ export default function TeamTabScreen() {
               { backgroundColor: cardSky, borderColor: cardSkyBorder, borderBottomColor: cardSkyShadow },
             ]}>
             {pixelFontLoaded ? (
-              <Text style={[styles.cardTitle, { color: cardSkyText, fontFamily: pixelFamily }]}>Privacy friendly</Text>
+              <Text style={withPixelFontStyle(pixelFamily, styles.cardTitle, { color: cardSkyText })}>
+                Privacy friendly
+              </Text>
             ) : (
               <Text style={[styles.cardTitle, { color: cardSkyText }]}>Privacy friendly</Text>
             )}
@@ -518,7 +526,9 @@ export default function TeamTabScreen() {
 
           <View style={styles.sectionHeaderRow}>
             {pixelFontLoaded ? (
-              <Text style={[styles.sectionTitle, { color: text, fontFamily: pixelFamily }]}>Progress</Text>
+              <Text style={withPixelFontStyle(pixelFamily, styles.sectionTitle, { color: text })}>
+                Progress
+              </Text>
             ) : (
               <Text style={[styles.sectionTitle, { color: text }]}>Progress</Text>
             )}
@@ -550,7 +560,9 @@ export default function TeamTabScreen() {
 
           <View style={styles.sectionHeaderRow}>
             {pixelFontLoaded ? (
-              <Text style={[styles.sectionTitle, { color: text, fontFamily: pixelFamily }]}>Danger Zone</Text>
+              <Text style={withPixelFontStyle(pixelFamily, styles.sectionTitle, { color: text })}>
+                Danger Zone
+              </Text>
             ) : (
               <Text style={[styles.sectionTitle, { color: text }]}>Danger Zone</Text>
             )}

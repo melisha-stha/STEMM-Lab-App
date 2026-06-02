@@ -1,10 +1,11 @@
 import { PixelBox } from '@/components/ui/pixel-box';
 import { PIXEL_BORDER, PIXEL_BRAND, PIXEL_RADIUS } from '@/constants/pixel-brand';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import React from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -57,9 +58,10 @@ export function PixelButton({ label, onPress, disabled, variant = 'primary', sty
           <ActivityIndicator color={fg} size="small" />
         ) : (
           <Text
-            adjustsFontSizeToFit
+            adjustsFontSizeToFit={false}
             numberOfLines={2}
-            style={[styles.label, { color: fg, fontFamily: pixelFamily }]}>
+            allowFontScaling={false}
+            style={withPixelFontStyle(pixelFamily, styles.label, { color: fg })}>
             {label}
           </Text>
         )}
@@ -78,6 +80,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
+    ...Platform.select({
+      android: { minHeight: 60, paddingVertical: 16 },
+      default: {},
+    }),
   },
   label: {
     fontSize: 14,

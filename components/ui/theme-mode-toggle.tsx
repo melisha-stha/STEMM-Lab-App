@@ -16,6 +16,10 @@ export function ThemeModeToggle({ style }: Props) {
   const { colorScheme, setColorScheme } = useThemePreference();
   const isDark = colorScheme === 'dark';
 
+  const toggleScheme = () => {
+    setColorScheme(isDark ? 'light' : 'dark');
+  };
+
   const primary = useThemeColor({}, 'primary');
   const primaryDark = useThemeColor({}, 'primaryDark');
   const gold = useThemeColor({}, 'gold');
@@ -39,7 +43,7 @@ export function ThemeModeToggle({ style }: Props) {
         accessibilityRole="button"
         accessibilityLabel="Light mode"
         accessibilityState={{ selected: !isDark }}
-        onPress={() => setColorScheme('light')}
+        onPress={toggleScheme}
         style={({ pressed }) => [
           styles.segment,
           {
@@ -55,7 +59,7 @@ export function ThemeModeToggle({ style }: Props) {
         accessibilityRole="button"
         accessibilityLabel="Dark mode"
         accessibilityState={{ selected: isDark }}
-        onPress={() => setColorScheme('dark')}
+        onPress={toggleScheme}
         style={({ pressed }) => [
           styles.segment,
           {

@@ -1,5 +1,5 @@
 import { PIXEL_BRAND } from '@/constants/pixel-brand';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import React from 'react';
 import { StyleSheet, Text, useColorScheme, type TextStyle } from 'react-native';
 
@@ -20,7 +20,9 @@ export function PixelText({ children, variant = 'subtitle', style }: Props) {
   if (!loaded) return null;
 
   return (
-    <Text style={[styles[variant], { color, fontFamily: pixelFamily }, style]}>{children}</Text>
+    <Text style={withPixelFontStyle(pixelFamily, styles[variant], { color }, style)}>
+      {children}
+    </Text>
   );
 }
 

@@ -6,7 +6,7 @@ import {
 import { ThemeModeToggle } from '@/components/ui/theme-mode-toggle';
 import { Spacing } from '@/constants/design';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -15,6 +15,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -142,12 +143,13 @@ export default function WelcomeScreen() {
             <View style={styles.mainColumn}>
               <View style={[styles.brandBlock, { width: LOGO_SIZE }]}>
                 <Text
-                  adjustsFontSizeToFit
+                  adjustsFontSizeToFit={Platform.OS !== 'android'}
                   numberOfLines={1}
-                  style={[
-                    styles.welcomeHeading,
-                    { color: welcomeTitleColor, fontFamily: pixelFamily, width: LOGO_SIZE },
-                  ]}>
+                  allowFontScaling={false}
+                  style={withPixelFontStyle(pixelFamily, styles.welcomeHeading, {
+                    color: welcomeTitleColor,
+                    width: LOGO_SIZE,
+                  })}>
                   WELCOME TO
                 </Text>
                 <View style={[styles.logoWrap, { width: LOGO_SIZE, height: LOGO_SIZE }]}>
@@ -183,12 +185,10 @@ export default function WelcomeScreen() {
                         },
                       ]}>
                       <Text
-                        adjustsFontSizeToFit
+                        adjustsFontSizeToFit={Platform.OS !== 'android'}
                         numberOfLines={1}
-                        style={[
-                          styles.pillText,
-                          { color: pill.color, fontFamily: pixelFamily },
-                        ]}>
+                        allowFontScaling={false}
+                        style={withPixelFontStyle(pixelFamily, styles.pillText, { color: pill.color })}>
                         {pill.label}
                       </Text>
                     </View>
@@ -197,10 +197,7 @@ export default function WelcomeScreen() {
               </View>
 
               <Text
-                style={[
-                  styles.taglineCta,
-                  { color: welcomeTitleColor, fontFamily: pixelFamily },
-                ]}>
+                style={withPixelFontStyle(pixelFamily, styles.taglineCta, { color: welcomeTitleColor })}>
                 join us today!!
               </Text>
 
@@ -217,10 +214,7 @@ export default function WelcomeScreen() {
                   ]}
                   onPress={() => router.push('/signup')}>
                   <Text
-                    style={[
-                      styles.primaryButtonText,
-                      { color: primaryText, fontFamily: pixelFamily },
-                    ]}>
+                    style={withPixelFontStyle(pixelFamily, styles.primaryButtonText, { color: primaryText })}>
                     Create Team Account
                   </Text>
                 </Pressable>
@@ -239,10 +233,9 @@ export default function WelcomeScreen() {
                   ]}
                   onPress={() => router.push('/login')}>
                   <Text
-                    style={[
-                      styles.secondaryButtonText,
-                      { color: secondaryText, fontFamily: pixelFamily },
-                    ]}>
+                    style={withPixelFontStyle(pixelFamily, styles.secondaryButtonText, {
+                      color: secondaryText,
+                    })}>
                     Sign In
                   </Text>
                 </Pressable>

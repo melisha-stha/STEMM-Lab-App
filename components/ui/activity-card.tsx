@@ -3,6 +3,7 @@ import React, { useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,7 +12,7 @@ import {
 
 import { FontSize, FontWeight, Radius } from '@/constants/design';
 import { Colors } from '@/constants/theme';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 export type ActivityCardColour =
@@ -164,12 +165,15 @@ export function ActivityCard({
           <View style={styles.middle}>
             {pixelFontLoaded ? (
               <Text
-                style={[
+                style={withPixelFontStyle(
+                  pixelFamily,
                   styles.title,
-                  { color: textColor, fontFamily: pixelFamily },
-                  completed ? styles.titleCompleted : null,
-                ]}
-                numberOfLines={2}>
+                  { color: textColor },
+                  completed ? styles.titleCompleted : null
+                )}
+                numberOfLines={2}
+                adjustsFontSizeToFit={false}
+                allowFontScaling={false}>
                 {title}
               </Text>
             ) : null}
@@ -226,7 +230,9 @@ const styles = StyleSheet.create({
   },
   middle: {
     flex: 1,
-    gap: 2,
+    gap: Platform.select({ android: 4, default: 2 }),
+    justifyContent: 'center',
+    paddingVertical: Platform.select({ android: 2, default: 0 }),
   },
   title: {
     fontSize: 16,
