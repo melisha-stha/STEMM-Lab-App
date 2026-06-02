@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { insertTrial } from '@/hooks/database';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
@@ -173,7 +173,7 @@ const formatAttemptMetrics = (attempt: EarthquakeAttempt): string =>
 function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
   const { textColor } = usePanelTheme();
   return (
-    <Text style={[styles.heroTitle, { color: textColor, fontFamily: pixelFamily }]}>
+    <Text style={withPixelFontStyle(pixelFamily, styles.heroTitle, { color: textColor })}>
       Earthquake-Resistant Structure
     </Text>
   );
@@ -1015,6 +1015,7 @@ export default function EarthquakeScreen() {
                   }}
                   style={[
                     styles.heroCta,
+                    androidPixelPressableBox(),
                     {
                       backgroundColor: primary,
                       borderColor: primary,
@@ -1024,14 +1025,11 @@ export default function EarthquakeScreen() {
                     },
                   ]}>
                   <Text
-                    style={[
+                    style={withPixelFontStyle(
+                      pixelFontLoaded ? pixelFamily : undefined,
                       styles.heroCtaText,
-                      {
-                        color: onPrimary,
-                        textAlign: 'center',
-                        fontFamily: pixelFontLoaded ? pixelFamily : undefined,
-                      },
-                    ]}>
+                      { color: onPrimary, textAlign: 'center' }
+                    )}>
                     ▶  Start experiment
                   </Text>
                 </Pressable>

@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/reaction-screen-background';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { uploadReactionResult } from '@/hooks/firestore';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
@@ -176,7 +176,7 @@ const formatDuration = (ms: number): string => {
 function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
   const { textColor } = usePanelTheme();
   return (
-    <Text style={[styles.heroTitle, { color: textColor, fontFamily: pixelFamily }]}>
+    <Text style={withPixelFontStyle(pixelFamily, styles.heroTitle, { color: textColor })}>
       Reaction Board Challenge
     </Text>
   );
@@ -945,6 +945,7 @@ export default function ReactionScreen() {
                   }}
                   style={[
                     styles.heroCta,
+                    androidPixelPressableBox(),
                     {
                       backgroundColor: primary,
                       borderColor: primary,
@@ -954,14 +955,11 @@ export default function ReactionScreen() {
                     },
                   ]}>
                   <Text
-                    style={[
+                    style={withPixelFontStyle(
+                      pixelFontLoaded ? pixelFamily : undefined,
                       styles.heroCtaText,
-                      {
-                        color: onPrimary,
-                        textAlign: 'center',
-                        fontFamily: pixelFontLoaded ? pixelFamily : undefined,
-                      },
-                    ]}>
+                      { color: onPrimary, textAlign: 'center' }
+                    )}>
                     ▶  Start activity
                   </Text>
                 </Pressable>

@@ -13,26 +13,31 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { signUp } from '../hooks/authService';
+import { sendPasswordReset } from '../hooks/authService';
 
-export default function SignUpScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { overlayColor, imageOpacity } = useAuthScreenBackground();
-
   const text = useThemeColor({}, 'text');
 
-  const handleSignUp = async () => {
-    if (!email || !password) return Alert.alert('Error', 'Please fill in all fields');
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSend = async () => {
+    if (!email.trim()) {
+      Alert.alert('Email required', 'Enter the email address for your team account.');
+      return;
+    }
     setLoading(true);
     try {
-      await signUp(email, password);
-      Alert.alert('Success', 'Account created!');
-      router.replace('/setup-level');
+      await sendPasswordReset(email.trim());
+      Alert.alert(
+        'Check your email',
+        'We sent a password reset link. Open it to set a new password, then come back and log in.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
     } catch (err: any) {
-      Alert.alert('Signup Failed', err);
+      Alert.alert('Reset failed', String(err));
     } finally {
       setLoading(false);
     }
@@ -46,30 +51,25 @@ export default function SignUpScreen() {
           <MaterialIcons name="arrow-back" size={24} color={text} />
         </TouchableOpacity>
 
-        <PixelHeading>team signup</PixelHeading>
+        <PixelHeading>reset password</PixelHeading>
 
-        <Input label="Email" value={email} onChangeText={setEmail} placeholder="team@school.com" />
         <Input
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Min 6 characters"
-          secureTextEntry
-          showPasswordToggle
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Enter team email"
+          autoCapitalize="none"
+          keyboardType="email-address"
         />
 
         <View style={styles.actions}>
           <PixelButton
-            label={loading ? 'Creating...' : 'Sign Up'}
-            onPress={handleSignUp}
+            label={loading ? 'Sending...' : 'Send reset link'}
+            onPress={handleSend}
             disabled={loading}
             style={styles.buttonSpacing}
           />
-          <PixelButton
-            label="Already have an account? Login"
-            variant="secondary"
-            onPress={() => router.push('/login')}
-          />
+          <PixelButton label="Back to login" variant="secondary" onPress={() => router.back()} />
         </View>
       </View>
     </SafeAreaView>
@@ -104,3 +104,4 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 });
+

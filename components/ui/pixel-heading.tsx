@@ -1,7 +1,7 @@
 import { PIXEL_BRAND } from '@/constants/pixel-brand';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, useColorScheme, View } from 'react-native';
 
 type Props = {
   children: string;
@@ -24,13 +24,15 @@ export function PixelHeading({ children, align = 'center' }: Props) {
 
   return (
     <Text
-      adjustsFontSizeToFit
+      adjustsFontSizeToFit={Platform.OS !== 'android'}
       numberOfLines={1}
-      style={[
+      allowFontScaling={false}
+      style={withPixelFontStyle(
+        pixelFamily,
         styles.heading,
         align === 'left' ? styles.alignLeft : styles.alignCenter,
-        { color, fontFamily: pixelFamily },
-      ]}>
+        { color }
+      )}>
       {children}
     </Text>
   );
