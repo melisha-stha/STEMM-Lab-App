@@ -156,6 +156,16 @@ const hasAllPhasesRecorded = (trialAttempts: ExtendedReactionAttempt[], name: st
   return phases.has(1) && phases.has(2) && phases.has(3);
 };
 
+const hasPhaseRecorded = (
+  trialAttempts: ExtendedReactionAttempt[],
+  name: string,
+  phase: ActivityPhase
+): boolean => {
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+  return trialAttempts.some((a) => a.memberName === trimmed && a.phase === phase);
+};
+
 function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
   const { textColor } = usePanelTheme();
   return (
@@ -335,6 +345,10 @@ type ReactionRoundArenaProps = {
   onStartRound: () => void;
   onResetRound: () => void;
   onNextMember: () => void;
+  onNextPhase: () => void;
+  showNextMember: boolean;
+  showNextPhase: boolean;
+  nextPhaseDisabled: boolean;
 };
 
 function ReactionRoundArena({
@@ -352,6 +366,10 @@ function ReactionRoundArena({
   onStartRound,
   onResetRound,
   onNextMember,
+  onNextPhase,
+  showNextMember,
+  showNextPhase,
+  nextPhaseDisabled,
 }: ReactionRoundArenaProps) {
   const { cardIconBg, borderColor, textColor } = usePanelTheme();
   const primary = useThemeColor({}, 'primary');
@@ -466,13 +484,41 @@ function ReactionRoundArena({
         </View>
       </View>
 
-      {!roundActive && (
-        <TouchableOpacity
-          style={[styles.nextMemberButton, { borderColor, backgroundColor: cardIconBg }]}
-          onPress={onNextMember}>
-          <MaterialIcons name="person-add" size={16} color={borderColor} />
-          <Text style={[styles.nextMemberButtonText, { color: borderColor }]}>Next team member</Text>
-        </TouchableOpacity>
+      {!roundActive && (showNextMember || showNextPhase) && (
+        <View style={styles.postRoundActions}>
+          {showNextPhase ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ disabled: nextPhaseDisabled }}
+              disabled={nextPhaseDisabled}
+              style={[
+                styles.nextPhaseButton,
+                {
+                  borderColor,
+                  backgroundColor: cardIconBg,
+                  opacity: nextPhaseDisabled ? 0.5 : 1,
+                },
+              ]}
+              onPress={onNextPhase}>
+              <MaterialIcons name="skip-next" size={18} color={borderColor} />
+              <Text style={[styles.nextMemberButtonText, { color: borderColor }]}>
+                Go to next phase
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {showNextMember ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={[styles.nextMemberButton, { borderColor, backgroundColor: cardIconBg }]}
+              onPress={onNextMember}>
+              <MaterialIcons name="person-add" size={16} color={borderColor} />
+              <Text style={[styles.nextMemberButtonText, { color: borderColor }]}>
+                Next team member
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       )}
     </>
   );
@@ -602,6 +648,17 @@ export default function ReactionScreen() {
   const prepNextTeamMemberAttempt = (): void => {
     resetRoundState();
     setMemberName('');
+    setActivePhase(1);
+  };
+
+  const goToNextPhase = (): void => {
+    if (roundActive) return;
+    if (activePhase === 3) {
+      Alert.alert('Already on Phase 3', 'You have reached the final phase for this activity.');
+      return;
+    }
+    resetRoundState();
+    setActivePhase((prev) => (prev === 1 ? 2 : 3));
   };
 
   const startMultiTargetGridLoop = () => {
@@ -793,6 +850,9 @@ export default function ReactionScreen() {
   const userAttempts = attempts.filter(a => a.memberName === currentName);
   const phasesRecordedCount = new Set(userAttempts.map((a) => a.phase)).size;
   const timeBarWidthPercent = `${Math.max(0, Math.min(100, (timeLeftMs / ROUND_DURATION_MS) * 100))}%`;
+  const phase1Done = hasPhaseRecorded(attempts, currentName, 1);
+  const phase2Done = hasPhaseRecorded(attempts, currentName, 2);
+  const phase3Done = hasPhaseRecorded(attempts, currentName, 3);
 
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
@@ -923,6 +983,8 @@ export default function ReactionScreen() {
               <View style={styles.phaseIndicatorRow}>
                 {([1, 2, 3] as ActivityPhase[]).map((p) => {
                   const isSelected = activePhase === p;
+                  const isLocked =
+                    p === 2 ? !phase1Done : p === 3 ? !(phase1Done && phase2Done) : false;
                   return (
                     <Pressable
                       key={p}
@@ -930,11 +992,13 @@ export default function ReactionScreen() {
                         setActivePhase(p);
                         resetRoundState();
                       }}
+                      disabled={isLocked || roundActive}
                       style={[
                         styles.phasePill,
                         {
                           backgroundColor: isSelected ? primary : primarySoft,
                           borderColor: isSelected ? primary : border,
+                          opacity: isLocked || roundActive ? 0.5 : 1,
                         },
                       ]}>
                       <Text style={[styles.phasePillText, { color: isSelected ? onPrimary : primary }]}>
@@ -976,6 +1040,10 @@ export default function ReactionScreen() {
                   onStartRound={activePhase === 3 ? runTracingChallengeLoop : startTappingRound}
                   onResetRound={resetRoundState}
                   onNextMember={prepNextTeamMemberAttempt}
+                  onNextPhase={goToNextPhase}
+                  showNextMember={allPhasesComplete}
+                  showNextPhase={!!currentName && !allPhasesComplete && (activePhase === 1 || activePhase === 2)}
+                  nextPhaseDisabled={activePhase === 1 ? !phase1Done : activePhase === 2 ? !phase2Done : true}
                 />
               </StepPanel>
 
@@ -1001,7 +1069,7 @@ export default function ReactionScreen() {
                     challenge timer.
                   </PanelMuted>
                 )}
-                {userAttempts.length > 0 && (
+                {userAttempts.length > 0 && allPhasesComplete && (
                   <PrimaryButton
                     style={{ marginTop: Spacing.md }}
                     label={isSyncing ? 'Uploading...' : 'Upload records'}
@@ -1365,6 +1433,19 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     height: 40,
     marginTop: Spacing.md,
+  },
+  postRoundActions: {
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  nextPhaseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    height: 40,
   },
   nextMemberButtonText: {
     fontSize: FontSize.sm,
