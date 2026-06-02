@@ -8,6 +8,7 @@ import { getTrials } from '@/hooks/database';
 import { getTeamData } from '@/hooks/storage';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { triggerMissionWelcome } from '@/hooks/useNotificationEngine';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { type Href, useRouter } from 'expo-router';
@@ -331,6 +332,15 @@ export default function HomeScreen() {
       setTrials([]);
     }
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      triggerMissionWelcome("Parachute Drop");
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, []);
+  
 
   const teamName = team?.name?.trim() || 'Team';
   const teamTrials = useMemo(() => {
