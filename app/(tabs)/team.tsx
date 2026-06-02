@@ -6,6 +6,11 @@ import { SCREEN_BOTTOM_INSET, Spacing, Typography } from '@/constants/design';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { clearTeamData, getTeamData, saveTeamData } from '@/hooks/storage';
+import {
+  clearSkipCloudTeamRestore,
+  resetTeamSetup,
+  saveTeamProfile,
+} from '@/hooks/team-profile';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
@@ -121,20 +126,32 @@ export default function TeamTabScreen() {
   }, []);
 
   const handleResetTeam = () => {
-    const performClear = async () => {
-      await clearTeamData();
-      router.replace('/welcome-screen' as Href);
+    const performReset = async () => {
+      setIsSaving(true);
+      try {
+        const next = await resetTeamSetup();
+        router.replace((next === 'setup' ? '/setup-level' : '/welcome-screen') as Href);
+      } catch {
+        Alert.alert('Reset failed', 'Please try again.');
+      } finally {
+        setIsSaving(false);
+      }
     };
 
+    const resetMessage =
+      auth?.currentUser
+        ? 'Your team name and members will be cleared and you will set up again. Your account stays signed in. Lab trials on this device are kept.'
+        : 'Your local team setup will be cleared on this device.';
+
     if (Platform.OS === 'web') {
-      const ok = globalThis.confirm?.('Reset team setup on this device?');
-      if (ok) void performClear();
+      const ok = globalThis.confirm?.(resetMessage);
+      if (ok) void performReset();
       return;
     }
 
-    Alert.alert('Reset team?', 'This clears local team setup on this device.', [
+    Alert.alert('Reset team setup?', resetMessage, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', style: 'destructive', onPress: () => void performClear() },
+      { text: 'Reset', style: 'destructive', onPress: () => void performReset() },
     ]);
   };
 
@@ -142,8 +159,9 @@ export default function TeamTabScreen() {
     const performSignOut = async () => {
       setIsSaving(true);
       try {
-        // Clear the signed-in user's cached team before auth becomes null.
+        // Clear local cache; allow cloud restore on next login.
         await clearTeamData();
+        await clearSkipCloudTeamRestore();
         await auth.signOut();
         router.replace('/welcome-screen' as Href);
       } catch {
@@ -159,15 +177,21 @@ export default function TeamTabScreen() {
     }
 
     if (Platform.OS === 'web') {
-      const ok = globalThis.confirm?.('Sign out of this team account?');
+      const ok = globalThis.confirm?.(
+        'Sign out? Your team profile stays saved in the cloud — sign in again to restore it.'
+      );
       if (ok) void performSignOut();
       return;
     }
 
-    Alert.alert('Sign out?', 'This will sign out and return to the welcome screen.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => void performSignOut() },
-    ]);
+    Alert.alert(
+      'Sign out?',
+      'You will return to the welcome screen. Your team profile stays saved in the cloud — sign in again with the same account to restore it.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign out', style: 'destructive', onPress: () => void performSignOut() },
+      ]
+    );
   };
 
   const yearDisplay = (() => {
@@ -224,6 +248,17 @@ export default function TeamTabScreen() {
         avatarKey: pendingAvatarKey,
       });
       const refreshed = await getTeamData();
+      if (refreshed) {
+        await saveTeamProfile({
+          name: refreshed.name,
+          members: refreshed.members,
+          grade: refreshed.grade,
+          yearLevel: refreshed.yearLevel ?? null,
+          learningLevel: refreshed.learningLevel ?? null,
+          avatarKey: refreshed.avatarKey ?? null,
+          id: refreshed.id,
+        });
+      }
       setTeam(refreshed);
       setAvatarPickerOpen(false);
     } finally {
@@ -268,6 +303,17 @@ export default function TeamTabScreen() {
       });
 
       const refreshed = await getTeamData();
+      if (refreshed) {
+        await saveTeamProfile({
+          name: refreshed.name,
+          members: refreshed.members,
+          grade: refreshed.grade,
+          yearLevel: refreshed.yearLevel ?? null,
+          learningLevel: refreshed.learningLevel ?? null,
+          avatarKey: refreshed.avatarKey ?? null,
+          id: refreshed.id,
+        });
+      }
       setTeam(refreshed);
       setEditOpen(false);
     } finally {
@@ -567,7 +613,8 @@ export default function TeamTabScreen() {
               <Text style={[styles.sectionTitle, { color: text }]}>Danger Zone</Text>
             )}
             <Text style={[styles.dangerHint, { color: mutedText }]}>
-              Resetting will clear this device’s team setup. Saved cloud results may still exist.
+              Sign out keeps your cloud team for next login. Reset clears team setup and sends you
+              through onboarding again (lab trials on this device are kept).
             </Text>
           </View>
 
@@ -577,7 +624,12 @@ export default function TeamTabScreen() {
             onPress={handleSignOut}
             disabled={isSaving}
           />
-          <PrimaryButton label="Reset team setup" variant="danger" onPress={handleResetTeam} />
+          <PrimaryButton
+            label={isSaving ? 'Resetting…' : 'Reset team setup'}
+            variant="danger"
+            onPress={handleResetTeam}
+            disabled={isSaving}
+          />
         </ScrollView>
       </SafeAreaView>
     </View>

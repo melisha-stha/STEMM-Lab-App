@@ -1,9 +1,9 @@
 import { PixelFontProvider, usePixelFontContext } from '@/contexts/pixel-font-context';
 import { ThemePreferenceProvider } from '@/contexts/theme-preference';
 import { initDatabase } from '@/hooks/database';
+import { configureNotificationHandler } from '@/hooks/notifications';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -11,15 +11,6 @@ import React, { useEffect } from 'react';
 import 'react-native-reanimated';
 
 SplashScreen.preventAutoHideAsync();
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
@@ -89,6 +80,7 @@ function RootNavigation() {
 export default function RootLayout() {
   useEffect(() => {
     initDatabase();
+    configureNotificationHandler();
   }, []);
 
   return (

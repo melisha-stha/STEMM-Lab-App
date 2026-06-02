@@ -24,7 +24,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Audio } from 'expo-av';
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
-import * as Notifications from 'expo-notifications';
+import { scheduleAppNotification } from '@/hooks/notifications';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -693,13 +693,9 @@ export default function SoundScreen() {
 
       stopChallengeTimer();
 
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'STEMM Lab Sync Complete',
-          body: `Sound data for ${teamData?.name || 'your team'} has been saved!`,
-          data: { screen: 'sound-results' },
-        },
-        trigger: null,
+      await scheduleAppNotification({
+        title: 'STEMM Lab Sync Complete',
+        body: `Sound data for ${teamData?.name || 'your team'} has been saved!`,
       });
 
       Alert.alert('Saved!', `Your sound measurements have been saved.\n\n${timeSummary}`, [

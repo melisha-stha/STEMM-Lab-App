@@ -22,7 +22,7 @@ import { ResizeMode, Video } from 'expo-av';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import * as Notifications from 'expo-notifications';
+import { scheduleAppNotification } from '@/hooks/notifications';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -426,13 +426,10 @@ const formatDuration = (ms: number): string => {
 
       stopChallengeTimer();
 
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'STEMM Lab Sync Complete',
-          body: `Hand Fan results for ${teamData?.name || 'your team'} have been saved! ${timeSummary}`,
-          data: { screen: 'handfan-results' },
-        },
-        trigger: null,
+      await scheduleAppNotification({
+        title: 'STEMM Lab Sync Complete',
+        body: `Hand Fan results for ${teamData?.name || 'your team'} have been saved! ${timeSummary}`,
+        data: { screen: 'handfan-results' },
       });
 
       Alert.alert('Saved Successfully!', `All group lab assets are uploaded into the cloud dashboard.\n\n${timeSummary}`, [
