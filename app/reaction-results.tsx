@@ -125,7 +125,7 @@ export default function ReactionResultsScreen() {
         teamId: team?.id ?? null,
         grade: team?.grade ?? '—',
       });
-      router.replace('/leaderboard' as any);
+      Alert.alert('Saved', 'Reflection saved.', [{ text: 'OK', onPress: () => router.back() }]);
     } catch {
       Alert.alert('Storage Error', 'Could not commit results to local storage.');
     } finally {

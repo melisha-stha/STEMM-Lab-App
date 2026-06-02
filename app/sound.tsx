@@ -453,6 +453,13 @@ function HearingDamageTable() {
   );
 }
 
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
 type MeasurementRowProps = {
   index: number;
   measurement: { db: number; label: string };
@@ -492,6 +499,8 @@ export default function SoundScreen() {
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = useSoundScreenBackground();
 
+  const scrollRef = useRef<ScrollView>(null);
+
   const [screenTab, setScreenTab] = useState<ScreenTab>('overview');
   const [isRecording, setIsRecording] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -530,6 +539,10 @@ export default function SoundScreen() {
     setChallengeTimerRunning(false);
     setChallengeTimerFinished(true);
   }, [clearChallengeInterval]);
+
+  const scrollToTop = useCallback((animated = true) => {
+    scrollRef.current?.scrollTo({ y: 0, animated });
+  }, []);
 
   const runChallengeInterval = useCallback(() => {
     const endAt = Date.now() + challengeRemainingMs;
@@ -672,6 +685,12 @@ export default function SoundScreen() {
         ),
       ]);
 
+      const elapsedMs = EXPERIMENT_CHALLENGE_LIMIT_MS - challengeRemainingMs;
+      const timeSummary =
+        challengeTimerStarted && elapsedMs >= 0
+          ? `Time taken: ${formatDuration(elapsedMs)}`
+          : `Time taken: —`;
+
       stopChallengeTimer();
 
       await Notifications.scheduleNotificationAsync({
@@ -683,7 +702,7 @@ export default function SoundScreen() {
         trigger: null,
       });
 
-      Alert.alert('Saved!', 'Your sound measurements have been saved.', [
+      Alert.alert('Saved!', `Your sound measurements have been saved.\n\n${timeSummary}`, [
         { 
           text: 'OK', 
           onPress: () => {
@@ -707,6 +726,7 @@ export default function SoundScreen() {
       <SoundScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
@@ -726,7 +746,10 @@ export default function SoundScreen() {
               return (
                 <Pressable
                   key={tab}
-                  onPress={() => setScreenTab(tab)}
+                  onPress={() => {
+                    setScreenTab(tab);
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.tabPill,
                     {
@@ -763,7 +786,10 @@ export default function SoundScreen() {
               <View style={styles.overviewActions}>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setScreenTab('experiment')}
+                  onPress={() => {
+                    setScreenTab('experiment');
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.heroCta,
                     {
@@ -942,13 +968,27 @@ export default function SoundScreen() {
           )}
 
           {screenTab !== 'overview' && (
-            <PrimaryButton
-              label="Back to dashboard"
-              variant="secondary"
-              onPress={() => router.back()}
-              disabled={isSyncing}
-              style={{ marginTop: Spacing.sm }}
-            />
+            <>
+              {screenTab === 'experiment' ? (
+                <PrimaryButton
+                  label="Go to write-up"
+                  variant="secondary"
+                  onPress={() => {
+                    setScreenTab('writeup');
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
+                  disabled={isSyncing}
+                  style={{ marginTop: Spacing.sm }}
+                />
+              ) : null}
+              <PrimaryButton
+                label="Back to dashboard"
+                variant="secondary"
+                onPress={() => router.back()}
+                disabled={isSyncing}
+                style={{ marginTop: Spacing.sm }}
+              />
+            </>
           )}
         </ScrollView>
       </SafeAreaView>

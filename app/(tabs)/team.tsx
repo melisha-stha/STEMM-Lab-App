@@ -138,6 +138,38 @@ export default function TeamTabScreen() {
     ]);
   };
 
+  const handleSignOut = () => {
+    const performSignOut = async () => {
+      setIsSaving(true);
+      try {
+        // Clear the signed-in user's cached team before auth becomes null.
+        await clearTeamData();
+        await auth.signOut();
+        router.replace('/welcome-screen' as Href);
+      } catch {
+        Alert.alert('Sign out failed', 'Please try again.');
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    if (!auth?.currentUser) {
+      Alert.alert('Not signed in', 'You are currently using local-only mode.');
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      const ok = globalThis.confirm?.('Sign out of this team account?');
+      if (ok) void performSignOut();
+      return;
+    }
+
+    Alert.alert('Sign out?', 'This will sign out and return to the welcome screen.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: () => void performSignOut() },
+    ]);
+  };
+
   const yearDisplay = (() => {
     const raw = (team?.yearLevel ?? team?.grade ?? '').toString().trim();
     if (!raw) return '—';
@@ -527,6 +559,12 @@ export default function TeamTabScreen() {
             </Text>
           </View>
 
+          <PrimaryButton
+            label={isSaving ? 'Signing out…' : 'Sign out'}
+            variant="secondary"
+            onPress={handleSignOut}
+            disabled={isSaving}
+          />
           <PrimaryButton label="Reset team setup" variant="danger" onPress={handleResetTeam} />
         </ScrollView>
       </SafeAreaView>

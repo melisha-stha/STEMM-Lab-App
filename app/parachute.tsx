@@ -24,6 +24,7 @@ import { usePixelFont } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
+import { ResizeMode, Video } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
@@ -49,6 +50,7 @@ export const options = {
 
 const GRAVITY = 9.8;
 const MAX_ATTEMPTS = 3;
+const VIDEO_FPS = 240;
 const PARACHUTE_VISUAL = require('@/assets/images/parachute.jpeg');
 const PARACHUTE_IMAGE_ASPECT = 1206 / 874;
 
@@ -99,6 +101,13 @@ const INSTRUCTION_STEPS = [
   'Redesign and test up to three prototypes within 20 minutes.',
   'Upload videos, results, and team reflections.',
 ];
+
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
 
 type StepPanelProps = {
   step: number;
@@ -274,48 +283,340 @@ type CalculatedOutputs = {
   gForce: number;
 };
 
+type LearningTier = 'upper_primary' | 'lower_secondary';
+
+const parseYearNumber = (raw: unknown): number | null => {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  const match = s.match(/(\d{1,2})/);
+  if (!match) return null;
+  const n = Number(match[1]);
+  return Number.isFinite(n) ? n : null;
+};
+
+const resolveLearningTier = (teamData: any | null | undefined): LearningTier => {
+  // Backward-compatible: try yearLevel first (usually "4" or "Year 4"), then grade.
+  const year = parseYearNumber(teamData?.yearLevel ?? teamData?.grade);
+  if (year === 4 || year === 5 || year === 6) return 'upper_primary';
+  if (year === 7 || year === 8 || year === 9) return 'lower_secondary';
+  // Missing/unclear year defaults to Lower Secondary so we never hide science results.
+  return 'lower_secondary';
+};
+
+function UpperPrimaryMarkerTool({
+  uri,
+  onMarkersChange,
+}: {
+  uri: string;
+  onMarkersChange: (markers: { releaseFrame: number | null; impactFrame: number | null }) => void;
+}) {
+  const { textColor } = usePanelTheme();
+  const primary = useThemeColor({}, 'primary');
+  const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
+  const onPrimary = useThemeColor({}, 'onPrimary');
+  const border = useThemeColor({}, 'border');
+  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary' as any) ?? 'rgba(0,0,0,0.04)';
+  const cardIconBg = useThemeColor({}, 'cardIconBg' as any) ?? 'rgba(0,0,0,0.03)';
+  const videoRef = useRef<Video>(null);
+  const [positionMs, setPositionMs] = useState(0);
+  const [durationMs, setDurationMs] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [speed, setSpeed] = useState(1.0);
+  const [scrubBarWidth, setScrubBarWidth] = useState(1);
+  const [markers, setMarkers] = useState<{ releaseFrame: number | null; impactFrame: number | null }>({
+    releaseFrame: null,
+    impactFrame: null,
+  });
+
+  const currentFrameIndex = Math.floor((positionMs / 1000) * VIDEO_FPS);
+  const totalFrameCount = Math.floor((durationMs / 1000) * VIDEO_FPS);
+  const progress = durationMs > 0 ? positionMs / durationMs : 0;
+
+  const seekToMs = async (ms: number) => {
+    const clamped = Math.max(0, Math.min(ms, durationMs));
+    await videoRef.current?.setPositionAsync(clamped, { toleranceMillisBefore: 0, toleranceMillisAfter: 0 });
+    setPositionMs(clamped);
+  };
+
+  const seekToFrame = async (frame: number) => {
+    if (durationMs <= 0) return;
+    const clampedFrame = Math.max(0, Math.min(frame, totalFrameCount));
+    await seekToMs(Math.round((clampedFrame / VIDEO_FPS) * 1000));
+  };
+
+  const handleScrubBarPress = (x: number) => {
+    if (durationMs <= 0) return;
+    const ratio = Math.max(0, Math.min(x / scrubBarWidth, 1));
+    void seekToMs(Math.round(ratio * durationMs));
+  };
+
+  const togglePlay = async () => {
+    if (isPlaying) {
+      await videoRef.current?.pauseAsync();
+      setIsPlaying(false);
+    } else {
+      if (positionMs >= durationMs - 100) await seekToMs(0);
+      await videoRef.current?.setRateAsync(speed, true);
+      await videoRef.current?.playAsync();
+      setIsPlaying(true);
+    }
+  };
+
+  const changeSpeed = async (next: number) => {
+    setSpeed(next);
+    if (isPlaying) await videoRef.current?.setRateAsync(next, true);
+  };
+
+  const mark = (key: 'releaseFrame' | 'impactFrame') => {
+    const next = { ...markers, [key]: currentFrameIndex };
+    setMarkers(next);
+    onMarkersChange(next);
+  };
+
+  const clear = (key: 'releaseFrame' | 'impactFrame') => {
+    const next = { ...markers, [key]: null };
+    setMarkers(next);
+    onMarkersChange(next);
+  };
+
+  return (
+    <View style={{ gap: Spacing.sm }}>
+      <Video
+        ref={videoRef}
+        source={{ uri }}
+        style={styles.primaryVideo}
+        resizeMode={ResizeMode.CONTAIN}
+        shouldPlay={false}
+        onPlaybackStatusUpdate={(status) => {
+          if (!status.isLoaded) return;
+          setPositionMs(status.positionMillis ?? 0);
+          setDurationMs(status.durationMillis ?? 0);
+          setIsPlaying(status.didJustFinish ? false : status.isPlaying);
+        }}
+      />
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Timeline"
+        onLayout={(e) => setScrubBarWidth(e.nativeEvent.layout.width)}
+        onPress={(e) => handleScrubBarPress(e.nativeEvent.locationX)}
+        style={[styles.primaryScrubBar, { backgroundColor: border }]}>
+        <View style={[styles.primaryScrubFill, { width: `${progress * 100}%`, backgroundColor: primary }]} />
+        {markers.releaseFrame !== null && totalFrameCount > 0 ? (
+          <View
+            style={[
+              styles.primaryMarkerDotOnBar,
+              {
+                left: `${(markers.releaseFrame / totalFrameCount) * 100}%`,
+                backgroundColor: primary,
+              },
+            ]}
+          />
+        ) : null}
+        {markers.impactFrame !== null && totalFrameCount > 0 ? (
+          <View
+            style={[
+              styles.primaryMarkerDotOnBar,
+              {
+                left: `${(markers.impactFrame / totalFrameCount) * 100}%`,
+                backgroundColor: success,
+              },
+            ]}
+          />
+        ) : null}
+      </Pressable>
+
+      <PanelMuted style={{ textAlign: 'center' }}>
+        Frame: {currentFrameIndex}f / {totalFrameCount}f ({(positionMs / 1000).toFixed(3)}s)
+      </PanelMuted>
+
+      <View style={styles.primaryControlRow}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void seekToFrame(currentFrameIndex - 10)}
+          style={[styles.primaryControlBtn, { backgroundColor: cardIconBg, borderColor: border }]}>
+          <Text style={[styles.primaryControlBtnText, { color: textColor }]}>《 -10f</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void togglePlay()}
+          style={[styles.primaryControlBtn, { backgroundColor: primary, borderColor: primary }]}>
+          <Text style={[styles.primaryControlBtnText, { color: onPrimary }]}>
+            {isPlaying ? 'Pause' : positionMs >= durationMs - 100 ? 'Replay' : 'Play'}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void seekToFrame(currentFrameIndex + 10)}
+          style={[styles.primaryControlBtn, { backgroundColor: cardIconBg, borderColor: border }]}>
+          <Text style={[styles.primaryControlBtnText, { color: textColor }]}>+10f 》</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.primarySpeedRow}>
+        {[
+          { label: '1×', value: 1.0 },
+          { label: '0.5×', value: 0.5 },
+          { label: '0.25×', value: 0.25 },
+        ].map((s) => {
+          const selected = speed === s.value;
+          return (
+            <Pressable
+              key={s.label}
+              onPress={() => void changeSpeed(s.value)}
+              style={[
+                styles.primarySpeedPill,
+                {
+                  backgroundColor: selected ? primary : backgroundSecondary,
+                  borderColor: border,
+                },
+              ]}>
+              <Text style={[styles.primarySpeedPillText, { color: selected ? onPrimary : textColor }]}>
+                {s.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={{ gap: Spacing.xs }}>
+        <View style={styles.primaryMarkerRow}>
+          <View style={[styles.primaryMarkerDot, { backgroundColor: primary }]} />
+          <View style={{ flex: 1 }}>
+            <PrimaryButton label="Mark Release" variant="secondary" onPress={() => mark('releaseFrame')} />
+          </View>
+          {markers.releaseFrame !== null ? (
+            <Pressable onPress={() => clear('releaseFrame')}>
+              <Text style={[styles.primaryClearText, { color: textColor }]}>Clear</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <View style={styles.primaryMarkerRow}>
+          <View style={[styles.primaryMarkerDot, { backgroundColor: success }]} />
+          <View style={{ flex: 1 }}>
+            <PrimaryButton label="Mark Impact" variant="secondary" onPress={() => mark('impactFrame')} />
+          </View>
+          {markers.impactFrame !== null ? (
+            <Pressable onPress={() => clear('impactFrame')}>
+              <Text style={[styles.primaryClearText, { color: textColor }]}>Clear</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const getPrimaryLandingLabel = (contactTimeSec: number): string => {
+  if (!Number.isFinite(contactTimeSec) || contactTimeSec <= 0) return 'Landing not measured';
+  if (contactTimeSec >= 0.25) return 'Soft landing';
+  if (contactTimeSec >= 0.12) return 'Okay landing';
+  return 'Hard landing';
+};
+
+const getSecondaryLandingLabel = (gForce: number): string => {
+  if (!Number.isFinite(gForce) || gForce <= 0) return '—';
+  if (gForce <= 5) return 'Soft landing';
+  if (gForce <= 10) return 'Okay landing';
+  return 'Hard landing';
+};
+
 function ExperimentReviewResults({
   calculatedOutputs,
   getGForceRiskColor,
+  learningTier,
+  bestDropTimeSoFar,
 }: {
   calculatedOutputs: CalculatedOutputs;
   getGForceRiskColor: (g: number) => string;
+  learningTier: LearningTier;
+  bestDropTimeSoFar: number;
 }) {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
   const valueStyle = [styles.metricValue, { color: textColor }];
+  const [showExtraScience, setShowExtraScience] = useState(false);
+  const isUpperPrimary = learningTier === 'upper_primary';
+  const primaryLandingLabel = getPrimaryLandingLabel(calculatedOutputs.contactTime);
+  const secondaryLandingLabel = getSecondaryLandingLabel(calculatedOutputs.gForce);
+  const isBestAttempt =
+    Number.isFinite(bestDropTimeSoFar) &&
+    Math.abs(bestDropTimeSoFar - calculatedOutputs.dropTime) < 0.0005;
 
   return (
     <View style={[styles.calcOutputBox, { backgroundColor: cardIconBg, borderColor }]}>
+      <PanelMuted style={styles.resultsDisclaimer}>
+        {isUpperPrimary
+          ? 'This is a simple estimate using your drop height and drop time.'
+          : 'These values are estimates based on your video frame markers, drop height, mass, and contact time.'}
+      </PanelMuted>
+
       <Text style={[styles.metricLine, { color: textColor }]}>
         Drop Time: <Text style={valueStyle}>{calculatedOutputs.dropTime}s</Text>
       </Text>
       <Text style={[styles.metricLine, { color: textColor }]}>
-        Contact Time: <Text style={valueStyle}>{calculatedOutputs.contactTime}s</Text>
+        Estimated Drop Speed:{' '}
+        <Text style={valueStyle}>{calculatedOutputs.calcs.finalVelocity} m/s</Text>
       </Text>
-      {calculatedOutputs.bounceTime !== null && (
-        <Text style={[styles.metricLine, { color: textColor }]}>
-          Time to Max Bounce Height (t_up):{' '}
-          <Text style={valueStyle}>{calculatedOutputs.bounceTime}s</Text>
-        </Text>
-      )}
-      <Text style={[styles.metricLine, { color: textColor, marginTop: 4 }]}>
-        Final Velocity (v): <Text style={valueStyle}>{calculatedOutputs.calcs.finalVelocity} m/s</Text>
-      </Text>
-      <Text style={[styles.metricLine, { color: textColor }]}>
-        Acceleration (a): <Text style={valueStyle}>{calculatedOutputs.calcs.acceleration} m/s²</Text>
-      </Text>
-      <Text style={[styles.metricLine, { color: textColor, marginTop: 4 }]}>
-        Downward Force (Weight): <Text style={valueStyle}>{calculatedOutputs.calcs.weight} N</Text>
-      </Text>
-      <Text style={[styles.metricLine, { color: textColor }]}>
-        Net Force (F_net): <Text style={valueStyle}>{calculatedOutputs.calcs.netForce} N</Text>
-      </Text>
-      <Text style={[styles.metricLine, { color: textColor }]}>
-        Upward Force (Drag Force): <Text style={valueStyle}>{calculatedOutputs.calcs.dragForce} N</Text>
-      </Text>
-      <Text style={[styles.gForceText, { color: getGForceRiskColor(calculatedOutputs.gForce) }]}>
-        Impact G-Force: {calculatedOutputs.gForce} g
-      </Text>
+
+      {isUpperPrimary ? (
+        <>
+          <Text style={[styles.metricLine, { color: textColor }]}>
+            Best Attempt: <Text style={valueStyle}>{bestDropTimeSoFar}s</Text>
+            {isBestAttempt ? <Text style={[valueStyle, { color: textColor }]}> (this one)</Text> : null}
+          </Text>
+          <Text style={[styles.metricLine, { color: textColor }]}>
+            Landing Result: <Text style={valueStyle}>{primaryLandingLabel}</Text>
+          </Text>
+          <PanelMuted style={styles.primaryFriendlyHint}>
+            Longer drop time means your parachute slowed the toy down more.
+          </PanelMuted>
+          <PanelMuted style={styles.primaryFriendlyHint}>
+            Compare your attempts to see which design stayed in the air longest.
+          </PanelMuted>
+
+          <PrimaryButton
+            label={showExtraScience ? 'Hide extra science' : 'See extra science'}
+            variant="secondary"
+            onPress={() => setShowExtraScience((v) => !v)}
+            style={{ marginTop: Spacing.sm }}
+          />
+        </>
+      ) : null}
+
+      {!isUpperPrimary || showExtraScience ? (
+        <>
+          <Text style={[styles.metricLine, { color: textColor }]}>
+            Contact Time: <Text style={valueStyle}>{calculatedOutputs.contactTime}s</Text>
+          </Text>
+          {calculatedOutputs.bounceTime !== null && (
+            <Text style={[styles.metricLine, { color: textColor }]}>
+              Time to Max Bounce Height (t_up): <Text style={valueStyle}>{calculatedOutputs.bounceTime}s</Text>
+            </Text>
+          )}
+          <Text style={[styles.metricLine, { color: textColor }]}>
+            Estimated Acceleration (a): <Text style={valueStyle}>{calculatedOutputs.calcs.acceleration} m/s²</Text>
+          </Text>
+          <Text style={[styles.metricLine, { color: textColor, marginTop: 4 }]}>
+            Weight (Downward Force): <Text style={valueStyle}>{calculatedOutputs.calcs.weight} N</Text>
+          </Text>
+          <Text style={[styles.metricLine, { color: textColor }]}>
+            Estimated Net Force (F_net): <Text style={valueStyle}>{calculatedOutputs.calcs.netForce} N</Text>
+          </Text>
+          <Text style={[styles.metricLine, { color: textColor }]}>
+            Estimated Drag Force (Upward): <Text style={valueStyle}>{calculatedOutputs.calcs.dragForce} N</Text>
+          </Text>
+          <Text style={[styles.metricLine, { color: textColor }]}>
+            Landing Result: <Text style={valueStyle}>{secondaryLandingLabel}</Text>
+          </Text>
+          {!isUpperPrimary ? (
+            <Text style={[styles.gForceText, { color: getGForceRiskColor(calculatedOutputs.gForce) }]}>
+              Impact G-Force: {calculatedOutputs.gForce} g
+            </Text>
+          ) : null}
+        </>
+      ) : null}
     </View>
   );
 }
@@ -505,17 +806,20 @@ export default function ParachuteScreen() {
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = useParachuteScreenBackground();
 
+  const scrollRef = useRef<ScrollView>(null);
+
   const [screenTab, setScreenTab] = useState<ScreenTab>('overview');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [locationStatus, setLocationStatus] = useState('📡 Searching...');
+  const [learningTier, setLearningTier] = useState<LearningTier>('lower_secondary');
 
   const [attempts, setAttempts] = useState<ParachuteAttempt[]>([]);
   const [massKg, setMassKg] = useState<string>('');
   const [heightM, setHeightM] = useState<string>('');
 
   const [currentVideoUri, setCurrentVideoUri] = useState<string | null>(null);
-  const videoFps = 240;
+  const videoFps = VIDEO_FPS;
 
   const [frameRelease, setFrameRelease] = useState<number | null>(null);
   const [frameImpact, setFrameImpact] = useState<number | null>(null);
@@ -549,6 +853,10 @@ export default function ParachuteScreen() {
     setChallengeTimerRunning(false);
     setChallengeTimerFinished(true);
   }, [clearChallengeInterval]);
+
+  const scrollToTop = useCallback((animated = true) => {
+    scrollRef.current?.scrollTo({ y: 0, animated });
+  }, []);
 
   const runChallengeInterval = useCallback(() => {
     const endAt = Date.now() + challengeRemainingMs;
@@ -609,6 +917,17 @@ export default function ParachuteScreen() {
     })();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    void getTeamData().then((teamData) => {
+      if (!active) return;
+      setLearningTier(resolveLearningTier(teamData));
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const resetCurrentFrameAnalysis = () => {
     setCurrentVideoUri(null);
     setFrameRelease(null);
@@ -651,17 +970,43 @@ export default function ParachuteScreen() {
     const mass = parseFloat(massKg);
     const height = parseFloat(heightM);
 
-    if (!mass || !height || frameRelease === null || frameImpact === null || frameStop === null) {
-      Alert.alert('Validation Error', 'Please specify payload mass, drop height, and mark frames in the timeline.');
+    if (!Number.isFinite(mass) || mass <= 0 || !Number.isFinite(height) || height <= 0) {
+      Alert.alert('Validation Error', 'Mass and height must be positive numbers.');
+      return;
+    }
+
+    if (frameRelease === null || frameImpact === null) {
+      Alert.alert('Missing frame markers', 'Mark Release and Impact frames before calculating.');
+      return;
+    }
+
+    if (frameRelease >= frameImpact) {
+      Alert.alert('Frame order issue', 'Release frame must be before impact frame.');
       return;
     }
 
     const dropTime = (frameImpact - frameRelease) / videoFps;
-    const contactTime = (frameStop - frameImpact) / videoFps;
+    const hasStopFrame = frameStop !== null;
+    const contactTime = hasStopFrame ? (frameStop! - frameImpact) / videoFps : 0;
 
-    if (dropTime <= 0 || contactTime <= 0) {
-      Alert.alert('Data Error', 'Invalid frame layout sequence. Ensure Release < Impact < Stop.');
+    if (dropTime <= 0) {
+      Alert.alert('Data Error', 'Drop time must be greater than 0.');
       return;
+    }
+
+    if (learningTier === 'lower_secondary') {
+      if (!hasStopFrame) {
+        Alert.alert('Missing frame markers', 'Mark Stop frame before calculating contact time and g-force.');
+        return;
+      }
+      if (frameImpact >= frameStop!) {
+        Alert.alert('Frame order issue', 'Impact frame must be before stop frame.');
+        return;
+      }
+      if (contactTime <= 0) {
+        Alert.alert('Data Error', 'Contact time must be greater than 0.');
+        return;
+      }
     }
 
     const finalVelocity = height / dropTime;
@@ -681,17 +1026,23 @@ export default function ParachuteScreen() {
     let gForce = 0;
     let bounceTime: number | null = null;
 
-    if (bounceMode === 'no_bounce') {
-      gForce = finalVelocity / contactTime / GRAVITY;
-    } else {
-      if (frameMaxBounce === null) {
-        Alert.alert('Missing Data', 'Please toggle Kinetic Bounce in the scrubber and mark the peak bounce frame.');
-        return;
+    if (learningTier === 'lower_secondary') {
+      if (bounceMode === 'no_bounce') {
+        gForce = finalVelocity / contactTime / GRAVITY;
+      } else {
+        if (frameMaxBounce === null) {
+          Alert.alert('Missing bounce marker', 'Bounce mode is on. Mark the peak bounce frame after impact.');
+          return;
+        }
+        if (frameMaxBounce <= frameImpact) {
+          Alert.alert('Bounce frame order issue', 'Max bounce frame must be after impact frame.');
+          return;
+        }
+        bounceTime = (frameMaxBounce - frameImpact) / videoFps;
+        const vUp = GRAVITY * bounceTime;
+        const deltaV = finalVelocity + vUp;
+        gForce = deltaV / contactTime / GRAVITY;
       }
-      bounceTime = (frameMaxBounce - frameImpact) / videoFps;
-      const vUp = GRAVITY * bounceTime;
-      const deltaV = finalVelocity + vUp;
-      gForce = deltaV / contactTime / GRAVITY;
     }
 
     setCalculatedOutputs({
@@ -764,12 +1115,18 @@ export default function ParachuteScreen() {
         ),
       ]);
 
+      const elapsedMs = EXPERIMENT_CHALLENGE_LIMIT_MS - challengeRemainingMs;
+      const timeSummary =
+        challengeTimerStarted && elapsedMs >= 0
+          ? `Time taken: ${formatDuration(elapsedMs)}`
+          : `Time taken: —`;
+
       stopChallengeTimer();
 
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🚀 STEMM Lab Sync Complete',
-          body: `Trial data for ${teamData?.name || 'your team'} has been saved to cloud storage.`,
+          body: `Trial data for ${teamData?.name || 'your team'} saved. ${timeSummary}`,
           data: { screen: 'parachute-results' },
         },
         trigger: null,
@@ -799,6 +1156,7 @@ export default function ParachuteScreen() {
       <ParachuteScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
@@ -818,7 +1176,10 @@ export default function ParachuteScreen() {
               return (
                 <Pressable
                   key={tab}
-                  onPress={() => setScreenTab(tab)}
+                  onPress={() => {
+                    setScreenTab(tab);
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.tabPill,
                     {
@@ -858,7 +1219,10 @@ export default function ParachuteScreen() {
               <View style={styles.overviewActions}>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setScreenTab('experiment')}
+                  onPress={() => {
+                    setScreenTab('experiment');
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.heroCta,
                     {
@@ -952,17 +1316,32 @@ export default function ParachuteScreen() {
 
               {currentVideoUri && (
                 <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Mark frames on timeline">
-                  <VideoScrubber
-                    uri={currentVideoUri}
-                    onMarkersChange={(m, mode) => {
-                      setFrameRelease(m.releaseFrame);
-                      setFrameImpact(m.impactFrame);
-                      setFrameStop(m.stopFrame);
-                      setFrameMaxBounce(m.maxBounceFrame);
-                      setBounceMode(mode);
-                      setCalculatedOutputs(null);
-                    }}
-                  />
+                  {learningTier === 'upper_primary' ? (
+                    <UpperPrimaryMarkerTool
+                      uri={currentVideoUri}
+                      onMarkersChange={(m) => {
+                        setFrameRelease(m.releaseFrame);
+                        setFrameImpact(m.impactFrame);
+                        // Upper Primary does not use stop/bounce markers.
+                        setFrameStop(null);
+                        setFrameMaxBounce(null);
+                        setBounceMode('no_bounce');
+                        setCalculatedOutputs(null);
+                      }}
+                    />
+                  ) : (
+                    <VideoScrubber
+                      uri={currentVideoUri}
+                      onMarkersChange={(m, mode) => {
+                        setFrameRelease(m.releaseFrame);
+                        setFrameImpact(m.impactFrame);
+                        setFrameStop(m.stopFrame);
+                        setFrameMaxBounce(m.maxBounceFrame);
+                        setBounceMode(mode);
+                        setCalculatedOutputs(null);
+                      }}
+                    />
+                  )}
                   <PrimaryButton
                     label="Execute Physics Calculations"
                     variant="primary"
@@ -977,6 +1356,10 @@ export default function ParachuteScreen() {
                   <ExperimentReviewResults
                     calculatedOutputs={calculatedOutputs}
                     getGForceRiskColor={getGForceRiskColor}
+                    learningTier={learningTier}
+                    bestDropTimeSoFar={Math.round(
+                      Math.max(calculatedOutputs.dropTime, ...attempts.map((a) => a.dropTimeSec)) * 1000
+                    ) / 1000}
                   />
                   <PrimaryButton
                     label="Save and Lock Trial Results"
@@ -998,7 +1381,11 @@ export default function ParachuteScreen() {
                       key={index}
                       index={index + 1}
                       title={`Prototype Attempt ${index + 1}`}
-                      subtitle={`Air Time: ${item.dropTimeSec}s | Impact: ${item.gForce}g`}
+                      subtitle={
+                        learningTier === 'upper_primary'
+                          ? `Air Time: ${item.dropTimeSec}s`
+                          : `Air Time: ${item.dropTimeSec}s | Impact: ${item.gForce}g`
+                      }
                       isLast={index === attempts.length - 1}
                     />
                   ))
@@ -1080,13 +1467,27 @@ export default function ParachuteScreen() {
           )}
 
           {screenTab !== 'overview' && (
-            <PrimaryButton
-              label="Back to dashboard"
-              variant="secondary"
-              onPress={() => router.back()}
-              disabled={isSyncing}
-              style={{ marginTop: Spacing.sm }}
-            />
+            <>
+              {screenTab === 'experiment' ? (
+                <PrimaryButton
+                  label="Go to write-up"
+                  variant="secondary"
+                  onPress={() => {
+                    setScreenTab('writeup');
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
+                  disabled={isSyncing}
+                  style={{ marginTop: Spacing.sm }}
+                />
+              ) : null}
+              <PrimaryButton
+                label="Back to dashboard"
+                variant="secondary"
+                onPress={() => router.back()}
+                disabled={isSyncing}
+                style={{ marginTop: Spacing.sm }}
+              />
+            </>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -1149,6 +1550,81 @@ const styles = StyleSheet.create({
   heroImage: {
     width: '100%',
     aspectRatio: PARACHUTE_IMAGE_ASPECT,
+  },
+  primaryVideo: {
+    width: '100%',
+    height: 220,
+    borderRadius: Radius.lg,
+    backgroundColor: '#000',
+  },
+  primaryScrubBar: {
+    height: 8,
+    borderRadius: Radius.pill,
+    overflow: 'visible',
+    position: 'relative',
+  },
+  primaryScrubFill: {
+    height: '100%',
+    borderRadius: Radius.pill,
+  },
+  primaryMarkerDotOnBar: {
+    position: 'absolute',
+    top: -5,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    marginLeft: -9,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  primaryControlRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  primaryControlBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  primaryControlBtnText: {
+    fontSize: 12,
+    fontWeight: FontWeight.bold,
+  },
+  primarySpeedRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+  },
+  primarySpeedPill: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+  },
+  primarySpeedPillText: {
+    fontSize: 12,
+    fontWeight: FontWeight.bold,
+  },
+  primaryMarkerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    justifyContent: 'space-between',
+  },
+  primaryMarkerDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  primaryClearText: {
+    fontSize: 12,
+    fontWeight: FontWeight.bold,
   },
   diagramCaption: {
     fontSize: FontSize.sm,
@@ -1324,6 +1800,19 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     borderWidth: 1,
     gap: 4,
+  },
+  resultsDisclaimer: {
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 18,
+    opacity: 0.85,
+    marginBottom: Spacing.xs,
+  },
+  primaryFriendlyHint: {
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 18,
+    opacity: 0.9,
   },
   metricLine: {
     fontSize: 13,

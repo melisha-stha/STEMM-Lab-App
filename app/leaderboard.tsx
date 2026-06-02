@@ -403,12 +403,11 @@ export default function LeaderboardScreen() {
                         ? String(localTeam.name).trim().toLowerCase() ===
                           String(result.teamName).trim().toLowerCase()
                         : false;
-                  const avatarKey =
-                    result.avatarKey != null
-                      ? result.avatarKey
-                      : isThisDeviceTeam
-                        ? localTeam?.avatarKey
-                        : undefined;
+                  // Avatar can be changed after a result was uploaded; always prefer the current
+                  // locally saved avatar for this device's team so the leaderboard reflects updates.
+                  const avatarKey = isThisDeviceTeam
+                    ? (localTeam?.avatarKey ?? result.avatarKey ?? undefined)
+                    : (result.avatarKey ?? undefined);
                   return (
                     <LeaderboardRow
                       key={result.id}

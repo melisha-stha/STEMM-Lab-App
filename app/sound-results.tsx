@@ -94,7 +94,7 @@ export default function SoundResultsScreen() {
         teamId: team?.id ?? null,
         grade: team?.grade ?? '—',
       });
-      router.replace('/(tabs)');
+      Alert.alert('Saved', 'Reflection saved.', [{ text: 'OK', onPress: () => router.back() }]);
     } catch {
       Alert.alert('Error', 'Could not save metrics to internal local device memory configuration.');
     } finally {

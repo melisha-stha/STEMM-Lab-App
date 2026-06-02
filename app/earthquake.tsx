@@ -109,6 +109,13 @@ const INSTRUCTION_STEPS = [
   'Upload your results when all three designs are logged.',
 ];
 
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
 const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = ['lavender', 'sky', 'lavender'];
 
 type StepPanelProps = {
@@ -569,6 +576,8 @@ export default function EarthquakeScreen() {
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = useEarthquakeScreenBackground();
 
+  const scrollRef = useRef<ScrollView>(null);
+
   const [screenTab, setScreenTab] = useState<ScreenTab>('overview');
   const [isActive, setIsActive] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -625,6 +634,10 @@ export default function EarthquakeScreen() {
     setChallengeTimerRunning(false);
     setChallengeTimerFinished(true);
   }, [clearChallengeInterval]);
+
+  const scrollToTop = useCallback((animated = true) => {
+    scrollRef.current?.scrollTo({ y: 0, animated });
+  }, []);
 
   const runChallengeInterval = useCallback(() => {
     const endAt = Date.now() + challengeRemainingMs;
@@ -887,12 +900,18 @@ export default function EarthquakeScreen() {
         ),
       ]);
 
+      const elapsedMs = EXPERIMENT_CHALLENGE_LIMIT_MS - challengeRemainingMs;
+      const timeSummary =
+        challengeTimerStarted && elapsedMs >= 0
+          ? `Time taken: ${formatDuration(elapsedMs)}`
+          : `Time taken: —`;
+
       stopChallengeTimer();
 
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'STEMM Lab Sync Complete',
-          body: `${teamData?.name || 'Your team'} — Earthquake result saved`,
+          body: `${teamData?.name || 'Your team'} — Earthquake result saved. ${timeSummary}`,
           data: { screen: 'earthquake-results' },
         },
         trigger: null,
@@ -929,6 +948,7 @@ export default function EarthquakeScreen() {
       <EarthquakeScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
@@ -948,7 +968,10 @@ export default function EarthquakeScreen() {
               return (
                 <Pressable
                   key={tab}
-                  onPress={() => setScreenTab(tab)}
+                  onPress={() => {
+                    setScreenTab(tab);
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.tabPill,
                     {
@@ -986,7 +1009,10 @@ export default function EarthquakeScreen() {
               <View style={styles.overviewActions}>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setScreenTab('experiment')}
+                  onPress={() => {
+                    setScreenTab('experiment');
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.heroCta,
                     {
@@ -1172,13 +1198,27 @@ export default function EarthquakeScreen() {
           )}
 
           {screenTab !== 'overview' && (
-            <PrimaryButton
-              label="Back to dashboard"
-              variant="secondary"
-              onPress={() => router.back()}
-              disabled={isSyncing}
-              style={{ marginTop: Spacing.sm }}
-            />
+            <>
+              {screenTab === 'experiment' ? (
+                <PrimaryButton
+                  label="Go to write-up"
+                  variant="secondary"
+                  onPress={() => {
+                    setScreenTab('writeup');
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
+                  disabled={isSyncing}
+                  style={{ marginTop: Spacing.sm }}
+                />
+              ) : null}
+              <PrimaryButton
+                label="Back to dashboard"
+                variant="secondary"
+                onPress={() => router.back()}
+                disabled={isSyncing}
+                style={{ marginTop: Spacing.sm }}
+              />
+            </>
           )}
         </ScrollView>
       </SafeAreaView>
