@@ -14,8 +14,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  BackHandler,
   Dimensions,
   Pressable,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,6 +25,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../../hooks/firebaseConfig';
+import { useFocusEffect } from '@react-navigation/native';
 
 const TOTAL_ACTIVITIES = 7;
 const HORIZONTAL_PAD = 20;
@@ -286,6 +289,23 @@ export default function HomeScreen() {
   const cardIconBg = useThemeColor({}, 'cardIconBg' as any) ?? 'rgba(0,0,0,0.03)';
 
   const progressAnim = useRef(new Animated.Value(0)).current;
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (Platform.OS !== 'android') return;
+
+      const onBackPress = () => {
+        Alert.alert('Exit app?', 'Are you sure you want to exit?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() },
+        ]);
+        return true;
+      };
+
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [])
+  );
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {

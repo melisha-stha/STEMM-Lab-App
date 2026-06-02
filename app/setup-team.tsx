@@ -134,8 +134,15 @@ export default function SetupTeamScreen() {
 
           <View style={styles.titleWrap}>
             <PixelHeading>create your team!</PixelHeading>
-            <PixelText style={styles.subtitle}>first names only · private team id</PixelText>
           </View>
+
+          <PixelBox shadowColor={pixelShadow} style={styles.panelOuter}>
+            <View style={[styles.panel, { backgroundColor: panelBg, borderColor: panelBorder }]}>
+              <PixelText variant="caption">
+                WARNING! Only use first names. Do Not Enter full name!
+              </PixelText>
+            </View>
+          </PixelBox>
 
           <PixelBox shadowColor={pixelShadow} style={styles.panelOuter}>
             <View style={[styles.panel, { backgroundColor: panelBg, borderColor: panelBorder }]}>
@@ -178,15 +185,6 @@ export default function SetupTeamScreen() {
               style={styles.addMemberBtn}
             />
           ) : null}
-
-          <PixelBox shadowColor={pixelShadow} style={styles.panelOuter}>
-            <View style={[styles.panel, { backgroundColor: panelBg, borderColor: panelBorder }]}>
-              <PixelText variant="caption">
-                privacy friendly: only first names and a team id are used. do not enter full
-                names.
-              </PixelText>
-            </View>
-          </PixelBox>
 
           <PixelButton label="enter stemm lab" onPress={() => void handleSubmit()} />
         </ScrollView>
