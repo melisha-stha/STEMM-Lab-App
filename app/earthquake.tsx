@@ -21,6 +21,7 @@ import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/co
 import { insertTrial } from '@/hooks/database';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useBatteryTracker } from '@/hooks/useBatteryTracker';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
@@ -573,6 +574,7 @@ function WriteupWorksheetTable() {
 
 export default function EarthquakeScreen() {
   const router = useRouter();
+  const { getOptimizedLocation } = useBatteryTracker();
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = useEarthquakeScreenBackground();
 
@@ -877,8 +879,7 @@ export default function EarthquakeScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       let locationData: { latitude: number; longitude: number } | null = null;
       if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({});
-        locationData = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+        locationData = await getOptimizedLocation();        
       }
 
       const teamData = await getTeamData();

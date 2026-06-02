@@ -1,4 +1,5 @@
 import { ActivityCard, type ActivityCardColour } from '@/components/ui/activity-card';
+import AdBanner from '@/components/ui/AdBanner';
 import { AuthScreenBackground, useAuthScreenBackground } from '@/components/ui/auth-screen-background';
 import { ThemeModeToggle } from '@/components/ui/theme-mode-toggle';
 import { FontWeight, Radius, Spacing } from '@/constants/design';
@@ -7,7 +8,9 @@ import { getTrials } from '@/hooks/database';
 import { getTeamData } from '@/hooks/storage';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { triggerMissionWelcome } from '@/hooks/useNotificationEngine';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useFocusEffect } from '@react-navigation/native';
 import { type Href, useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -16,8 +19,8 @@ import {
   Animated,
   BackHandler,
   Dimensions,
-  Pressable,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,7 +28,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../../hooks/firebaseConfig';
-import { useFocusEffect } from '@react-navigation/native';
 
 const TOTAL_ACTIVITIES = 7;
 const HORIZONTAL_PAD = 20;
@@ -331,6 +333,15 @@ export default function HomeScreen() {
     }
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      triggerMissionWelcome("Parachute Drop");
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, []);
+  
+
   const teamName = team?.name?.trim() || 'Team';
   const teamTrials = useMemo(() => {
     const name = team?.name?.trim();
@@ -608,6 +619,7 @@ export default function HomeScreen() {
           </View>
         </ScrollView>
       </View>
+      <AdBanner />
     </SafeAreaView>
   );
 }
