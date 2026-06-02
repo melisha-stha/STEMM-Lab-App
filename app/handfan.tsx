@@ -205,6 +205,9 @@ export default function HandFanScreen() {
   const router = useRouter();
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = useHandFanScreenBackground();
+
+  const scrollRef = useRef<ScrollView>(null);
+
   const [screenTab, setScreenTab] = useState<ScreenTab>('overview');
   const [isSyncing, setIsSyncing] = useState(false);
   const [locationStatus, setLocationStatus] = useState('Searching...');
@@ -280,6 +283,10 @@ export default function HandFanScreen() {
     setChallengeTimerFinished(true);
     setChallengeRemainingMs(0);
   }, [clearChallengeInterval]);
+
+  const scrollToTop = useCallback((animated = true) => {
+    scrollRef.current?.scrollTo({ y: 0, animated });
+  }, []);
 
   useEffect(() => () => clearChallengeInterval(), [clearChallengeInterval]);
 
@@ -367,6 +374,13 @@ export default function HandFanScreen() {
     setMemberName('');
   };
 
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
   const handleSave = async () => {
     const user = auth.currentUser;
     if (!user) {
@@ -404,16 +418,24 @@ export default function HandFanScreen() {
         ),
       ]);
 
+      const elapsedMs = EXPERIMENT_CHALLENGE_LIMIT_MS - challengeRemainingMs;
+      const timeSummary =
+        challengeTimerStarted && elapsedMs >= 0
+          ? `Time taken: ${formatDuration(elapsedMs)}`
+          : `Time taken: —`;
+
+      stopChallengeTimer();
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'STEMM Lab Sync Complete',
-          body: `Hand Fan results for ${teamData?.name || 'your team'} have been saved!`,
+          body: `Hand Fan results for ${teamData?.name || 'your team'} have been saved! ${timeSummary}`,
           data: { screen: 'handfan-results' },
         },
         trigger: null,
       });
 
-      Alert.alert('Saved Successfully!', 'All group lab assets are uploaded into the cloud dashboard.', [
+      Alert.alert('Saved Successfully!', `All group lab assets are uploaded into the cloud dashboard.\n\n${timeSummary}`, [
         { 
           text: 'OK', 
           onPress: () => {
@@ -437,6 +459,7 @@ export default function HandFanScreen() {
       <HandFanScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
@@ -453,7 +476,10 @@ export default function HandFanScreen() {
               return (
                 <Pressable
                   key={tab}
-                  onPress={() => setScreenTab(tab)}
+                  onPress={() => {
+                    setScreenTab(tab);
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.tabPill,
                     {
@@ -506,7 +532,10 @@ export default function HandFanScreen() {
           <View style={styles.overviewActions}>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setScreenTab('experiment')}
+              onPress={() => {
+                setScreenTab('experiment');
+                requestAnimationFrame(() => scrollToTop(true));
+              }}
               style={[
                 styles.heroCta,
                 {

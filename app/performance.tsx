@@ -59,6 +59,13 @@ const MOVEMENT_IMAGES = [
   require('@/assets/images/movement-3.jpeg'),
 ] as const;
 
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
 const EQUIPMENT_ITEMS = ['Mobile phone with STEMM Lab app', 'Open space to move safely'] as const;
 
 const MOVEMENT_DURATION_MS = 30000;
@@ -202,6 +209,9 @@ export default function PerformanceScreen() {
   const router = useRouter();
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = usePerformanceScreenBackground();
+
+  const scrollRef = useRef<ScrollView>(null);
+
   const [screenTab, setScreenTab] = useState<ScreenTab>('overview');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isActive, setIsActive] = useState(false);
@@ -280,6 +290,10 @@ export default function PerformanceScreen() {
     setChallengeTimerFinished(true);
     setChallengeRemainingMs(0);
   }, [clearChallengeInterval]);
+
+  const scrollToTop = useCallback((animated = true) => {
+    scrollRef.current?.scrollTo({ y: 0, animated });
+  }, []);
 
   useEffect(() => () => clearChallengeInterval(), [clearChallengeInterval]);
 
@@ -436,16 +450,24 @@ export default function PerformanceScreen() {
         ))
       ]);
 
+      const elapsedMs = EXPERIMENT_CHALLENGE_LIMIT_MS - challengeRemainingMs;
+      const timeSummary =
+        challengeTimerStarted && elapsedMs >= 0
+          ? `Time taken: ${formatDuration(elapsedMs)}`
+          : `Time taken: —`;
+
+      stopChallengeTimer();
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'STEMM Lab Sync Complete',
-          body: `Performance results for ${teamData?.name || 'your team'} have been saved!`,
+          body: `Performance results for ${teamData?.name || 'your team'} have been saved! ${timeSummary}`,
           data: { screen: 'performance-results' },
         },
         trigger: null,
       });
 
-      Alert.alert('Saved!', 'Your performance results have been saved.', [
+      Alert.alert('Saved!', `Your performance results have been saved.\n\n${timeSummary}`, [
         {
           text: 'OK',
           onPress: () => {
@@ -513,7 +535,10 @@ export default function PerformanceScreen() {
       <View style={styles.overviewActions}>
         <Pressable
           accessibilityRole="button"
-          onPress={() => setScreenTab('experiment')}
+          onPress={() => {
+            setScreenTab('experiment');
+            requestAnimationFrame(() => scrollToTop(true));
+          }}
           style={[
             styles.heroCta,
             {
@@ -698,6 +723,7 @@ export default function PerformanceScreen() {
       <PerformanceScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
@@ -714,7 +740,10 @@ export default function PerformanceScreen() {
               return (
                 <Pressable
                   key={tab}
-                  onPress={() => setScreenTab(tab)}
+                  onPress={() => {
+                    setScreenTab(tab);
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.tabPill,
                     {

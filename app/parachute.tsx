@@ -100,6 +100,13 @@ const INSTRUCTION_STEPS = [
   'Upload videos, results, and team reflections.',
 ];
 
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
 type StepPanelProps = {
   step: number;
   title: string;
@@ -505,6 +512,8 @@ export default function ParachuteScreen() {
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = useParachuteScreenBackground();
 
+  const scrollRef = useRef<ScrollView>(null);
+
   const [screenTab, setScreenTab] = useState<ScreenTab>('overview');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -549,6 +558,10 @@ export default function ParachuteScreen() {
     setChallengeTimerRunning(false);
     setChallengeTimerFinished(true);
   }, [clearChallengeInterval]);
+
+  const scrollToTop = useCallback((animated = true) => {
+    scrollRef.current?.scrollTo({ y: 0, animated });
+  }, []);
 
   const runChallengeInterval = useCallback(() => {
     const endAt = Date.now() + challengeRemainingMs;
@@ -764,12 +777,18 @@ export default function ParachuteScreen() {
         ),
       ]);
 
+      const elapsedMs = EXPERIMENT_CHALLENGE_LIMIT_MS - challengeRemainingMs;
+      const timeSummary =
+        challengeTimerStarted && elapsedMs >= 0
+          ? `Time taken: ${formatDuration(elapsedMs)}`
+          : `Time taken: —`;
+
       stopChallengeTimer();
 
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🚀 STEMM Lab Sync Complete',
-          body: `Trial data for ${teamData?.name || 'your team'} has been saved to cloud storage.`,
+          body: `Trial data for ${teamData?.name || 'your team'} saved. ${timeSummary}`,
           data: { screen: 'parachute-results' },
         },
         trigger: null,
@@ -799,6 +818,7 @@ export default function ParachuteScreen() {
       <ParachuteScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
@@ -818,7 +838,10 @@ export default function ParachuteScreen() {
               return (
                 <Pressable
                   key={tab}
-                  onPress={() => setScreenTab(tab)}
+                  onPress={() => {
+                    setScreenTab(tab);
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.tabPill,
                     {
@@ -858,7 +881,10 @@ export default function ParachuteScreen() {
               <View style={styles.overviewActions}>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setScreenTab('experiment')}
+                  onPress={() => {
+                    setScreenTab('experiment');
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.heroCta,
                     {

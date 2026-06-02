@@ -166,6 +166,13 @@ const hasPhaseRecorded = (
   return trialAttempts.some((a) => a.memberName === trimmed && a.phase === phase);
 };
 
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
 function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
   const { textColor } = usePanelTheme();
   return (
@@ -529,6 +536,8 @@ export default function ReactionScreen() {
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = useReactionScreenBackground();
 
+  const scrollRef = useRef<ScrollView>(null);
+
   const [screenTab, setScreenTab] = useState<ScreenTab>('instructions');
   const [activePhase, setActivePhase] = useState<ActivityPhase>(1);
   const [memberName, setMemberName] = useState('');
@@ -580,6 +589,10 @@ export default function ReactionScreen() {
     setChallengeTimerRunning(false);
     setChallengeTimerFinished(true);
   }, [clearChallengeInterval]);
+
+  const scrollToTop = useCallback((animated = true) => {
+    scrollRef.current?.scrollTo({ y: 0, animated });
+  }, []);
 
   const runChallengeInterval = useCallback(() => {
     const endAt = Date.now() + challengeRemainingMs;
@@ -813,12 +826,18 @@ export default function ReactionScreen() {
         accuracyPercent: a.accuracyPercent ?? null,
       }));
       
+      const elapsedMs = EXPERIMENT_CHALLENGE_LIMIT_MS - challengeRemainingMs;
+      const timeSummary =
+        challengeTimerStarted && elapsedMs >= 0
+          ? `You completed this in ${formatDuration(elapsedMs)}.`
+          : `Timer wasn't running for this session.`;
+
       await uploadReactionResult(user.uid, teamInfo, mappedPayload, null);
       stopChallengeTimer();
       
       Alert.alert(
         'Sync Complete', 
-        'Your results have been uploaded successfully!',
+        `Your results have been uploaded successfully!\n\n${timeSummary}`,
         [
           {
             text: 'OK',
@@ -859,6 +878,7 @@ export default function ReactionScreen() {
       <ReactionScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.content}
           scrollEnabled={scrollEnabled}
@@ -876,7 +896,10 @@ export default function ReactionScreen() {
               return (
                 <Pressable
                   key={tab}
-                  onPress={() => setScreenTab(tab)}
+                  onPress={() => {
+                    setScreenTab(tab);
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.tabPill,
                     {
@@ -916,7 +939,10 @@ export default function ReactionScreen() {
               <View style={styles.overviewActions}>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setScreenTab('activity')}
+                  onPress={() => {
+                    setScreenTab('activity');
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.heroCta,
                     {

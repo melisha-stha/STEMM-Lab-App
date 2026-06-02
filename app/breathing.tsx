@@ -170,10 +170,19 @@ const formatCountdown = (ms: number): string => {
   return `${seconds}s`;
 };
 
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
 export default function BreathingScreen() {
   const router = useRouter();
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = useBreathingScreenBackground();
+
+  const scrollRef = useRef<ScrollView>(null);
 
   const [screenTab, setScreenTab] = useState<ScreenTab>('instructions');
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0);
@@ -232,6 +241,10 @@ export default function BreathingScreen() {
     setChallengeTimerRunning(true);
     runChallengeInterval();
   }, [challengeTimerFinished, challengeTimerRunning, runChallengeInterval]);
+
+  const scrollToTop = useCallback((animated = true) => {
+    scrollRef.current?.scrollTo({ y: 0, animated });
+  }, []);
 
   const pauseChallengeTimer = useCallback(() => {
     if (!challengeTimerRunning) return;
@@ -397,9 +410,17 @@ export default function BreathingScreen() {
         ),
       ]);
 
+      const elapsedMs = EXPERIMENT_CHALLENGE_LIMIT_MS - challengeRemainingMs;
+      const timeSummary =
+        challengeTimerStarted && elapsedMs >= 0
+          ? `Time taken: ${formatDuration(elapsedMs)}`
+          : `Time taken: —`;
+
+      stopChallengeTimer();
+
       Alert.alert(
         'Upload Successful', 
-        'Your team session updates were safely sent to the cloud database dashboard.',
+        `Your team session updates were safely sent to the cloud database dashboard.\n\n${timeSummary}`,
         [
           {
             text: 'OK',
@@ -425,6 +446,7 @@ export default function BreathingScreen() {
       <BreathingScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
@@ -444,7 +466,10 @@ export default function BreathingScreen() {
               return (
                 <Pressable
                   key={tab}
-                  onPress={() => setScreenTab(tab)}
+                  onPress={() => {
+                    setScreenTab(tab);
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.tabPill,
                     {
@@ -490,7 +515,10 @@ export default function BreathingScreen() {
               <View style={styles.overviewActions}>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setScreenTab('activity')}
+                  onPress={() => {
+                    setScreenTab('activity');
+                    requestAnimationFrame(() => scrollToTop(true));
+                  }}
                   style={[
                     styles.heroCta,
                     {
