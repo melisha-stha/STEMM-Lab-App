@@ -101,7 +101,7 @@ export default function EarthquakeResultsScreen() {
         teamId: team?.id ?? null,
         grade: team?.grade ?? '—',
       });
-      router.replace('/(tabs)');
+      Alert.alert('Saved', 'Reflection saved.', [{ text: 'OK', onPress: () => router.back() }]);
     } finally {
       setIsSubmitting(false);
     }

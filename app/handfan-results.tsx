@@ -91,7 +91,7 @@ export default function HandFanResultsScreen() {
         });
       }
       
-      router.replace('/(tabs)');
+      Alert.alert('Saved', 'Reflection saved.', [{ text: 'OK', onPress: () => router.back() }]);
     } catch {
       Alert.alert('Storage Error', 'Could not sync evaluation fields to secure application memory blocks.');
     } finally {

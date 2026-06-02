@@ -44,7 +44,8 @@ const LOGO_SOURCE = require('@/assets/images/welcomelogo.png');
 const HORIZONTAL_PADDING = 24;
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const LOGO_SIZE = Math.min(SCREEN_WIDTH - HORIZONTAL_PADDING * 2, 380, SCREEN_HEIGHT * 0.42);
+const LOGO_SIZE = Math.min(SCREEN_WIDTH - HORIZONTAL_PADDING * 2, 300, SCREEN_HEIGHT * 0.3);
+const HEADER_ROW_MIN_HEIGHT = 44;
 
 const FEATURE_PILLS = [
   {
@@ -110,20 +111,20 @@ export default function WelcomeScreen() {
   const { overlayColor, imageOpacity } = useAuthScreenBackground();
   const insets = useSafeAreaInsets();
 
+  const headerTopPad = Math.max(insets.top, Spacing.sm);
+
   if (!pixelFontLoaded) {
     return (
       <View style={styles.pageRoot}>
         <SafeAreaView style={styles.safe} edges={['bottom']}>
           <AuthScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
+          <View style={[styles.headerRow, { paddingTop: headerTopPad }]}>
+            <ThemeModeToggle />
+          </View>
           <View style={styles.loading}>
             <ActivityIndicator size="large" color={primaryBg} />
           </View>
         </SafeAreaView>
-        <View
-          style={[styles.cornerToggleHost, { paddingTop: insets.top + Spacing.xs }]}
-          pointerEvents="box-none">
-          <ThemeModeToggle />
-        </View>
       </View>
     );
   }
@@ -133,127 +134,128 @@ export default function WelcomeScreen() {
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <AuthScreenBackground overlayColor={overlayColor} imageOpacity={imageOpacity} />
         <View style={styles.screen}>
-        <View style={styles.topSection}>
-          <View style={[styles.brandBlock, { width: LOGO_SIZE }]}>
-            <Text
-              adjustsFontSizeToFit
-              numberOfLines={1}
-              style={[
-                styles.welcomeHeading,
-                { color: welcomeTitleColor, fontFamily: pixelFamily, width: LOGO_SIZE },
-              ]}>
-              WELCOME TO
-            </Text>
-            <View style={[styles.logoWrap, { width: LOGO_SIZE, height: LOGO_SIZE }]}>
-              {logoFailed ? (
-                <View style={styles.logoFallback}>
-                  <MaterialIcons name="science" size={96} color={BRAND.coral} />
-                  <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>STEMM</Text>
-                  <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>LAB</Text>
+          <View style={[styles.headerRow, { paddingTop: headerTopPad }]}>
+            <ThemeModeToggle />
+          </View>
+
+          <View style={styles.content}>
+            <View style={styles.mainColumn}>
+              <View style={[styles.brandBlock, { width: LOGO_SIZE }]}>
+                <Text
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                  style={[
+                    styles.welcomeHeading,
+                    { color: welcomeTitleColor, fontFamily: pixelFamily, width: LOGO_SIZE },
+                  ]}>
+                  WELCOME TO
+                </Text>
+                <View style={[styles.logoWrap, { width: LOGO_SIZE, height: LOGO_SIZE }]}>
+                  {logoFailed ? (
+                    <View style={styles.logoFallback}>
+                      <MaterialIcons name="science" size={96} color={BRAND.coral} />
+                      <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>STEMM</Text>
+                      <Text style={[styles.logoLine, { color: welcomeTitleColor }]}>LAB</Text>
+                    </View>
+                  ) : (
+                    <Image
+                      source={LOGO_SOURCE}
+                      style={[styles.logoImage, { width: LOGO_SIZE, height: LOGO_SIZE }]}
+                      contentFit="contain"
+                      accessibilityLabel="STEMM Lab logo"
+                      transition={0}
+                      onError={() => setLogoFailed(true)}
+                    />
+                  )}
                 </View>
-              ) : (
-                <Image
-                  source={LOGO_SOURCE}
-                  style={[styles.logoImage, { width: LOGO_SIZE, height: LOGO_SIZE }]}
-                  contentFit="contain"
-                  accessibilityLabel="STEMM Lab logo"
-                  transition={0}
-                  onError={() => setLogoFailed(true)}
-                />
-              )}
+              </View>
+
+              <View style={styles.ctaGroup}>
+              <View style={styles.pillsRow}>
+                {FEATURE_PILLS.map((pill) => (
+                  <PixelBox key={pill.label} shadowColor={pixelShadow} style={styles.pillOuter}>
+                    <View
+                      style={[
+                        styles.pill,
+                        {
+                          backgroundColor: pill.backgroundColor,
+                          borderColor: pill.borderColor,
+                        },
+                      ]}>
+                      <Text
+                        adjustsFontSizeToFit
+                        numberOfLines={1}
+                        style={[
+                          styles.pillText,
+                          { color: pill.color, fontFamily: pixelFamily },
+                        ]}>
+                        {pill.label}
+                      </Text>
+                    </View>
+                  </PixelBox>
+                ))}
+              </View>
+
+              <Text
+                style={[
+                  styles.taglineCta,
+                  { color: welcomeTitleColor, fontFamily: pixelFamily },
+                ]}>
+                join us today!!
+              </Text>
+
+              <PixelBox shadowColor={pixelShadow} style={styles.buttonOuter}>
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    {
+                      backgroundColor: primaryBg,
+                      borderColor: primaryBorder,
+                    },
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => router.push('/signup')}>
+                  <Text
+                    style={[
+                      styles.primaryButtonText,
+                      { color: primaryText, fontFamily: pixelFamily },
+                    ]}>
+                    Create Team Account
+                  </Text>
+                </Pressable>
+              </PixelBox>
+
+              <PixelBox shadowColor={pixelShadow} style={styles.buttonOuterLast}>
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    {
+                      backgroundColor: secondaryBg,
+                      borderColor: secondaryBorder,
+                    },
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => router.push('/login')}>
+                  <Text
+                    style={[
+                      styles.secondaryButtonText,
+                      { color: secondaryText, fontFamily: pixelFamily },
+                    ]}>
+                    Sign In
+                  </Text>
+                </Pressable>
+              </PixelBox>
+
+              <Text style={[styles.footer, { color: welcomeMutedColor }]}>
+                For school science programs
+              </Text>
+              </View>
             </View>
           </View>
         </View>
-
-        <View style={styles.bottomSection}>
-          <View style={styles.pillsRow}>
-            {FEATURE_PILLS.map((pill) => (
-              <PixelBox key={pill.label} shadowColor={pixelShadow} style={styles.pillOuter}>
-                <View
-                  style={[
-                    styles.pill,
-                    {
-                      backgroundColor: pill.backgroundColor,
-                      borderColor: pill.borderColor,
-                    },
-                  ]}>
-                  <Text
-                    adjustsFontSizeToFit
-                    numberOfLines={1}
-                    style={[
-                      styles.pillText,
-                      { color: pill.color, fontFamily: pixelFamily },
-                    ]}>
-                    {pill.label}
-                  </Text>
-                </View>
-              </PixelBox>
-            ))}
-          </View>
-
-          <Text
-            style={[
-              styles.taglineCta,
-              { color: welcomeTitleColor, fontFamily: pixelFamily },
-            ]}>
-            join us today!!
-          </Text>
-
-          <PixelBox shadowColor={pixelShadow} style={styles.buttonOuter}>
-            <Pressable
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.primaryButton,
-                {
-                  backgroundColor: primaryBg,
-                  borderColor: primaryBorder,
-                },
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={() => router.push('/signup')}>
-              <Text
-                style={[
-                  styles.primaryButtonText,
-                  { color: primaryText, fontFamily: pixelFamily },
-                ]}>
-                Create Team Account
-              </Text>
-            </Pressable>
-          </PixelBox>
-
-          <PixelBox shadowColor={pixelShadow} style={styles.buttonOuterLast}>
-            <Pressable
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                {
-                  backgroundColor: secondaryBg,
-                  borderColor: secondaryBorder,
-                },
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={() => router.push('/login')}>
-              <Text
-                style={[
-                  styles.secondaryButtonText,
-                  { color: secondaryText, fontFamily: pixelFamily },
-                ]}>
-                Sign In
-              </Text>
-            </Pressable>
-          </PixelBox>
-
-          <Text style={[styles.footer, { color: welcomeMutedColor }]}>
-            For school science programs
-          </Text>
-        </View>
-      </View>
       </SafeAreaView>
-      <View
-        style={[styles.cornerToggleHost, { paddingTop: insets.top + Spacing.xs }]}
-        pointerEvents="box-none">
-        <ThemeModeToggle />
-      </View>
     </View>
   );
 }
@@ -266,19 +268,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: authScreenSafeBackground,
   },
-  cornerToggleHost: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+  headerRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingRight: HORIZONTAL_PADDING,
-    zIndex: 30,
+    minHeight: HEADER_ROW_MIN_HEIGHT,
+    paddingHorizontal: HORIZONTAL_PADDING,
+    paddingBottom: Spacing.xs,
+    zIndex: 2,
   },
   screen: {
     flex: 1,
     zIndex: 1,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: HORIZONTAL_PADDING,
+    paddingBottom: Spacing.md,
+    minHeight: 0,
+  },
+  mainColumn: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: Spacing.lg,
+    width: '100%',
+  },
+  ctaGroup: {
+    width: '100%',
+    alignItems: 'center',
+    gap: Spacing.md,
   },
   loading: {
     flex: 1,
@@ -286,25 +306,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
-  topSection: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: HORIZONTAL_PADDING,
-    paddingTop: Spacing.sm,
-    paddingBottom: 8,
-    minHeight: 0,
-  },
   brandBlock: {
     alignItems: 'center',
-    gap: 10,
+    gap: Spacing.sm,
   },
   welcomeHeading: {
     fontSize: 28,
     lineHeight: 32,
     textAlign: 'center',
     letterSpacing: 2,
-    marginBottom: 4,
+    marginTop: Spacing.xs,
   },
   logoWrap: {
     alignItems: 'center',
@@ -320,22 +331,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 40,
   },
-  bottomSection: {
-    flexShrink: 0,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: HORIZONTAL_PADDING,
-    paddingBottom: 8,
-    paddingTop: 12,
-    gap: 4,
-  },
   pillsRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: Spacing.sm,
     width: '100%',
-    marginBottom: 16,
     paddingBottom: PIXEL_SHADOW,
   },
   pillOuter: {
@@ -366,8 +367,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 8,
+    paddingHorizontal: Spacing.sm,
     maxWidth: '100%',
     letterSpacing: 0.5,
   },
@@ -386,11 +386,9 @@ const styles = StyleSheet.create({
   },
   buttonOuter: {
     width: '100%',
-    marginBottom: 12,
   },
   buttonOuterLast: {
     width: '100%',
-    marginBottom: 20,
   },
   primaryButton: {
     width: '100%',

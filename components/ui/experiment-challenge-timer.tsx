@@ -48,8 +48,8 @@ export function ExperimentChallengeTimer({
   return (
     <View style={[styles.card, { backgroundColor: cardIconBg, borderColor }]}>
       <Text style={[styles.challengeCopy, { color: textColor }]}>
-        Up for a challenge? Let&apos;s see how long it takes you to finish this experiment — you
-        have 25 minutes!
+        Up for a challenge? Let&apos;s see how long it takes you to finish this experiment. You have
+        25 minutes!
       </Text>
 
       <Text
@@ -65,9 +65,9 @@ export function ExperimentChallengeTimer({
       {started && !finished && (
         <PanelMuted style={styles.statusLine}>
           {running
-            ? 'Timer running — complete your drops and upload when ready.'
+            ? 'Timer running. Complete your drops and upload when ready.'
             : isPaused
-              ? 'Timer paused — tap Resume when you are ready to continue.'
+              ? 'Timer paused. Tap Resume when you are ready to continue.'
               : "Time's up! You can still finish and upload your attempts."}
         </PanelMuted>
       )}
