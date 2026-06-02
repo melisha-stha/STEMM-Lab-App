@@ -1,7 +1,9 @@
 import { PIXEL_BRAND } from '@/constants/pixel-brand';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import React from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 
 type Props = {
   children: string;
@@ -12,7 +14,9 @@ export function PixelHeading({ children, align = 'center' }: Props) {
   const colorScheme = useColorScheme();
   const { loaded, family: pixelFamily } = usePixelFont();
   const isDark = colorScheme === 'dark';
-  const color = isDark ? PIXEL_BRAND.white : PIXEL_BRAND.purple;
+  const text = useThemeColor({}, 'text');
+  const primary = useThemeColor({}, 'primary');
+  const color = isDark ? text : primary ?? PIXEL_BRAND.purple;
 
   if (!loaded) {
     return (
@@ -25,7 +29,7 @@ export function PixelHeading({ children, align = 'center' }: Props) {
   return (
     <Text
       adjustsFontSizeToFit={Platform.OS !== 'android'}
-      numberOfLines={1}
+      numberOfLines={2}
       allowFontScaling={false}
       style={withPixelFontStyle(
         pixelFamily,

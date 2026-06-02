@@ -177,9 +177,9 @@ export default function TeamTabScreen() {
   })();
   const levelDisplay =
     team?.learningLevel === 'lower_secondary'
-      ? 'Lower Secondary'
+      ? 'Secondary'
       : team?.learningLevel === 'upper_primary'
-        ? 'Upper Primary'
+        ? 'Primary'
         : '—';
 
   const avatarKey: AvatarKey = (team?.avatarKey as AvatarKey) || 'frog';
@@ -452,8 +452,8 @@ export default function TeamTabScreen() {
                 <Text style={[styles.editLabel, { color: text }]}>Learning level</Text>
                 <View style={styles.pillRow}>
                   {[
-                    { key: 'upper_primary', label: 'Upper Primary' },
-                    { key: 'lower_secondary', label: 'Lower Secondary' },
+                    { key: 'upper_primary', label: 'Primary' },
+                    { key: 'lower_secondary', label: 'Secondary' },
                   ].map((opt) => {
                     const selected = form.learningLevel === (opt.key as any);
                     return (

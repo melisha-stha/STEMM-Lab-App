@@ -21,9 +21,9 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  useColorScheme,
   View,
 } from 'react-native';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MAX_MEMBERS = 5;
@@ -59,14 +59,16 @@ export default function SetupTeamScreen() {
   }>({});
 
   const text = useThemeColor({}, 'text');
+  const surface = useThemeColor({}, 'surface');
+  const primarySoft = useThemeColor({}, 'primarySoft');
+  const border = useThemeColor({}, 'border');
   const isDark = colorScheme === 'dark';
   const pixelShadow = isDark ? '#000000' : PIXEL_BRAND.purpleBorder;
-  const panelBg = isDark ? 'rgba(28, 28, 30, 0.92)' : 'rgba(243, 232, 255, 0.94)';
-  const panelBorder = isDark ? '#9CA3AF' : PIXEL_BRAND.purpleBorder;
+  const panelBg = isDark ? surface : primarySoft;
+  const panelBorder = isDark ? border : PIXEL_BRAND.purpleBorder;
 
   const yearLabel = year ? `Year ${year}` : '—';
-  const learningLevelLabel =
-    level === 'lower_secondary' ? 'lower secondary' : 'upper primary';
+  const learningLevelLabel = level === 'lower_secondary' ? 'secondary' : 'primary';
 
   const cleanedMembers = useMemo(
     () => members.map((m) => m.trim()).filter((m) => m.length > 0),
