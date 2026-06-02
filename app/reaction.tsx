@@ -20,6 +20,7 @@ import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/co
 import { uploadReactionResult } from '@/hooks/firestore';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useBatteryTracker } from '@/hooks/useBatteryTracker';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -533,6 +534,7 @@ function ReactionRoundArena({
 
 export default function ReactionScreen() {
   const router = useRouter();
+  const { getOptimizedLocation } = useBatteryTracker();
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
   const { overlayColor, imageOpacity } = useReactionScreenBackground();
 
@@ -816,6 +818,8 @@ export default function ReactionScreen() {
     
     setIsSyncing(true);
     try {
+      const locationData = await getOptimizedLocation();
+
       const teamInfo = await getTeamData();
       const userAttempts = attempts.filter(a => a.memberName === currentName);
       
@@ -832,7 +836,7 @@ export default function ReactionScreen() {
           ? `You completed this in ${formatDuration(elapsedMs)}.`
           : `Timer wasn't running for this session.`;
 
-      await uploadReactionResult(user.uid, teamInfo, mappedPayload, null);
+      await uploadReactionResult(user.uid, teamInfo, mappedPayload, locationData);
       stopChallengeTimer();
       
       Alert.alert(
