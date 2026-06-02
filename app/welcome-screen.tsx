@@ -6,7 +6,7 @@ import {
 import { ThemeModeToggle } from '@/components/ui/theme-mode-toggle';
 import { Spacing } from '@/constants/design';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -15,6 +15,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -94,19 +95,25 @@ export default function WelcomeScreen() {
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
 
   const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';
+  const text = useThemeColor({}, 'text');
   const surface = useThemeColor({}, 'surface');
+  const primary = useThemeColor({}, 'primary');
+  const primarySoft = useThemeColor({}, 'primarySoft');
+  const primaryDark = useThemeColor({}, 'primaryDark');
+  const onPrimary = useThemeColor({}, 'onPrimary');
+  const border = useThemeColor({}, 'border');
   const isDark = colorScheme === 'dark';
-  const welcomeTitleColor = isDark ? BRAND.white : BRAND.purple;
+  const welcomeTitleColor = isDark ? text : primary;
   const welcomeMutedColor = isDark ? textSecondary : BRAND.textMuted;
   const pixelShadow = isDark ? '#000000' : BRAND.purpleBorder;
 
-  const primaryBg = isDark ? BRAND.purpleLight : BRAND.purple;
-  const primaryBorder = isDark ? '#000000' : BRAND.purpleBorder;
-  const primaryText = BRAND.white;
+  const primaryBg = primary;
+  const primaryBorder = isDark ? '#000000' : primaryDark;
+  const primaryText = onPrimary;
 
-  const secondaryBg = isDark ? surface : BRAND.purpleSoft;
-  const secondaryBorder = isDark ? '#9CA3AF' : BRAND.purpleBorder;
-  const secondaryText = isDark ? BRAND.white : BRAND.purple;
+  const secondaryBg = isDark ? surface : primarySoft;
+  const secondaryBorder = isDark ? border : BRAND.purpleBorder;
+  const secondaryText = isDark ? text : primary;
 
   const { overlayColor, imageOpacity } = useAuthScreenBackground();
   const insets = useSafeAreaInsets();
@@ -142,12 +149,13 @@ export default function WelcomeScreen() {
             <View style={styles.mainColumn}>
               <View style={[styles.brandBlock, { width: LOGO_SIZE }]}>
                 <Text
-                  adjustsFontSizeToFit
+                  adjustsFontSizeToFit={Platform.OS !== 'android'}
                   numberOfLines={1}
-                  style={[
-                    styles.welcomeHeading,
-                    { color: welcomeTitleColor, fontFamily: pixelFamily, width: LOGO_SIZE },
-                  ]}>
+                  allowFontScaling={false}
+                  style={withPixelFontStyle(pixelFamily, styles.welcomeHeading, {
+                    color: welcomeTitleColor,
+                    width: LOGO_SIZE,
+                  })}>
                   WELCOME TO
                 </Text>
                 <View style={[styles.logoWrap, { width: LOGO_SIZE, height: LOGO_SIZE }]}>
@@ -183,12 +191,10 @@ export default function WelcomeScreen() {
                         },
                       ]}>
                       <Text
-                        adjustsFontSizeToFit
+                        adjustsFontSizeToFit={Platform.OS !== 'android'}
                         numberOfLines={1}
-                        style={[
-                          styles.pillText,
-                          { color: pill.color, fontFamily: pixelFamily },
-                        ]}>
+                        allowFontScaling={false}
+                        style={withPixelFontStyle(pixelFamily, styles.pillText, { color: pill.color })}>
                         {pill.label}
                       </Text>
                     </View>
@@ -197,10 +203,7 @@ export default function WelcomeScreen() {
               </View>
 
               <Text
-                style={[
-                  styles.taglineCta,
-                  { color: welcomeTitleColor, fontFamily: pixelFamily },
-                ]}>
+                style={withPixelFontStyle(pixelFamily, styles.taglineCta, { color: welcomeTitleColor })}>
                 join us today!!
               </Text>
 
@@ -217,10 +220,7 @@ export default function WelcomeScreen() {
                   ]}
                   onPress={() => router.push('/signup')}>
                   <Text
-                    style={[
-                      styles.primaryButtonText,
-                      { color: primaryText, fontFamily: pixelFamily },
-                    ]}>
+                    style={withPixelFontStyle(pixelFamily, styles.primaryButtonText, { color: primaryText })}>
                     Create Team Account
                   </Text>
                 </Pressable>
@@ -239,10 +239,9 @@ export default function WelcomeScreen() {
                   ]}
                   onPress={() => router.push('/login')}>
                   <Text
-                    style={[
-                      styles.secondaryButtonText,
-                      { color: secondaryText, fontFamily: pixelFamily },
-                    ]}>
+                    style={withPixelFontStyle(pixelFamily, styles.secondaryButtonText, {
+                      color: secondaryText,
+                    })}>
                     Sign In
                   </Text>
                 </Pressable>

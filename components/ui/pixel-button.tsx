@@ -1,15 +1,15 @@
 import { PixelBox } from '@/components/ui/pixel-box';
 import { PIXEL_BORDER, PIXEL_BRAND, PIXEL_RADIUS } from '@/constants/pixel-brand';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import React from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
-  useColorScheme,
-  View,
   type ViewStyle,
 } from 'react-native';
 
@@ -26,21 +26,22 @@ type Props = {
 export function PixelButton({ label, onPress, disabled, variant = 'primary', style }: Props) {
   const colorScheme = useColorScheme();
   const { loaded, family: pixelFamily } = usePixelFont();
-  const surface = useThemeColor({}, 'surface');
   const isDark = colorScheme === 'dark';
 
-  const pixelShadow = isDark ? '#000000' : PIXEL_BRAND.purpleBorder;
-  const primaryBg = isDark ? PIXEL_BRAND.purpleLight : PIXEL_BRAND.purple;
-  const primaryBorder = isDark ? '#000000' : PIXEL_BRAND.purpleBorder;
-  const primaryText = PIXEL_BRAND.white;
-  const secondaryBg = isDark ? surface : PIXEL_BRAND.purpleSoft;
-  const secondaryBorder = isDark ? '#9CA3AF' : PIXEL_BRAND.purpleBorder;
-  const secondaryText = isDark ? PIXEL_BRAND.white : PIXEL_BRAND.purple;
+  const primary = useThemeColor({}, 'primary');
+  const primarySoft = useThemeColor({}, 'primarySoft');
+  const primaryDark = useThemeColor({}, 'primaryDark');
+  const onPrimary = useThemeColor({}, 'onPrimary');
+  const text = useThemeColor({}, 'text');
+  const surface = useThemeColor({}, 'surface');
+  const border = useThemeColor({}, 'border');
 
+  const pixelShadow = isDark ? '#000000' : PIXEL_BRAND.purpleBorder;
   const isPrimary = variant === 'primary';
-  const bg = isPrimary ? primaryBg : secondaryBg;
-  const border = isPrimary ? primaryBorder : secondaryBorder;
-  const fg = isPrimary ? primaryText : secondaryText;
+
+  const bg = isPrimary ? primary : isDark ? surface : primarySoft;
+  const borderColor = isPrimary ? (isDark ? '#000000' : primaryDark) : isDark ? border : PIXEL_BRAND.purpleBorder;
+  const fg = isPrimary ? onPrimary : isDark ? text : primary;
 
   return (
     <PixelBox shadowColor={pixelShadow} style={style}>
@@ -50,16 +51,17 @@ export function PixelButton({ label, onPress, disabled, variant = 'primary', sty
         onPress={onPress}
         style={({ pressed }) => [
           styles.button,
-          { backgroundColor: bg, borderColor: border, opacity: disabled ? 0.5 : 1 },
+          { backgroundColor: bg, borderColor, opacity: disabled ? 0.5 : 1 },
           pressed && !disabled && styles.pressed,
         ]}>
         {!loaded ? (
           <ActivityIndicator color={fg} size="small" />
         ) : (
           <Text
-            adjustsFontSizeToFit
+            adjustsFontSizeToFit={false}
             numberOfLines={2}
-            style={[styles.label, { color: fg, fontFamily: pixelFamily }]}>
+            allowFontScaling={false}
+            style={withPixelFontStyle(pixelFamily, styles.label, { color: fg })}>
             {label}
           </Text>
         )}
@@ -78,6 +80,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
+    ...Platform.select({
+      android: { minHeight: 60, paddingVertical: 16 },
+      default: {},
+    }),
   },
   label: {
     fontSize: 14,

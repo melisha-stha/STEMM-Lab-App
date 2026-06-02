@@ -1,7 +1,8 @@
-import { PIXEL_BRAND } from '@/constants/pixel-brand';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import React from 'react';
-import { StyleSheet, Text, useColorScheme, type TextStyle } from 'react-native';
+import { StyleSheet, Text, type TextStyle } from 'react-native';
 
 type Variant = 'subtitle' | 'caption' | 'step';
 
@@ -15,12 +16,16 @@ export function PixelText({ children, variant = 'subtitle', style }: Props) {
   const colorScheme = useColorScheme();
   const { loaded, family: pixelFamily } = usePixelFont();
   const isDark = colorScheme === 'dark';
-  const color = isDark ? '#9CA3AF' : PIXEL_BRAND.textMuted;
+  const text = useThemeColor({}, 'text');
+  const mutedText = useThemeColor({}, 'mutedText');
+  const color = isDark ? text : mutedText;
 
   if (!loaded) return null;
 
   return (
-    <Text style={[styles[variant], { color, fontFamily: pixelFamily }, style]}>{children}</Text>
+    <Text style={withPixelFontStyle(pixelFamily, styles[variant], { color }, style)} allowFontScaling={false}>
+      {children}
+    </Text>
   );
 }
 

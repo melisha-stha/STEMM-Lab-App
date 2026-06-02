@@ -12,7 +12,7 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { login } from '../hooks/authService';
 
@@ -24,6 +24,7 @@ export default function LoginScreen() {
   const { overlayColor, imageOpacity } = useAuthScreenBackground();
 
   const text = useThemeColor({}, 'text');
+  const mutedText = useThemeColor({}, 'mutedText');
 
   const handleLogin = async () => {
     setLoading(true);
@@ -49,7 +50,20 @@ export default function LoginScreen() {
         <PixelHeading>team login</PixelHeading>
 
         <Input label="Email" value={email} onChangeText={setEmail} placeholder="Enter team email" />
-        <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry />
+        <Input
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          showPasswordToggle
+        />
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/forgot-password')}
+          style={styles.forgotLink}>
+          <Text style={[styles.forgotText, { color: mutedText }]}>Forgot password?</Text>
+        </Pressable>
 
         <View style={styles.actions}>
           <PixelButton
@@ -92,6 +106,15 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: Spacing.md,
     width: '100%',
+  },
+  forgotLink: {
+    alignSelf: 'flex-end',
+    paddingVertical: 4,
+  },
+  forgotText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   buttonSpacing: {
     marginBottom: 12,

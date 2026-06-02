@@ -1,12 +1,16 @@
+import { PixelFontProvider, usePixelFontContext } from '@/contexts/pixel-font-context';
 import { ThemePreferenceProvider } from '@/contexts/theme-preference';
 import { initDatabase } from '@/hooks/database';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import 'react-native-reanimated';
+
+SplashScreen.preventAutoHideAsync();
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -20,6 +24,22 @@ Notifications.setNotificationHandler({
 export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
+
+function FontReadyGate({ children }: { children: React.ReactNode }) {
+  const { loaded, error } = usePixelFontContext();
+
+  useEffect(() => {
+    if (loaded || error) {
+      void SplashScreen.hideAsync();
+    }
+  }, [loaded, error]);
+
+  if (!loaded && !error) {
+    return null;
+  }
+
+  return <>{children}</>;
+}
 
 function RootNavigation() {
   const colorScheme = useColorScheme();
@@ -73,7 +93,11 @@ export default function RootLayout() {
 
   return (
     <ThemePreferenceProvider>
-      <RootNavigation />
+      <PixelFontProvider>
+        <FontReadyGate>
+          <RootNavigation />
+        </FontReadyGate>
+      </PixelFontProvider>
     </ThemePreferenceProvider>
   );
 }

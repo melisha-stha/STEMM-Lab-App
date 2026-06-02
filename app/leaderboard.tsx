@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/leaderboard-screen-background';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
@@ -182,7 +182,9 @@ const RANK_MEDALS = ['🥇', '🥈', '🥉'] as const;
 function LeaderboardHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
   const { textColor } = usePanelTheme();
   return (
-    <Text style={[styles.heroTitle, { color: textColor, fontFamily: pixelFamily }]}>Leaderboard</Text>
+    <Text style={withPixelFontStyle(pixelFamily, styles.heroTitle, { color: textColor })}>
+      Leaderboard
+    </Text>
   );
 }
 

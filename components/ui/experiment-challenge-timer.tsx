@@ -1,9 +1,10 @@
 import { PanelMuted, usePanelTheme } from '@/components/ui/activity-color-panel';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
+import { withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 export const EXPERIMENT_CHALLENGE_LIMIT_MS = 25 * 60 * 1000;
 
@@ -53,12 +54,15 @@ export function ExperimentChallengeTimer({
       </Text>
 
       <Text
-        style={[
+        adjustsFontSizeToFit={false}
+        allowFontScaling={false}
+        style={withPixelFontStyle(
+          pixelFamily,
           styles.pixelClock,
-          { color: borderColor, fontFamily: pixelFamily },
+          { color: borderColor },
           finished && { color: success },
-          !started && styles.pixelClockIdle,
-        ]}>
+          !started && styles.pixelClockIdle
+        )}>
         {formatChallengeClock(displayMs)}
       </Text>
 
@@ -73,7 +77,7 @@ export function ExperimentChallengeTimer({
       )}
 
       {finished && (
-        <Text style={[styles.finishedLine, { color: success, fontFamily: pixelFamily }]}>
+        <Text style={withPixelFontStyle(pixelFamily, styles.finishedLine, { color: success })}>
           Challenge complete! Time: {formatChallengeClock(timeTakenMs)}
         </Text>
       )}
@@ -141,6 +145,10 @@ const styles = StyleSheet.create({
     fontSize: 42,
     letterSpacing: 2,
     marginVertical: Spacing.xs,
+    ...Platform.select({
+      android: { marginVertical: Spacing.sm },
+      default: {},
+    }),
   },
   pixelClockIdle: {
     opacity: 0.85,

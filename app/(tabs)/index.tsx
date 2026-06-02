@@ -5,7 +5,7 @@ import { FontWeight, Radius, Spacing } from '@/constants/design';
 import { resolveAppRoute } from '@/hooks/app-routing';
 import { getTrials } from '@/hooks/database';
 import { getTeamData } from '@/hooks/storage';
-import { usePixelFont } from '@/hooks/use-pixel-font';
+import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { type Href, useRouter } from 'expo-router';
@@ -411,12 +411,12 @@ export default function HomeScreen() {
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
               {pixelFontLoaded ? (
-                <Text style={[styles.greetingLine1, { color: textSecondary, fontFamily: pixelFamily }]}>
+                <Text style={withPixelFontStyle(pixelFamily, styles.greetingLine1, { color: textSecondary })}>
                   {greeting.line1}
                 </Text>
               ) : null}
               {pixelFontLoaded ? (
-                <Text style={[styles.greetingLine2, { color: text, fontFamily: pixelFamily }]}>
+                <Text style={withPixelFontStyle(pixelFamily, styles.greetingLine2, { color: text })}>
                   {greeting.line2}
                 </Text>
               ) : null}
@@ -474,24 +474,41 @@ export default function HomeScreen() {
             <View style={[styles.missionBadge, { backgroundColor: missionBadgeBg }]}>
               {pixelFontLoaded ? (
                 <Text
-                  style={[
-                    styles.missionBadgeText,
-                    { color: cardLavenderText, fontFamily: pixelFamily },
-                  ]}>
+                  style={withPixelFontStyle(pixelFamily, styles.missionBadgeText, {
+                    color: cardLavenderText,
+                  })}>
                   THIS WEEK&apos;S MISSION
                 </Text>
               ) : null}
             </View>
 
-            <Text style={[styles.missionStream, { color: cardLavenderText }]}>
+            <Text
+              style={
+                pixelFontLoaded
+                  ? withPixelFontStyle(pixelFamily, styles.missionStream, { color: cardLavenderText })
+                  : [styles.missionStream, { color: cardLavenderText }]
+              }>
               {missionHeadline.stream}
             </Text>
             <View style={[styles.missionHighlight, { backgroundColor: gold }]}>
-              <Text style={[styles.missionHighlightText, { color: onGold }]}>
+              <Text
+                style={
+                  pixelFontLoaded
+                    ? withPixelFontStyle(pixelFamily, styles.missionHighlightText, { color: onGold })
+                    : [styles.missionHighlightText, { color: onGold }]
+                }>
                 {missionHeadline.action}
               </Text>
             </View>
-            <Text style={[styles.missionHook, { color: cardLavenderText, opacity: 0.8 }]}>
+            <Text
+              style={
+                pixelFontLoaded
+                  ? withPixelFontStyle(pixelFamily, styles.missionHook, {
+                      color: cardLavenderText,
+                      opacity: 0.8,
+                    })
+                  : [styles.missionHook, { color: cardLavenderText, opacity: 0.8 }]
+              }>
               {missionHook}
             </Text>
 
@@ -516,7 +533,14 @@ export default function HomeScreen() {
                   },
                 ]}>
                 <View style={styles.startButtonInner}>
-                  <Text style={[styles.startButtonText, { color: onPrimary }]}>▶  START</Text>
+                  <Text
+                    style={
+                      pixelFontLoaded
+                        ? withPixelFontStyle(pixelFamily, styles.startButtonText, { color: onPrimary })
+                        : [styles.startButtonText, { color: onPrimary }]
+                    }>
+                    ▶  START
+                  </Text>
                 </View>
               </Pressable>
             </View>
@@ -551,7 +575,7 @@ export default function HomeScreen() {
             <View style={styles.sectionHeaderRow}>
               <View>
                 {pixelFontLoaded ? (
-                  <Text style={[styles.sectionTitle, { color: text, fontFamily: pixelFamily }]}>
+                  <Text style={withPixelFontStyle(pixelFamily, styles.sectionTitle, { color: text })}>
                     Your Activities
                   </Text>
                 ) : null}
@@ -693,7 +717,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderBottomWidth: 5,
     padding: 20,
-    overflow: 'hidden',
+    overflow: Platform.select({ android: 'visible', default: 'hidden' }),
   },
   cornerSquare: {
     position: 'absolute',
@@ -719,7 +743,7 @@ const styles = StyleSheet.create({
   missionBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Platform.select({ android: 8, default: 4 }),
     borderRadius: Radius.full,
     marginBottom: Spacing.sm,
   },
@@ -735,7 +759,7 @@ const styles = StyleSheet.create({
   missionHighlight: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: Platform.select({ android: 6, default: 2 }),
     borderRadius: 6,
     marginTop: 4,
   },
@@ -769,9 +793,11 @@ const styles = StyleSheet.create({
   },
   startButtonInner: {
     paddingHorizontal: 24,
-    paddingVertical: 10,
+    paddingVertical: Platform.select({ android: 14, default: 10 }),
+    minHeight: Platform.select({ android: 44, default: undefined }),
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   startButtonText: {
     fontSize: 14,

@@ -47,7 +47,7 @@ export default function SetupLevelScreen() {
 
         <View style={styles.choiceList}>
           <PixelChoiceButton
-            label="upper primary"
+            label="primary"
             description="years 4 to 6"
             variant="primary"
             selected={selected === 'upper_primary'}
@@ -56,7 +56,7 @@ export default function SetupLevelScreen() {
             style={styles.choiceSpacing}
           />
           <PixelChoiceButton
-            label="lower secondary"
+            label="secondary"
             description="years 7 to 9"
             variant="secondary"
             selected={selected === 'lower_secondary'}
