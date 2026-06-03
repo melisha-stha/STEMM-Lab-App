@@ -5,20 +5,35 @@ import {
   useLeaderboardScreenBackground,
 } from '@/components/ui/leaderboard-screen-background';
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
+import {
+  computeOverallStandings,
+  dedupeBestPerTeam,
+  getActivityMetric,
+  getLeaderboardDiscriminator,
+  getLeaderboardYearLabel,
+  getStandingDiscriminator,
+  getStandingYearLabel,
+  LEADERBOARD_ACTIVITIES,
+  OVERALL_RANKINGS_DISPLAY_LIMIT,
+  prepareActivityLeaderboard,
+  type LeaderboardActivity,
+  type LeaderboardRow,
+  type OverallTeamStanding,
+} from '@/hooks/leaderboard-scoring';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -34,23 +49,14 @@ import {
 } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
 
-const ACTIVITIES = [
-  'parachute',
-  'sound',
-  'handfan',
-  'earthquake',
-  'performance',
-  'reaction',
-  'breathing',
-] as const;
-type Activity = (typeof ACTIVITIES)[number];
+type Activity = LeaderboardActivity;
 
 const ACTIVITY_LABELS: Record<Activity, string> = {
   parachute: 'Parachute',
   sound: 'Sound',
   handfan: 'Hand Fan',
   earthquake: 'Earthquake',
-  performance: 'Performance',
+  performance: 'Human Performance',
   reaction: 'Reaction',
   breathing: 'Breathing',
 };
@@ -75,25 +81,6 @@ const ACTIVITY_COLOURS: Record<Activity, ActivityCardColour> = {
   breathing: 'sky',
 };
 
-type LeaderboardResult = {
-  id: string;
-  teamName?: string;
-  grade?: string;
-  yearLevel?: string;
-  learningLevel?: string;
-  teamId?: string | number;
-  avatarKey?: string | null;
-  userId?: string;
-  bestTime?: number;
-  measurements?: { db: number; label: string }[];
-  peakDb?: number;
-  bestBendAngle?: number;
-  bestScore?: number;
-  avgReactionTimeMs?: number | null;
-  sessionsCount?: number;
-  bestControlScore?: number | null;
-};
-
 const AVATAR_SOURCE: Record<string, any> = {
   ben: require('@/assets/images/boy-avatar.png'),
   girl: require('@/assets/images/girl-avatar.png'),
@@ -103,81 +90,59 @@ const AVATAR_SOURCE: Record<string, any> = {
   fox: require('@/assets/images/fox-avatar.png'),
 };
 
-const getAvatarSource = (key?: string) => {
+const getAvatarSource = (key?: string | null) => {
   if (!key) return null;
   return AVATAR_SOURCE[key] ?? null;
 };
 
-const getTeamDiscriminator = (result: LeaderboardResult): string => {
-  if (result.teamId != null && String(result.teamId).length > 0) {
-    return String(result.teamId);
+function resolveAvatarKey(
+  standing: {
+    teamId?: string | number;
+    teamName?: string;
+    avatarKey?: string | null;
+  },
+  localTeam: { id?: number; name?: string; avatarKey?: string } | null
+): string | undefined {
+  const isThisDeviceTeam =
+    localTeam?.id != null && standing.teamId != null
+      ? String(localTeam.id) === String(standing.teamId)
+      : localTeam?.name && standing.teamName
+        ? String(localTeam.name).trim().toLowerCase() ===
+          String(standing.teamName).trim().toLowerCase()
+        : false;
+  if (isThisDeviceTeam) {
+    return localTeam?.avatarKey ?? standing.avatarKey ?? undefined;
   }
-  if (result.userId && result.userId.length >= 6) {
-    return result.userId.slice(-6);
-  }
-  if (result.id && result.id.length >= 6) {
-    return result.id.slice(-6);
-  }
-  return '—';
-};
+  return standing.avatarKey ?? undefined;
+}
 
-const getYearLabel = (result: LeaderboardResult): string | null => {
-  const raw = (result.yearLevel ?? result.grade ?? '').toString().trim();
-  if (!raw) return null;
-  return /^year\s+/i.test(raw) ? raw : `Year ${raw}`;
-};
-
-const getActivityMetric = (
+function subscribeActivityRaw(
   activity: Activity,
-  result: LeaderboardResult
-): { primary: string; label: string } => {
+  onData: (rows: LeaderboardRow[]) => void,
+  onError: () => void
+): () => void {
+  const handleRaw = (rows: LeaderboardRow[]) => onData(rows);
+  const handleError = () => onError();
+
   switch (activity) {
     case 'parachute':
-      return {
-        primary: result.bestTime != null ? `${(result.bestTime / 1000).toFixed(2)}s` : '—',
-        label: 'Longest drop time',
-      };
-    case 'sound': {
-      const peakDb =
-        result.peakDb != null
-          ? result.peakDb
-          : result.measurements
-            ? Math.max(...result.measurements.map((m) => m.db))
-            : 0;
-      return {
-        primary: `${peakDb.toFixed(1)} dB`,
-        label: 'Highest detection',
-      };
-    }
+      return subscribeToLeaderboard(handleRaw, handleError);
+    case 'sound':
+      return subscribeToSoundLeaderboard(handleRaw, handleError);
     case 'handfan':
-      return {
-        primary: result.bestBendAngle != null ? `${Number(result.bestBendAngle).toFixed(0)}°` : '—',
-        label: 'Largest bend angle',
-      };
+      return subscribeToHandFanLeaderboard(handleRaw, handleError);
     case 'earthquake':
-      return {
-        primary: result.bestScore != null ? `${result.bestScore}/100` : '—',
-        label: 'Highest stability score',
-      };
+      return subscribeToEarthquakeLeaderboard(handleRaw, handleError);
     case 'performance':
-      return {
-        primary: result.bestControlScore != null ? `${result.bestControlScore}` : '—',
-        label: 'Highest control score',
-      };
+      return subscribeToPerformanceLeaderboard(handleRaw, handleError);
     case 'reaction':
-      return {
-        primary: result.avgReactionTimeMs != null ? `${result.avgReactionTimeMs} ms` : '—',
-        label: 'Fastest average reaction',
-      };
+      return subscribeToReactionLeaderboard(handleRaw, handleError);
     case 'breathing':
-      return {
-        primary: result.sessionsCount != null ? `${result.sessionsCount}` : '0',
-        label: 'Sessions recorded',
-      };
+      return subscribeToBreathingLeaderboard(handleRaw, handleError);
+    default:
+      return () => {};
   }
-};
-
-const RANK_MEDALS = ['🥇', '🥈', '🥉'] as const;
+}
 
 function LeaderboardHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
   const { textColor } = usePanelTheme();
@@ -187,16 +152,6 @@ function LeaderboardHeroTitle({ pixelFamily }: { pixelFamily: string | undefined
     </Text>
   );
 }
-
-type LeaderboardRowProps = {
-  rank: number;
-  avatarKey?: string;
-  teamName: string;
-  discriminator: string;
-  yearLabel?: string | null;
-  metricPrimary: string;
-  metricLabel: string;
-};
 
 function LeaderboardEmptyState({ activityName }: { activityName: string }) {
   const { textColor, borderColor } = usePanelTheme();
@@ -212,6 +167,32 @@ function LeaderboardEmptyState({ activityName }: { activityName: string }) {
   );
 }
 
+function OverallEmptyState() {
+  const { textColor, borderColor } = usePanelTheme();
+
+  return (
+    <View style={styles.emptyState}>
+      <MaterialIcons name="emoji-events" size={40} color={borderColor} />
+      <Text style={[styles.emptyTitle, { color: textColor }]}>No overall winner yet</Text>
+      <PanelMuted style={styles.emptySubtext}>
+        Complete activities to start building team points.
+      </PanelMuted>
+    </View>
+  );
+}
+
+type LeaderboardRowProps = {
+  rank: number;
+  avatarKey?: string;
+  teamName: string;
+  discriminator: string;
+  yearLabel?: string | null;
+  metricPrimary?: string;
+  metricLabel?: string;
+  pointsLine?: string;
+  compact?: boolean;
+};
+
 function LeaderboardRow({
   rank,
   avatarKey,
@@ -220,6 +201,8 @@ function LeaderboardRow({
   yearLabel,
   metricPrimary,
   metricLabel,
+  pointsLine,
+  compact,
 }: LeaderboardRowProps) {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
   const gold = useThemeColor({}, 'gold');
@@ -230,15 +213,14 @@ function LeaderboardRow({
     <View
       style={[
         styles.row,
+        compact ? styles.rowCompact : null,
         {
           borderColor: isPodium ? gold : borderColor,
           backgroundColor: cardIconBg,
         },
       ]}>
       <View style={[styles.rankWrap, { borderColor: isPodium ? gold : borderColor }]}>
-        <Text style={[styles.rank, { color: isPodium ? gold : textColor }]}>
-          {RANK_MEDALS[rank - 1] ?? rank}
-        </Text>
+        <Text style={[styles.rank, { color: isPodium ? gold : textColor }]}>{rank}</Text>
       </View>
       <View style={[styles.avatarWrap, { borderColor: isPodium ? gold : borderColor }]}>
         {avatarSource ? (
@@ -253,9 +235,48 @@ function LeaderboardRow({
           Team ID {discriminator}
           {yearLabel ? ` · ${yearLabel}` : ''}
         </Text>
-        <Text style={[styles.meta, { color: textColor, opacity: 0.9 }]} numberOfLines={1}>
-          {metricLabel}: {metricPrimary}
-        </Text>
+        {pointsLine ? (
+          <Text style={[styles.meta, { color: textColor, opacity: 0.9 }]} numberOfLines={1}>
+            {pointsLine}
+          </Text>
+        ) : null}
+        {metricLabel && metricPrimary ? (
+          <Text style={[styles.meta, { color: textColor, opacity: 0.9 }]} numberOfLines={1}>
+            {metricLabel}: {metricPrimary}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function AllTimeChampionCard({
+  champion,
+  localTeam,
+}: {
+  champion: OverallTeamStanding;
+  localTeam: { id?: number; name?: string; avatarKey?: string } | null;
+}) {
+  const { textColor, cardIconBg } = usePanelTheme();
+  const gold = useThemeColor({}, 'gold');
+  const avatarKey = resolveAvatarKey(champion, localTeam);
+  const avatarSource = getAvatarSource(avatarKey);
+  return (
+    <View style={[styles.championCard, { borderColor: gold, backgroundColor: cardIconBg }]}>
+      <View style={styles.championRow}>
+        <View style={[styles.avatarWrap, styles.championAvatar, { borderColor: gold }]}>
+          {avatarSource ? (
+            <Image source={avatarSource} style={styles.avatar} contentFit="cover" />
+          ) : null}
+        </View>
+        <View style={styles.championMeta}>
+          <Text style={[styles.championTeam, { color: textColor }]} numberOfLines={2}>
+            {champion.teamName}
+          </Text>
+          <Text style={[styles.championPoints, { color: gold }]}>
+            {champion.totalPoints} points · {champion.activitiesCompleted} activities
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -272,12 +293,33 @@ export default function LeaderboardScreen() {
   const primary = useThemeColor({}, 'primary');
   const primarySoft = useThemeColor({}, 'primarySoft');
   const onPrimary = useThemeColor({}, 'onPrimary');
+  const danger = useThemeColor({}, 'danger');
+
   const [activeActivity, setActiveActivity] = useState<Activity>('parachute');
-  const [results, setResults] = useState<LeaderboardResult[]>([]);
+  const [results, setResults] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [localTeam, setLocalTeam] = useState<any | null>(null);
+  const [activityError, setActivityError] = useState(false);
+  const [overallLoading, setOverallLoading] = useState(true);
+  const [overallError, setOverallError] = useState(false);
+  const [activityBuckets, setActivityBuckets] = useState<
+    Partial<Record<Activity, LeaderboardRow[]>>
+  >({});
+  const [localTeam, setLocalTeam] = useState<{
+    id?: number;
+    name?: string;
+    avatarKey?: string;
+  } | null>(null);
 
   const activeColour = ACTIVITY_COLOURS[activeActivity];
+
+  const overallStandings = useMemo(
+    () => computeOverallStandings(activityBuckets),
+    [activityBuckets]
+  );
+  const champion = overallStandings[0] ?? null;
+  const overallRankings = champion
+    ? overallStandings.slice(1, OVERALL_RANKINGS_DISPLAY_LIMIT + 1)
+    : overallStandings.slice(0, OVERALL_RANKINGS_DISPLAY_LIMIT);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -292,49 +334,49 @@ export default function LeaderboardScreen() {
   );
 
   useEffect(() => {
+    setOverallLoading(true);
+    setOverallError(false);
+
+    const unsubs = LEADERBOARD_ACTIVITIES.map((activity) =>
+      subscribeActivityRaw(
+        activity,
+        (raw) => {
+          setActivityBuckets((prev) => ({
+            ...prev,
+            [activity]: dedupeBestPerTeam(activity, raw),
+          }));
+          setOverallLoading(false);
+        },
+        () => {
+          setOverallError(true);
+          setOverallLoading(false);
+        }
+      )
+    );
+
+    return () => {
+      unsubs.forEach((unsubscribe) => unsubscribe());
+    };
+  }, []);
+
+  useEffect(() => {
     setLoading(true);
+    setActivityError(false);
     setResults([]);
 
-    let unsubscribe: () => void;
+    const unsubscribe = subscribeActivityRaw(
+      activeActivity,
+      (raw) => {
+        setResults(prepareActivityLeaderboard(activeActivity, raw));
+        setLoading(false);
+      },
+      () => {
+        setActivityError(true);
+        setLoading(false);
+      }
+    );
 
-    if (activeActivity === 'parachute') {
-      unsubscribe = subscribeToLeaderboard((data) => {
-        setResults(data as LeaderboardResult[]);
-        setLoading(false);
-      });
-    } else if (activeActivity === 'sound') {
-      unsubscribe = subscribeToSoundLeaderboard((data) => {
-        setResults(data);
-        setLoading(false);
-      });
-    } else if (activeActivity === 'handfan') {
-      unsubscribe = subscribeToHandFanLeaderboard((data) => {
-        setResults(data as any);
-        setLoading(false);
-      });
-    } else if (activeActivity === 'earthquake') {
-      unsubscribe = subscribeToEarthquakeLeaderboard((data) => {
-        setResults(data);
-        setLoading(false);
-      });
-    } else if (activeActivity === 'performance') {
-      unsubscribe = subscribeToPerformanceLeaderboard((data) => {
-        setResults(data as any);
-        setLoading(false);
-      });
-    } else if (activeActivity === 'reaction') {
-      unsubscribe = subscribeToReactionLeaderboard((data) => {
-        setResults(data);
-        setLoading(false);
-      });
-    } else if (activeActivity === 'breathing') {
-      unsubscribe = subscribeToBreathingLeaderboard((data) => {
-        setResults(data);
-        setLoading(false);
-      });
-    }
-
-    return () => unsubscribe?.();
+    return () => unsubscribe();
   }, [activeActivity]);
 
   return (
@@ -345,26 +387,58 @@ export default function LeaderboardScreen() {
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <TouchableOpacity
-            accessibilityLabel="Go back"
-            onPress={() => router.back()}
-            style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={24} color={text} />
-          </TouchableOpacity>
+          <ScreenBackButton />
 
           <ColorPanel colour="lavender">
             {pixelFontLoaded ? <LeaderboardHeroTitle pixelFamily={pixelFamily} /> : null}
-            <PanelMuted style={styles.heroSubtitle}>Top 10 teams per activity</PanelMuted>
+            <PanelMuted style={styles.heroSubtitle}>Team rankings across STEMM Lab</PanelMuted>
             <PanelMuted style={styles.heroBody}>
-              Pick an activity below to see how teams rank across the STEMM Lab challenges.
+              See the all-time champion from activity points, then pick an activity for live top 10
+              teams.
             </PanelMuted>
           </ColorPanel>
+
+          <ColorPanel colour="yellow">
+            <PanelTitle>All-Time Lab Champion</PanelTitle>
+            {overallLoading ? (
+              <ActivityIndicator size="small" color={primary} style={styles.loader} />
+            ) : overallError ? (
+              <Text style={[styles.errorText, { color: danger }]}>
+                Could not load overall rankings. Pull to refresh or try again shortly.
+              </Text>
+            ) : champion ? (
+              <AllTimeChampionCard champion={champion} localTeam={localTeam} />
+            ) : (
+              <OverallEmptyState />
+            )}
+          </ColorPanel>
+
+          {!overallLoading && !overallError && overallRankings.length > 0 ? (
+            <ColorPanel colour="mint">
+              <PanelTitle>Overall Rankings</PanelTitle>
+              <PanelMuted style={styles.listHint}>Top teams by points across activities</PanelMuted>
+              <View style={styles.list}>
+                {overallRankings.map((standing, idx) => (
+                  <LeaderboardRow
+                    key={standing.teamKey}
+                    rank={champion ? idx + 2 : idx + 1}
+                    avatarKey={resolveAvatarKey(standing, localTeam)}
+                    teamName={standing.teamName}
+                    discriminator={getStandingDiscriminator(standing)}
+                    yearLabel={getStandingYearLabel(standing)}
+                    pointsLine={`${standing.totalPoints} pts · ${standing.activitiesCompleted} activities`}
+                    compact
+                  />
+                ))}
+              </View>
+            </ColorPanel>
+          ) : null}
 
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.tabRow}>
-            {ACTIVITIES.map((activity) => {
+            {LEADERBOARD_ACTIVITIES.map((activity) => {
               const isSelected = activeActivity === activity;
               return (
                 <Pressable
@@ -387,37 +461,32 @@ export default function LeaderboardScreen() {
 
           <ColorPanel colour={activeColour}>
             <PanelTitle>{ACTIVITY_DISPLAY_NAMES[activeActivity]}</PanelTitle>
-            <PanelMuted style={styles.listHint}>Showing up to 10 teams · live rankings</PanelMuted>
+            <PanelMuted style={styles.listHint}>
+              Top 10 teams · one best result per team · live rankings
+            </PanelMuted>
 
             {loading ? (
               <ActivityIndicator size="small" color={primary} style={styles.loader} />
+            ) : activityError ? (
+              <Text style={[styles.errorText, { color: danger }]}>
+                Could not load this activity leaderboard. Try again shortly.
+              </Text>
             ) : results.length === 0 ? (
               <LeaderboardEmptyState activityName={ACTIVITY_DISPLAY_NAMES[activeActivity]} />
             ) : (
               <View style={styles.list}>
                 {results.map((result, idx) => {
                   const metric = getActivityMetric(activeActivity, result);
-                  const discriminator = getTeamDiscriminator(result);
-                  const isThisDeviceTeam =
-                    localTeam?.id != null && result.teamId != null
-                      ? String(localTeam.id) === String(result.teamId)
-                      : localTeam?.name && result.teamName
-                        ? String(localTeam.name).trim().toLowerCase() ===
-                          String(result.teamName).trim().toLowerCase()
-                        : false;
-                  // Avatar can be changed after a result was uploaded; always prefer the current
-                  // locally saved avatar for this device's team so the leaderboard reflects updates.
-                  const avatarKey = isThisDeviceTeam
-                    ? (localTeam?.avatarKey ?? result.avatarKey ?? undefined)
-                    : (result.avatarKey ?? undefined);
+                  const discriminator = getLeaderboardDiscriminator(result);
+                  const yearLabel = getLeaderboardYearLabel(result);
                   return (
                     <LeaderboardRow
-                      key={result.id}
+                      key={`${result.id}-${idx}`}
                       rank={idx + 1}
-                      avatarKey={avatarKey}
+                      avatarKey={resolveAvatarKey(result, localTeam)}
                       teamName={result.teamName ?? `Team ${discriminator}`}
                       discriminator={discriminator}
-                      yearLabel={getYearLabel(result)}
+                      yearLabel={yearLabel}
                       metricPrimary={metric.primary}
                       metricLabel={metric.label}
                     />
@@ -457,11 +526,6 @@ const styles = StyleSheet.create({
     paddingBottom: SCREEN_BOTTOM_INSET,
     gap: Spacing.lg,
   },
-  backButton: {
-    alignSelf: 'flex-start',
-    padding: Spacing.xs,
-    marginBottom: Spacing.xs,
-  },
   heroTitle: {
     fontSize: FontSize.xxl,
     fontWeight: '800',
@@ -498,6 +562,11 @@ const styles = StyleSheet.create({
   loader: {
     marginVertical: Spacing.lg,
   },
+  errorText: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    fontWeight: FontWeight.semibold,
+  },
   emptyState: {
     alignItems: 'center',
     gap: Spacing.sm,
@@ -516,6 +585,36 @@ const styles = StyleSheet.create({
   list: {
     gap: Spacing.sm,
   },
+  championCard: {
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  championRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  championAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  championMeta: {
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
+  },
+  championTeam: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.extrabold,
+  },
+  championPoints: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
+  },
   row: {
     borderWidth: 2,
     borderRadius: Radius.lg,
@@ -523,6 +622,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+  },
+  rowCompact: {
+    paddingVertical: Spacing.sm,
   },
   rankWrap: {
     width: 36,

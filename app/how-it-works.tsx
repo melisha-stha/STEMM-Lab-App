@@ -1,11 +1,14 @@
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
+import { useScreenScrollInsets } from '@/hooks/use-screen-scroll-insets';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const STEPS = [
   {
@@ -47,15 +50,12 @@ export default function HowItWorksScreen() {
   const mutedText = useThemeColor({}, 'mutedText');
   const primary = useThemeColor({}, 'primary');
   const engineeringSoft = useThemeColor({}, 'engineeringSoft' as any) ?? 'rgba(0, 122, 255, 0.08)';
-  
+  const { scrollContentStyle } = useScreenScrollInsets();
+
   return (
-    <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
-      <TouchableOpacity
-        accessibilityLabel="Go back"
-        onPress={() => router.back()}
-        style={styles.backButton}>
-        <MaterialIcons name="arrow-back" size={24} color={text} />
-      </TouchableOpacity>
+    <SafeAreaView style={[styles.page, { backgroundColor: background }]} edges={['top']}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, scrollContentStyle]}>
+        <ScreenBackButton />
 
       <Text style={[styles.title, { color: text }]}>How STEMM Lab Works</Text>
 
@@ -76,24 +76,15 @@ export default function HowItWorksScreen() {
       ))}
 
       <PrimaryButton label="Got it" onPress={() => router.back()} />
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   page: { flex: 1 },
-  content: {
-    padding: Spacing.lg,
-    gap: Spacing.md,
-    paddingBottom: Spacing['2xl'],
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    padding: Spacing.xs,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
+  scroll: { flex: 1 },
+  content: {},
   title: {
     ...Typography.hero,
     fontSize: 26,

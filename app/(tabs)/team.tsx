@@ -1,10 +1,14 @@
 import { InfoRow } from '@/components/ui/info-row';
 import { Input } from '@/components/ui/input';
+import { PixelBatteryIcon } from '@/components/ui/pixel-battery-icon';
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { LabJournalSection } from '@/components/ui/lab-journal-section';
 import { SectionCard } from '@/components/ui/section-card';
 import { SCREEN_BOTTOM_INSET, Spacing, Typography } from '@/constants/design';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { clearMissionWelcomePending } from '@/hooks/notifications';
+import { useDeviceBattery } from '@/hooks/useDeviceBattery';
 import { clearTeamData, getTeamData, saveTeamData } from '@/hooks/storage';
 import {
   clearSkipCloudTeamRestore,
@@ -13,13 +17,15 @@ import {
 } from '@/hooks/team-profile';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { type Href, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TeamScreenBackground, useTeamScreenBackground } from '@/components/ui/team-screen-background';
 import { auth } from '@/hooks/firebaseConfig';
-import { getTrials } from '@/hooks/database';
+import { filterTrialsByTeam, getTrials } from '@/hooks/database';
+import { loadLabJournalEntries, type LabJournalEntry } from '@/hooks/lab-journal';
 
 type AvatarKey = 'ben' | 'girl' | 'frog' | 'bunny' | 'cat' | 'fox';
 
@@ -46,6 +52,8 @@ export default function TeamTabScreen() {
     avatarKey?: AvatarKey;
   } | null>(null);
   const [trials, setTrials] = useState<any[]>([]);
+  const [journalEntries, setJournalEntries] = useState<LabJournalEntry[]>([]);
+  const [journalLoading, setJournalLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -97,6 +105,19 @@ export default function TeamTabScreen() {
   const cardYellowText = useThemeColor({}, 'cardYellowText');
 
   const { overlayColor, imageOpacity } = useTeamScreenBackground();
+  const deviceBattery = useDeviceBattery();
+
+  const batteryFillColor = (() => {
+    if (deviceBattery.isCharging) return primary;
+    const level = deviceBattery.levelPercent;
+    if (level == null) return mutedText;
+    if (level >= 50) return cardMintText;
+    if (level >= 20) return cardYellowText;
+    return danger;
+  })();
+
+  const batteryPercentLabel =
+    deviceBattery.levelPercent != null ? `${deviceBattery.levelPercent}%` : '—';
 
   useEffect(() => {
     const load = async () => {
@@ -116,7 +137,7 @@ export default function TeamTabScreen() {
     void load();
   }, []);
 
-  useEffect(() => {
+  const refreshTrials = useCallback(() => {
     try {
       const rows = getTrials();
       setTrials(Array.isArray(rows) ? rows : []);
@@ -124,6 +145,42 @@ export default function TeamTabScreen() {
       setTrials([]);
     }
   }, []);
+
+  const refreshLabJournal = useCallback(async () => {
+    if (!team?.name?.trim() && team?.id == null) {
+      setJournalEntries([]);
+      setJournalLoading(false);
+      return;
+    }
+
+    setJournalLoading(true);
+    try {
+      const entries = await loadLabJournalEntries(team.name, team.id ?? null);
+      setJournalEntries(entries);
+    } catch {
+      setJournalEntries([]);
+    } finally {
+      setJournalLoading(false);
+    }
+  }, [team]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshTrials();
+      if (team) {
+        void refreshLabJournal();
+      } else {
+        setJournalEntries([]);
+        setJournalLoading(false);
+      }
+    }, [refreshTrials, refreshLabJournal, team])
+  );
+
+  useEffect(() => {
+    if (team) {
+      void refreshLabJournal();
+    }
+  }, [team, refreshLabJournal]);
 
   const handleResetTeam = () => {
     const performReset = async () => {
@@ -162,6 +219,7 @@ export default function TeamTabScreen() {
         // Clear local cache; allow cloud restore on next login.
         await clearTeamData();
         await clearSkipCloudTeamRestore();
+        await clearMissionWelcomePending();
         await auth.signOut();
         router.replace('/welcome-screen' as Href);
       } catch {
@@ -210,7 +268,7 @@ export default function TeamTabScreen() {
   const activeAvatar = AVATARS.find((a) => a.key === avatarKey) ?? AVATARS.find((a) => a.key === 'frog')!;
 
   const teamName = team?.name?.trim() || 'Team';
-  const teamTrials = trials.filter((t) => (t?.teamName ?? '').trim() === teamName);
+  const teamTrials = filterTrialsByTeam(trials, teamName);
   const activitiesCompleted = new Set(teamTrials.map((t) => t?.activity).filter(Boolean)).size;
   const savedAttempts = teamTrials.length;
   const latestActivityKey = teamTrials.length ? teamTrials[teamTrials.length - 1]?.activity : null;
@@ -471,6 +529,87 @@ export default function TeamTabScreen() {
 
           <PrimaryButton label={editOpen ? 'Close editor' : 'Edit team details'} variant="secondary" onPress={editOpen ? closeEdit : openEdit} />
 
+          <View style={styles.sectionHeaderRow}>
+            {pixelFontLoaded ? (
+              <Text style={withPixelFontStyle(pixelFamily, styles.sectionTitle, { color: text })}>
+                Device battery
+              </Text>
+            ) : (
+              <Text style={[styles.sectionTitle, { color: text }]}>Device battery</Text>
+            )}
+            <Text style={[styles.batterySectionHint, { color: mutedText }]}>
+              Live status from this phone — updates while you stay on this screen.
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.batteryCard,
+              {
+                backgroundColor: cardMint,
+                borderColor: cardMintBorder,
+                borderBottomColor: cardMintShadow,
+              },
+            ]}>
+            <View style={styles.batteryRow}>
+              <PixelBatteryIcon
+                percent={deviceBattery.levelPercent}
+                charging={deviceBattery.isCharging}
+                fillColor={batteryFillColor}
+                trackColor="rgba(0,0,0,0.08)"
+                borderColor={cardMintText}
+                chargingAccentColor={onPrimary}
+              />
+              <View style={styles.batteryMeta}>
+                {pixelFontLoaded ? (
+                  <Text
+                    style={withPixelFontStyle(pixelFamily, styles.batteryPercent, {
+                      color: cardMintText,
+                    })}>
+                    {batteryPercentLabel}
+                  </Text>
+                ) : (
+                  <Text style={[styles.batteryPercent, { color: cardMintText }]}>
+                    {batteryPercentLabel}
+                  </Text>
+                )}
+                <View style={styles.batteryStatusRow}>
+                  <MaterialIcons
+                    name={deviceBattery.isCharging ? 'bolt' : 'battery-std'}
+                    size={18}
+                    color={cardMintText}
+                  />
+                  <Text style={[styles.batteryStatusText, { color: cardMintText }]}>
+                    {deviceBattery.stateLabel}
+                  </Text>
+                </View>
+                <Text style={[styles.batteryHealthText, { color: cardMintText, opacity: 0.9 }]}>
+                  {deviceBattery.healthLabel}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.batteryInfoBlock, { borderTopColor: cardMintBorder }]}>
+              <InfoRow
+                label="Power source"
+                value={deviceBattery.isCharging ? 'External power' : 'Battery'}
+              />
+              <InfoRow label="Charge state" value={deviceBattery.stateLabel} />
+              <InfoRow
+                label="Low power mode"
+                value={deviceBattery.lowPowerMode ? 'On' : 'Off'}
+              />
+              <InfoRow
+                label="Sensor API"
+                value={
+                  deviceBattery.available
+                    ? 'Available on this device'
+                    : 'Limited (simulator or unsupported browser)'
+                }
+              />
+            </View>
+          </View>
+
           {editOpen ? (
             <SectionCard>
               <Text style={[styles.editIntro, { color: mutedText }]}>
@@ -603,6 +742,22 @@ export default function TeamTabScreen() {
             <InfoRow label="Latest activity" value={latestActivityLabel || 'Not started'} />
             <InfoRow label="Sync status" value={syncStatus} />
           </SectionCard>
+
+          {team ? (
+            <LabJournalSection
+              entries={journalEntries}
+              loading={journalLoading}
+              pixelFontLoaded={pixelFontLoaded}
+              pixelFamily={pixelFamily}
+              textColor={text}
+              mutedTextColor={mutedText}
+              borderColor={border}
+              cardBackground={cardLavender}
+              cardBorder={cardLavenderBorder}
+              cardShadow={cardLavenderShadow}
+              accentColor={cardLavenderText}
+            />
+          ) : null}
 
           <View style={styles.sectionHeaderRow}>
             {pixelFontLoaded ? (
@@ -742,4 +897,47 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 34, fontWeight: '900', fontFamily: 'monospace' },
   statLabel: { ...Typography.small, marginTop: 4, fontWeight: '800' },
   dangerHint: { ...Typography.small, lineHeight: 18 },
+  batterySectionHint: { ...Typography.small, lineHeight: 18 },
+  batteryCard: {
+    borderRadius: 24,
+    borderWidth: 2,
+    borderBottomWidth: 5,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  batteryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+  },
+  batteryMeta: {
+    flex: 1,
+    gap: 6,
+  },
+  batteryPercent: {
+    fontSize: 40,
+    fontWeight: '900',
+    letterSpacing: 1,
+    fontFamily: 'monospace',
+  },
+  batteryStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  batteryStatusText: {
+    ...Typography.small,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  batteryHealthText: {
+    ...Typography.small,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  batteryInfoBlock: {
+    borderTopWidth: 1,
+    marginTop: Spacing.xs,
+  },
 });
