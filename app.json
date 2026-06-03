@@ -4,7 +4,7 @@
     "slug": "STEMM-Lab-App",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/welcomelogo.png",
     "scheme": "stemmlabapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.stemmlab.stemmlabapp",
       "config": {
-        "googleMapsApiKey": "REPLACE_ME_WITH_GOOGLE_MAPS_API_KEY"
+        "googleMapsApiKey": "AIzaSyAU9gVtBwotB3ivD76K9reMk8_F4IpSXSQ"
       }
     },
     "android": {
@@ -20,14 +20,12 @@
       "versionCode": 1,
       "config": {
         "googleMaps": {
-          "apiKey": "REPLACE_ME_WITH_GOOGLE_MAPS_API_KEY"
+          "apiKey": "AIzaSyAU9gVtBwotB3ivD76K9reMk8_F4IpSXSQ"
         }
       },
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#C4B5E8",
+        "foregroundImage": "./assets/images/welcomelogo.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,

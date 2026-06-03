@@ -50,6 +50,8 @@ import { auth } from '../hooks/firebaseConfig';
 import { queueParachuteUploadFallback } from '@/services/sync/activity-upload-fallback';
 import { uploadParachuteResult } from '../hooks/firestore';
 import { getTeamData } from '../hooks/storage';
+import { useLearningTier } from '@/hooks/useLearningTier';
+import { type LearningTier } from '@/utils/formatters/learning-tier';
 
 export const options = {
   headerShown: false,
@@ -186,27 +188,6 @@ type CalculatedOutputs = {
     dragForce: number;
   };
   gForce: number;
-};
-
-type LearningTier = 'upper_primary' | 'lower_secondary';
-
-const parseYearNumber = (raw: unknown): number | null => {
-  if (raw == null) return null;
-  const s = String(raw).trim();
-  if (!s) return null;
-  const match = s.match(/(\d{1,2})/);
-  if (!match) return null;
-  const n = Number(match[1]);
-  return Number.isFinite(n) ? n : null;
-};
-
-const resolveLearningTier = (teamData: any | null | undefined): LearningTier => {
-  // Backward-compatible: try yearLevel first (usually "4" or "Year 4"), then grade.
-  const year = parseYearNumber(teamData?.yearLevel ?? teamData?.grade);
-  if (year === 4 || year === 5 || year === 6) return 'upper_primary';
-  if (year === 7 || year === 8 || year === 9) return 'lower_secondary';
-  // Missing/unclear year defaults to Lower Secondary so we never hide science results.
-  return 'lower_secondary';
 };
 
 function UpperPrimaryMarkerTool({
@@ -758,7 +739,7 @@ export default function ParachuteScreen() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [locationStatus, setLocationStatus] = useState('📡 Searching...');
-  const [learningTier, setLearningTier] = useState<LearningTier>('lower_secondary');
+  const { learningTier } = useLearningTier();
 
   const [attempts, setAttempts] = useState<ParachuteAttempt[]>([]);
   const [massKg, setMassKg] = useState<string>('');
@@ -861,17 +842,6 @@ export default function ParachuteScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       setLocationStatus(status === 'granted' ? 'Fixed' : 'Off');
     })();
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    void getTeamData().then((teamData) => {
-      if (!active) return;
-      setLearningTier(resolveLearningTier(teamData));
-    });
-    return () => {
-      active = false;
-    };
   }, []);
 
   const resetCurrentFrameAnalysis = () => {
