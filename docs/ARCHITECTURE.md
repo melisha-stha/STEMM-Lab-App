@@ -139,10 +139,10 @@ Upload and subscription logic: `hooks/firestore.ts`. Security rules: `firestore.
 Shared pixel/pastel UI used across the app:
 
 - Actions: `primary-button`, `input`, `pixel-button`, `pixel-choice-button`
-- Layout: `section-card`, `screen-back-button`, `info-row`, `badge-pill`
+- Layout: `section-card`, `screen-back-button`, `info-row`
 - Activity chrome: `activity-color-panel`, `activity-card`, per-activity `*-screen-background`
 - Features: `experiment-challenge-timer`, `video-scrubber`, `lab-journal-section`, `attempt-row`, `theme-mode-toggle`
-- Auth/setup: `auth-screen-background`, `team-setup-screen-background`, `learning-level-card` (where used)
+- Auth/setup: `auth-screen-background`, `team-setup-screen-background`
 
 ### Scaffolded (future extractions)
 
@@ -228,7 +228,8 @@ Secrets stay in `.env` (`EXPO_PUBLIC_*`); never commit `.env` (see `.env.example
 | **Stage 3A** | Extract repeated UI (`ActivityStepPanel`, `EquipmentChecklist`, `ResultMetricCard`, `LeaderboardRow`, `OverallChampionCard`) — **done** | Low–medium |
 | **Stage 3B** | Activity tab bars, overview heroes, empty states (where duplicated) | Low–medium |
 | **Stage 4** | Optional split of `firestore.ts`, `storage.js` into `services/` | Medium |
-| **Stage 5** | Remove confirmed dead files (template components, unused routes) after reference search | Low |
+| **Dead file cleanup 1** | Removed unused non-route components (Expo starter + unused `components/ui/*`) — **done** | Low |
+| **Stage 5** | Legacy `app/` routes (`welcome`, `results`, `modal`, etc.) and `hooks/` re-exports after confirmation | Low |
 
 Stage 1 does **not** move application code. The working app behaviour is unchanged.
 
