@@ -11,7 +11,7 @@ jest.mock('expo-location', () => ({
   },
 }));
 
-describe('Battery Tracker Hook Test Suite (Melsa)', () => {
+describe('Battery Tracker Hook Test Suite (Melisha)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
