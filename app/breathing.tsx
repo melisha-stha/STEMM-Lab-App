@@ -46,9 +46,10 @@ import { getTeamData } from '../hooks/storage';
 const ACTIVITY_BREATHING = 'breathing';
 const SESSION_COUNT = 3;
 const SESSION_DURATION_MS = 30000; // 30-second measurement window
-const ACCELEROMETER_INTERVAL = 100;
+const ACCELEROMETER_INTERVAL = 50; // 20 Hz — better resolution for slow chest motion
 const BAR_MAX_HEIGHT = 120;
 const BAR_MIN_HEIGHT = 8;
+const MIN_SAMPLES_FOR_BPM = 40;
 const BREATHING_DIAGRAM = require('@/assets/images/breathing-diagram.jpeg');
 const BREATHING_DIAGRAM_ASPECT = 680 / 382;
 
@@ -129,42 +130,77 @@ function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined })
   );
 }
 
-const calculateBPM = (zValues: number[]): number => {
-  if (zValues.length < 15) return 0;
+type AccelSample = { x: number; y: number; z: number };
 
-  // 1. Isolate relative motion by filtering out the 1.0g gravity baseline
-  const movementDeltas = zValues.map((val) => Math.abs(val - 1.0));
+/** Total g from x/y/z — works regardless of how the phone rests on the chest. */
+const getChestMotionMagnitude = (x: number, y: number, z: number): number =>
+  Math.sqrt(x * x + y * y + z * z);
 
-  // 2. Smooth signal noise using a moving average window
-  const windowSize = 4;
+/** Chest motion strength for the live bar (0–1 scale). */
+const getMotionStrength = (x: number, y: number, z: number): number => {
+  const magnitude = getChestMotionMagnitude(x, y, z);
+  return Math.min(1, Math.abs(magnitude - 1.0) * 12);
+};
+
+const smoothSeries = (values: number[], windowSize: number): number[] => {
   const smoothed: number[] = [];
-  for (let i = 0; i < movementDeltas.length; i++) {
+  for (let i = 0; i < values.length; i++) {
     const start = Math.max(0, i - windowSize);
-    const subset = movementDeltas.slice(start, i + 1);
-    const avg = subset.reduce((sum, v) => sum + v, 0) / subset.length;
-    smoothed.push(avg);
+    const subset = values.slice(start, i + 1);
+    smoothed.push(subset.reduce((sum, v) => sum + v, 0) / subset.length);
   }
+  return smoothed;
+};
 
-  // 3. Peak-to-trough detection thresholding
-  const meanDelta = smoothed.reduce((sum, v) => sum + v, 0) / smoothed.length;
-  let peakCount = 0;
+const estimateBpmFromSeries = (values: number[], durationSec: number): number => {
+  if (values.length < MIN_SAMPLES_FOR_BPM || durationSec <= 0) return 0;
 
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  const centered = values.map((v) => v - mean);
+  const smoothed = smoothSeries(centered, 5);
+
+  const peakAmplitude = smoothed.reduce((max, v) => Math.max(max, Math.abs(v)), 0);
+  if (peakAmplitude < 0.002) return 0;
+
+  const threshold = peakAmplitude * 0.2;
+  let peaks = 0;
   for (let i = 1; i < smoothed.length - 1; i++) {
     if (
       smoothed[i] > smoothed[i - 1] &&
       smoothed[i] > smoothed[i + 1] &&
-      smoothed[i] > meanDelta + 0.005 // Verifies substantial chest expansion movement
+      Math.abs(smoothed[i]) > threshold
     ) {
-      peakCount++;
+      peaks++;
     }
   }
 
-  // 4. Extrapolate 30-second sample counts up to a full 60-second minute value
-  const totalSecondsLogged = (zValues.length * ACCELEROMETER_INTERVAL) / 1000;
-  const scalingFactor = 60 / totalSecondsLogged;
-  
-  const estimatedBpm = Math.round(peakCount * scalingFactor);
-  return Math.max(8, Math.min(48, estimatedBpm)); // Filters out noise into standard physiological limits
+  if (peaks === 0) return 0;
+
+  const breathCycles = Math.max(1, Math.round(peaks * 0.65));
+  const bpm = Math.round((breathCycles / durationSec) * 60);
+  return Math.max(6, Math.min(80, bpm));
+};
+
+const calculateBPM = (samples: AccelSample[]): number => {
+  if (samples.length < MIN_SAMPLES_FOR_BPM) return 0;
+
+  const durationSec = (samples.length * ACCELEROMETER_INTERVAL) / 1000;
+  const xValues = samples.map((s) => s.x);
+  const yValues = samples.map((s) => s.y);
+  const zValues = samples.map((s) => s.z);
+  const magnitudeValues = samples.map((s) => getChestMotionMagnitude(s.x, s.y, s.z));
+
+  const candidates = [
+    estimateBpmFromSeries(xValues, durationSec),
+    estimateBpmFromSeries(yValues, durationSec),
+    estimateBpmFromSeries(zValues, durationSec),
+    estimateBpmFromSeries(magnitudeValues, durationSec),
+  ].filter((bpm) => bpm > 0);
+
+  if (candidates.length === 0) return 0;
+
+  candidates.sort((a, b) => a - b);
+  return candidates[Math.floor(candidates.length / 2)];
 };
 
 const formatCountdown = (ms: number): string => {
@@ -191,14 +227,18 @@ export default function BreathingScreen() {
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0);
   const [activityStep, setActivityStep] = useState<ActivityStep>('ready');
   const [countdownMs, setCountdownMs] = useState(SESSION_DURATION_MS);
-  const [liveZ, setLiveZ] = useState(1.0);
+  const [liveMotionStrength, setLiveMotionStrength] = useState(0);
+  const [liveSampleCount, setLiveSampleCount] = useState(0);
+  const [liveBpmEstimate, setLiveBpmEstimate] = useState<number | null>(null);
+  const [sensorReady, setSensorReady] = useState<boolean | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const [memberName, setMemberName] = useState('');
   const [attempts, setAttempts] = useState<ExtendedBreathingAttempt[]>([]);
 
-  const zReadings = useRef<number[]>([]);
+  const motionSamples = useRef<AccelSample[]>([]);
   const accelSubscriptionRef = useRef<{ remove: () => void } | null>(null);
+  const recordingSessionRef = useRef(false);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -272,12 +312,10 @@ export default function BreathingScreen() {
 
   useEffect(() => () => clearChallengeInterval(), [clearChallengeInterval]);
 
-  // Dynamic visual height calculation for the live chest movement bar
   const liveBarHeight = useMemo(() => {
-    const relativeMotion = Math.abs(liveZ - 1.0);
-    const clamped = Math.max(0, Math.min(0.3, relativeMotion)); 
-    return BAR_MIN_HEIGHT + (clamped / 0.3) * (BAR_MAX_HEIGHT - BAR_MIN_HEIGHT);
-  }, [liveZ]);
+    const clamped = Math.max(0, Math.min(1, liveMotionStrength));
+    return BAR_MIN_HEIGHT + clamped * (BAR_MAX_HEIGHT - BAR_MIN_HEIGHT);
+  }, [liveMotionStrength]);
 
   // Filters attempts for the current active participant
   const currentMemberAttempts = useMemo(() => {
@@ -300,13 +338,38 @@ export default function BreathingScreen() {
     accelSubscriptionRef.current = null;
   };
 
+  const handleAccelSample = useCallback((x: number, y: number, z: number, record: boolean) => {
+    const sample = { x, y, z };
+    setLiveMotionStrength(getMotionStrength(x, y, z));
+
+    if (!record) return;
+
+    motionSamples.current.push(sample);
+    const count = motionSamples.current.length;
+    setLiveSampleCount(count);
+    if (count >= MIN_SAMPLES_FOR_BPM) {
+      setLiveBpmEstimate(calculateBPM(motionSamples.current));
+    }
+  }, []);
+
   const finishRecording = (): void => {
+    recordingSessionRef.current = false;
     stopAccelerometer();
     clearRecordingTimers();
+    setLiveBpmEstimate(null);
 
-    const bpm = calculateBPM(zReadings.current);
+    const bpm = calculateBPM(motionSamples.current);
     const label = SESSION_LABELS[currentSessionIndex];
     const currentName = memberName.trim();
+
+    if (bpm <= 0) {
+      setActivityStep('ready');
+      Alert.alert(
+        'Could not detect breathing',
+        'Keep the phone flat on your chest and breathe steadily, then try the 30s recording again.'
+      );
+      return;
+    }
 
     // Log the completed trial run directly into the participant array
     setAttempts((prev) => [
@@ -321,7 +384,7 @@ export default function BreathingScreen() {
     }
   };
 
-  const startRecording = (): void => {
+  const startRecording = async (): Promise<void> => {
     if (!memberName.trim()) {
       Alert.alert('Name Required', 'Please input a student name to track your session details.');
       return;
@@ -331,15 +394,25 @@ export default function BreathingScreen() {
       return;
     }
 
-    zReadings.current = [];
+    const available = await Accelerometer.isAvailableAsync();
+    if (!available) {
+      Alert.alert('Sensor unavailable', 'This device does not have an accelerometer.');
+      return;
+    }
+
+    stopAccelerometer();
+    recordingSessionRef.current = true;
+    motionSamples.current = [];
     setCountdownMs(SESSION_DURATION_MS);
-    setActivityStep('recording');
+    setLiveBpmEstimate(null);
+    setLiveSampleCount(0);
 
     Accelerometer.setUpdateInterval(ACCELEROMETER_INTERVAL);
-    accelSubscriptionRef.current = Accelerometer.addListener(({ z }) => {
-      zReadings.current.push(z);
-      setLiveZ(z);
+    accelSubscriptionRef.current = Accelerometer.addListener(({ x, y, z }) => {
+      handleAccelSample(x, y, z, true);
     });
+
+    setActivityStep('recording');
 
     countdownIntervalRef.current = setInterval(() => {
       setCountdownMs((prev) => Math.max(0, prev - ACCELEROMETER_INTERVAL));
@@ -349,6 +422,51 @@ export default function BreathingScreen() {
       finishRecording();
     }, SESSION_DURATION_MS);
   };
+
+  useEffect(() => {
+    if (Platform.OS === 'web' || screenTab !== 'activity') {
+      setSensorReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    void Accelerometer.isAvailableAsync().then((available) => {
+      if (!cancelled) setSensorReady(available);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [screenTab]);
+
+  useEffect(() => {
+    if (
+      Platform.OS === 'web' ||
+      screenTab !== 'activity' ||
+      activityStep !== 'ready' ||
+      !memberName.trim()
+    ) {
+      return;
+    }
+
+    let active = true;
+    void (async () => {
+      const available = await Accelerometer.isAvailableAsync();
+      if (!available || !active) return;
+
+      Accelerometer.setUpdateInterval(ACCELEROMETER_INTERVAL);
+      accelSubscriptionRef.current = Accelerometer.addListener(({ x, y, z }) => {
+        handleAccelSample(x, y, z, false);
+      });
+    })();
+
+    return () => {
+      active = false;
+      if (!recordingSessionRef.current) {
+        stopAccelerometer();
+      }
+    };
+  }, [screenTab, activityStep, memberName, handleAccelSample]);
 
   useEffect(() => {
     return () => {
@@ -376,7 +494,9 @@ export default function BreathingScreen() {
     clearRecordingTimers();
     setCurrentSessionIndex(0);
     setCountdownMs(SESSION_DURATION_MS);
-    setLiveZ(1.0);
+    setLiveMotionStrength(0);
+    setLiveSampleCount(0);
+    setLiveBpmEstimate(null);
     setMemberName('');
     setActivityStep('ready');
   };
@@ -604,24 +724,53 @@ export default function BreathingScreen() {
             {(activityStep === 'ready' || activityStep === 'recording' || activityStep === 'session_done') && (
               <View style={styles.activityBlock}>
                 <PanelMuted style={[styles.instruction, { color: textSecondary }]}>
-                  Place phone flat on your chest and breathe normally
+                  Place phone flat on your chest and breathe normally. The bar moves with your chest —
+                  measured by the device accelerometer.
                 </PanelMuted>
+
+                {sensorReady === false && (
+                  <PanelMuted style={[styles.sensorHint, { color: mutedText }]}>
+                    Accelerometer not available on this device.
+                  </PanelMuted>
+                )}
 
                 <View style={[styles.indicatorCard, { borderColor: border, backgroundColor: backgroundSecondary }]}>
                   <View style={[styles.barTrack, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-                    <View style={[styles.barFill, { height: liveBarHeight, backgroundColor: activityStep === 'recording' ? primary : border }]} />
+                    <View
+                      style={[
+                        styles.barFill,
+                        {
+                          height: liveBarHeight,
+                          backgroundColor:
+                            activityStep === 'recording' ? primary : sensorReady ? border : mutedText,
+                        },
+                      ]}
+                    />
                   </View>
 
                   {activityStep === 'recording' && (
                     <>
                       <Text style={[styles.recordingLabel, { color: primary }]}>LOGGING CHEST MOTION…</Text>
                       <Text style={[styles.countdown, { color: text }]}>{formatCountdown(countdownMs)}</Text>
+                      <Text style={[styles.liveBpm, { color: textSecondary }]}>
+                        Live estimate: {liveBpmEstimate != null ? `${liveBpmEstimate} BPM` : '…'}
+                      </Text>
+                      <Text style={[styles.liveBpm, { color: mutedText }]}>
+                        Motion: {Math.round(liveMotionStrength * 100)}% · {liveSampleCount} samples
+                      </Text>
                     </>
+                  )}
+
+                  {activityStep === 'ready' && sensorReady && memberName.trim().length > 0 && (
+                    <Text style={[styles.liveBpm, { color: textSecondary }]}>
+                      Sensor active — motion {Math.round(liveMotionStrength * 100)}% (bar should move
+                      as you breathe)
+                    </Text>
                   )}
 
                   {activityStep === 'session_done' && (
                     <Text style={[styles.bpmResult, { color: primary }]}>
-                      {currentMemberAttempts.find((a) => a.sessionIndex === currentSessionIndex)?.bpm ?? 0} BPM
+                      {currentMemberAttempts.find((a) => a.sessionIndex === currentSessionIndex)?.bpm ?? '—'} BPM
                     </Text>
                   )}
                 </View>
@@ -815,6 +964,8 @@ const styles = StyleSheet.create({
   recordingLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
   countdown: { fontSize: 32, fontWeight: '800', fontVariant: ['tabular-nums'] },
   bpmResult: { fontSize: 44, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  liveBpm: { fontSize: 15, fontWeight: '600', marginTop: Spacing.xs, textAlign: 'center' },
+  sensorHint: { fontSize: 13, lineHeight: 18, marginBottom: Spacing.sm },
   exerciseTitle: { fontSize: 16, fontWeight: '900' },
   summaryRow: { fontSize: 13, paddingVertical: 2, opacity: 0.95 },
   attemptRowListItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
