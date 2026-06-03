@@ -45,7 +45,7 @@ jest.mock('expo-notifications', () => ({
   },
 }));
 
-describe('Notification Engine Test Suite (Melsa)', () => {
+describe('Notification Engine Test Suite (Melisha)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
