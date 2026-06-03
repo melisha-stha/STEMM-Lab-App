@@ -5,10 +5,10 @@ import { ThemeModeToggle } from '@/components/ui/theme-mode-toggle';
 import { FontWeight, Radius, Spacing, TAB_BAR_HEIGHT } from '@/constants/design';
 import { resolveAppRoute } from '@/hooks/app-routing';
 import { getTrials } from '@/hooks/database';
+import { triggerMissionWelcome } from '@/hooks/notifications';
 import { getTeamData } from '@/hooks/storage';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { triggerMissionWelcome } from '@/hooks/notifications';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { type Href, useRouter } from 'expo-router';
@@ -27,6 +27,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+// @ts-ignore
 import { auth } from '../../hooks/firebaseConfig';
 
 const TOTAL_ACTIVITIES = 7;

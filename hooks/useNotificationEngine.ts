@@ -4,6 +4,7 @@ import {
   ensureNotificationPermissions,
   setupNotificationCategories,
 } from '@/hooks/notifications';
+import * as Notifications from 'expo-notifications'; // add this
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
@@ -45,8 +46,6 @@ export function useNotificationEngine() {
 
   useEffect(() => {
     if (!areAppNotificationsAvailable()) return;
-
-    const Notifications = require('expo-notifications') as typeof import('expo-notifications');
 
     const foregroundSubscription = Notifications.addNotificationReceivedListener((notification) => {
       if (__DEV__) {
