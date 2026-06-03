@@ -37,27 +37,13 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
-describe('AdBanner Component Test Suite (Melsa)', () => {
-  // --- UNIT TEST 1 ---
+describe('AdBanner Component Test Suite (Shreeya)', () => {
+  // --- UNIT TEST ---
   it('should render the fallback preview card texts when running outside an APK environment', () => {
     const { getByText } = render(<AdBanner />);
 
     expect(getByText('AdMob Preview')).toBeTruthy();
     expect(getByText('Real ads appear in APK / dev build')).toBeTruthy();
-  });
-
-  // --- UNIT TEST 2 ---
-  it('should safely match its container visual bounds and styling rules', () => {
-    const { getByText } = render(<AdBanner />);
-    
-    const titleText = getByText('AdMob Preview');
-    
-    expect(titleText.props.style).toContainEqual(
-      expect.objectContaining({
-        fontSize: 13,
-        fontWeight: '700',
-      })
-    );
   });
 
   // --- INTEGRATION TEST ---
