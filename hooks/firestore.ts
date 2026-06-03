@@ -8,7 +8,10 @@ import {
   serverTimestamp,
   where,
 } from "firebase/firestore";
+import { LEADERBOARD_SOURCE_LIMIT } from './leaderboard-scoring';
 import { db } from './firebaseConfig';
+
+type LeaderboardErrorHandler = (error: Error) => void;
 
 export type TeamMapLocation = {
   id: string;
@@ -262,20 +265,27 @@ export const uploadParachuteResult = async (userId: string, teamData: any, attem
   }
 };
 
-export const subscribeToLeaderboard = (callback: (data: any[]) => void) => {
+export const subscribeToLeaderboard = (callback: (data: any[]) => void, onError?: LeaderboardErrorHandler) => {
   const q = query(
-    collection(db, "parachute_results"), 
-    orderBy("bestTime", "desc"), // Slowest flight (highest number) at the top
-    limit(10)
+    collection(db, 'parachute_results'),
+    orderBy('bestTime', 'desc'),
+    limit(LEADERBOARD_SOURCE_LIMIT)
   );
 
-  return onSnapshot(q, (snapshot) => {
-    const results = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    callback(results);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const results = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      callback(results);
+    },
+    (error) => {
+      callback([]);
+      onError?.(error);
+    }
+  );
 };
 
 export const uploadSoundResult = async (
@@ -337,20 +347,28 @@ export const uploadEarthquakeResult = async (
  * Higher dB = louder environment measured. Unsubscribe by calling the returned function.
  */
 export const subscribeToSoundLeaderboard = (
-  callback: (results: SoundLeaderboardEntry[]) => void
+  callback: (results: SoundLeaderboardEntry[]) => void,
+  onError?: LeaderboardErrorHandler
 ): (() => void) => {
   const q = query(
     collection(db, 'soundResults'),
     orderBy('peakDb', 'desc'),
-    limit(10)
+    limit(LEADERBOARD_SOURCE_LIMIT)
   );
-  return onSnapshot(q, (snapshot) => {
-    const results = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as SoundLeaderboardEntry[];
-    callback(results);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const results = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as SoundLeaderboardEntry[];
+      callback(results);
+    },
+    (error) => {
+      callback([]);
+      onError?.(error);
+    }
+  );
 };
 
 /**
@@ -359,20 +377,28 @@ export const subscribeToSoundLeaderboard = (
  * Unsubscribe by calling the returned function.
  */
 export const subscribeToEarthquakeLeaderboard = (
-  callback: (results: EarthquakeLeaderboardEntry[]) => void
+  callback: (results: EarthquakeLeaderboardEntry[]) => void,
+  onError?: LeaderboardErrorHandler
 ): (() => void) => {
   const q = query(
     collection(db, 'earthquakeResults'),
     orderBy('bestScore', 'desc'),
-    limit(10)
+    limit(LEADERBOARD_SOURCE_LIMIT)
   );
-  return onSnapshot(q, (snapshot) => {
-    const results = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as EarthquakeLeaderboardEntry[];
-    callback(results);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const results = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as EarthquakeLeaderboardEntry[];
+      callback(results);
+    },
+    (error) => {
+      callback([]);
+      onError?.(error);
+    }
+  );
 };
 
 /**
@@ -464,20 +490,28 @@ export type ReactionLeaderboardEntry = {
  * Lower average time = faster reaction = better result.
  */
 export const subscribeToReactionLeaderboard = (
-  callback: (results: ReactionLeaderboardEntry[]) => void
+  callback: (results: ReactionLeaderboardEntry[]) => void,
+  onError?: LeaderboardErrorHandler
 ): (() => void) => {
   const q = query(
     collection(db, 'reactionResults'),
     orderBy('avgReactionTimeMs', 'asc'),
-    limit(10)
+    limit(LEADERBOARD_SOURCE_LIMIT)
   );
-  return onSnapshot(q, (snapshot) => {
-    const results = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as ReactionLeaderboardEntry[];
-    callback(results);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const results = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as ReactionLeaderboardEntry[];
+      callback(results);
+    },
+    (error) => {
+      callback([]);
+      onError?.(error);
+    }
+  );
 };
 
 export type BreathingSession = {
@@ -535,20 +569,28 @@ export const uploadBreathingResult = async (
  * Ranking is based on completion (how many sessions were recorded).
  */
 export const subscribeToBreathingLeaderboard = (
-  callback: (results: BreathingLeaderboardEntry[]) => void
+  callback: (results: BreathingLeaderboardEntry[]) => void,
+  onError?: LeaderboardErrorHandler
 ): (() => void) => {
   const q = query(
     collection(db, 'breathingResults'),
     orderBy('sessionsCount', 'desc'),
-    limit(10)
+    limit(LEADERBOARD_SOURCE_LIMIT)
   );
-  return onSnapshot(q, (snapshot) => {
-    const results = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as BreathingLeaderboardEntry[];
-    callback(results);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const results = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as BreathingLeaderboardEntry[];
+      callback(results);
+    },
+    (error) => {
+      callback([]);
+      onError?.(error);
+    }
+  );
 };
 
 export const uploadHandFanResult = async (
@@ -598,16 +640,28 @@ export type HandFanLeaderboardEntry = {
  * Higher bend angle = stronger fan effect.
  */
 export const subscribeToHandFanLeaderboard = (
-  callback: (results: HandFanLeaderboardEntry[]) => void
+  callback: (results: HandFanLeaderboardEntry[]) => void,
+  onError?: LeaderboardErrorHandler
 ): (() => void) => {
-  const q = query(collection(db, 'handfanResults'), orderBy('bestBendAngle', 'desc'), limit(10));
-  return onSnapshot(q, (snapshot) => {
-    const results = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as HandFanLeaderboardEntry[];
-    callback(results);
-  });
+  const q = query(
+    collection(db, 'handfanResults'),
+    orderBy('bestBendAngle', 'desc'),
+    limit(LEADERBOARD_SOURCE_LIMIT)
+  );
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const results = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as HandFanLeaderboardEntry[];
+      callback(results);
+    },
+    (error) => {
+      callback([]);
+      onError?.(error);
+    }
+  );
 };
 
 export const uploadPerformanceResult = async (
@@ -663,18 +717,26 @@ export type PerformanceLeaderboardEntry = {
  * Higher control score = smoother movement (less vibration).
  */
 export const subscribeToPerformanceLeaderboard = (
-  callback: (results: PerformanceLeaderboardEntry[]) => void
+  callback: (results: PerformanceLeaderboardEntry[]) => void,
+  onError?: LeaderboardErrorHandler
 ): (() => void) => {
   const q = query(
     collection(db, 'performanceResults'),
     orderBy('bestControlScore', 'desc'),
-    limit(10)
+    limit(LEADERBOARD_SOURCE_LIMIT)
   );
-  return onSnapshot(q, (snapshot) => {
-    const results = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as PerformanceLeaderboardEntry[];
-    callback(results);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const results = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as PerformanceLeaderboardEntry[];
+      callback(results);
+    },
+    (error) => {
+      callback([]);
+      onError?.(error);
+    }
+  );
 };

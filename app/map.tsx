@@ -337,20 +337,6 @@ export default function MapScreen() {
         )}
 
         <SectionCard>
-          <Text style={[styles.sectionTitle, { color: text }]}>Map Legend</Text>
-          {[
-            { activity: 'parachute', color: '#2196F3', label: 'Parachute Drop' },
-            { activity: 'sound', color: '#4CAF50', label: 'Sound Pollution Hunter' },
-            { activity: 'earthquake', color: '#FF5722', label: 'Earthquake Structure' },
-          ].map((item) => (
-            <View key={item.activity} style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-              <Text style={[styles.legendLabel, { color: mutedText }]}>{item.label}</Text>
-            </View>
-          ))}
-        </SectionCard>
-
-        <SectionCard>
           <Text style={[styles.sectionTitle, { color: text }]}>
             Your Team's Saved Sites ({mapPins.length})
           </Text>
@@ -436,9 +422,6 @@ const styles = StyleSheet.create({
   calloutTeam: { fontSize: 12, color: '#555' },
   calloutResult: { fontSize: 12, color: '#555' },
   calloutDate: { fontSize: 11, color: '#888', marginTop: 2 },
-  legendRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
-  legendDot: { width: 12, height: 12, borderRadius: 6 },
-  legendLabel: { ...Typography.body, fontSize: 13 },
   trialRow: {
     flexDirection: 'row',
     alignItems: 'center',
