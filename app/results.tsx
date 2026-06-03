@@ -9,8 +9,8 @@ import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
 import { getTrials } from '@/hooks/database';
-import { useScreenScrollInsets } from '@/hooks/use-screen-scroll-insets';
 import { getTeamData, saveParachuteResults } from '@/hooks/storage';
+import { useScreenScrollInsets } from '@/hooks/use-screen-scroll-insets';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 function formatTime(ms: number) {
@@ -32,7 +32,7 @@ export default function ResultsScreen() {
   const success = useThemeColor({}, 'success');
   const { scrollContentStyle } = useScreenScrollInsets();
 
-  // Load attempts from SQLite on mount (SCRUM-158: offline fallback)
+  // Load attempts from SQLite on mount 
   useEffect(() => {
     try {
       const trials = getTrials();
