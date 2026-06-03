@@ -1,7 +1,6 @@
 import { PixelFontProvider, usePixelFontContext } from '@/contexts/pixel-font-context';
 import { ThemePreferenceProvider } from '@/contexts/theme-preference';
 import { initDatabase } from '@/hooks/database';
-import { configureNotificationHandler } from '@/hooks/notifications';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
@@ -80,7 +79,6 @@ function RootNavigation() {
 export default function RootLayout() {
   useEffect(() => {
     initDatabase();
-    configureNotificationHandler();
   }, []);
 
   return (

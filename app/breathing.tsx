@@ -19,6 +19,7 @@ import { Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { insertTrial } from '@/hooks/database';
 import type { BreathingSession as BaseBreathingSession } from '@/hooks/firestore';
 import { uploadBreathingResult } from '@/hooks/firestore';
+import { scheduleAppNotification } from '@/hooks/notifications';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useBatteryTracker } from '@/hooks/useBatteryTracker';
@@ -418,6 +419,12 @@ export default function BreathingScreen() {
           : `Time taken: —`;
 
       stopChallengeTimer();
+
+      await scheduleAppNotification({
+        title: 'STEMM Lab Sync Complete',
+        body: 'Breathing result saved',
+        data: { screen: 'breathing-results' },
+      });
 
       Alert.alert(
         'Upload Successful', 
