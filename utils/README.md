@@ -14,4 +14,4 @@ Pure functions: no React, no Firebase, no SQLite, no side effects.
 - `scoring/leaderboard-scoring.ts`
 - `formatters/lab-journal.ts`
 
-Legacy `hooks/` paths re-export Stage 2A modules. Stage 2B added shared formatters under `utils/formatters/` (`duration`, `date`, `team`, `metrics`).
+Stage 2A–2B modules live here; imports use `@/utils/...` only (compatibility re-exports under `hooks/` removed in Final Cleanup 1).

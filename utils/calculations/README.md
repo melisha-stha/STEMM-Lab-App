@@ -6,4 +6,4 @@ Examples: parachute drop metrics, earthquake stability inputs, hand fan force he
 
 **Implemented (Stage 2A):** `sound-metering.ts` (microphone dBFS scaling, smoothing, teaching risk bands).
 
-`hooks/sound-metering.ts` re-exports from here for compatibility.
+Import via `@/utils/calculations/sound-metering` (legacy `hooks/sound-metering` re-export removed).

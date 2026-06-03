@@ -144,16 +144,11 @@ Shared pixel/pastel UI used across the app:
 - Features: `experiment-challenge-timer`, `video-scrubber`, `lab-journal-section`, `attempt-row`, `theme-mode-toggle`
 - Auth/setup: `auth-screen-background`, `team-setup-screen-background`
 
-### Scaffolded (future extractions)
+### Shared activity / leaderboard (`components/activity/`, `components/leaderboard/`)
 
-| Folder | Intended contents |
-|--------|-------------------|
-| `components/activity/` | Shared activity UI: `ActivityStepPanel`, `ActivityScreenTabs`, `EquipmentChecklist`, overview hero blocks |
-| `components/leaderboard/` | `LeaderboardRow`, `AllTimeChampionCard`, empty states (extracted from `app/leaderboard.tsx`) |
-| `components/team/` | Team profile sections beyond what stays in `app/(tabs)/team.tsx` |
-| `components/layout/` | Cross-screen layout helpers (optional grouping of backgrounds, scroll insets wrappers) |
+Stage 3A extracted presentational pieces: `ActivityStepPanel`, `EquipmentChecklist`, `ResultMetricCard`, `LeaderboardRow`, `OverallChampionCard`. Overview tab bars and per-activity heroes remain in each `app/*.tsx` screen (Stage 3B, optional).
 
-Extracting these components is **Stage 3** — presentation only, no change to experiment logic.
+Scaffold READMEs under `components/team/` and `components/layout/` describe optional future grouping only.
 
 ---
 
@@ -182,7 +177,7 @@ Today, many non-UI modules live under `hooks/` for historical reasons. The targe
 
 Keep: `useThemeColor`, `useColorScheme`, `usePixelFont`, `useDeviceBattery`, `useScreenScrollInsets`, `useNotificationEngine`, etc.
 
-**Stage 2A** moved sound metering, leaderboard scoring, and lab journal loaders into `utils/`; `hooks/` re-exports remain. **Stage 2B+** and **Stage 4** (services) continue with re-exports until imports are updated.
+**Stage 2A–2B** moved pure helpers into `utils/`; all imports use `@/utils/...`. Temporary `hooks/` re-exports were removed in **Final Cleanup 1** after migration. **Stage 4** (optional) would move I/O modules from `hooks/` into `services/`.
 
 ---
 
@@ -196,9 +191,7 @@ Several lab screens are **900–1,900 lines** in a single file (`app/parachute.t
 - **Earthquake** — Live gyroscope/accelerometer subscriptions, shaker test, and stability scoring.
 - **Sound** — Microphone baseline capture, metering conversion, and measurement list state.
 
-Each activity also duplicates similar **overview / experiment / write-up / discussion** tab UI and local `StepPanel` helpers. Those are safer to extract later than core experiment state machines.
-
-Pure calculations and repeated UI are planned for **controlled extraction** in Stages 2–3 without changing Firebase payloads, SQLite schema, or route names.
+Each activity still duplicates similar **overview / experiment / write-up / discussion** tab UI locally. Shared step panels and equipment checklists live in `components/activity/` (Stage 3A). Core experiment state machines and upload flows stay in each screen file.
 
 ---
 
@@ -223,13 +216,14 @@ Secrets stay in `.env` (`EXPO_PUBLIC_*`); never commit `.env` (see `.env.example
 | Stage | Scope | Risk |
 |-------|--------|------|
 | **Stage 1** | Architecture docs + folder scaffolding (this document) | Very low |
-| **Stage 2A** | Move pure utilities to `utils/` (`sound-metering`, `leaderboard-scoring`, `lab-journal`) — **done**; `hooks/*` re-exports retained | Low |
+| **Stage 2A** | Move pure utilities to `utils/` (`sound-metering`, `leaderboard-scoring`, `lab-journal`) — **done** | Low |
 | **Stage 2B** | Shared formatters in `utils/formatters/` (`duration`, `date`, `team`, `metrics`) — **done** | Low |
 | **Stage 3A** | Extract repeated UI (`ActivityStepPanel`, `EquipmentChecklist`, `ResultMetricCard`, `LeaderboardRow`, `OverallChampionCard`) — **done** | Low–medium |
 | **Stage 3B** | Activity tab bars, overview heroes, empty states (where duplicated) | Low–medium |
 | **Stage 4** | Optional split of `firestore.ts`, `storage.js` into `services/` | Medium |
 | **Dead file cleanup 1** | Removed unused non-route components (Expo starter + unused `components/ui/*`) — **done** | Low |
-| **Stage 5** | Legacy `app/` routes (`welcome`, `results`, `modal`, etc.) and `hooks/` re-exports after confirmation | Low |
+| **Final Cleanup 1** | Removed `hooks/` compatibility re-exports after all imports used `@/utils/...` — **done** | Very low |
+| **Stage 5** | Legacy `app/` routes (`welcome`, `results`, `modal`, etc.) after confirmation | Low |
 
 Stage 1 does **not** move application code. The working app behaviour is unchanged.
 
