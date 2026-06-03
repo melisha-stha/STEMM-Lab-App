@@ -42,8 +42,8 @@ export const insertTrial = (
   try {
     const database = getDb();
     const values = {
-      teamName: teamName ?? 'unknown',
-      activity: activity ?? 'parachute',
+      teamName: (teamName ?? 'unknown').trim() || 'unknown',
+      activity: (activity ?? 'parachute').trim() || 'parachute',
       time: time ?? 0,
       videoUri: videoUri ?? '',
       latitude: latitude ?? 0,
@@ -52,15 +52,34 @@ export const insertTrial = (
     };
     console.log('SQLite: inserting trial with values:', values);
 
-    database.execSync(
+    database.runSync(
       `INSERT INTO trials (teamName, activity, time, videoUri, latitude, longitude, createdAt)
-       VALUES ('${values.teamName}', '${values.activity}', ${values.time}, '${values.videoUri}', ${values.latitude}, ${values.longitude}, '${values.createdAt}')`
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        values.teamName,
+        values.activity,
+        values.time,
+        values.videoUri,
+        values.latitude,
+        values.longitude,
+        values.createdAt,
+      ]
     );
     console.log('SQLite: insert successful');
   } catch (e) {
     console.error('SQLite insertTrial error:', e);
   }
 };
+
+/** Match trials to the current team (trim + case-insensitive). */
+export function filterTrialsByTeam<T extends { teamName?: string }>(
+  trials: T[],
+  teamName: string | null | undefined
+): T[] {
+  const normalized = (teamName ?? '').trim().toLowerCase();
+  if (!normalized) return [];
+  return trials.filter((row) => (row.teamName ?? '').trim().toLowerCase() === normalized);
+}
 
 export const getTrials = (): any[] => {
   try {

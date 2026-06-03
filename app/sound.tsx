@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/experiment-challenge-timer';
 import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import {
   SoundScreenBackground,
   useSoundScreenBackground,
@@ -21,6 +22,18 @@ import { insertTrial } from '@/hooks/database';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useBatteryTracker } from '@/hooks/useBatteryTracker';
+import {
+  formatAboveBaseline,
+  formatEstimatedLevel,
+  getSoundTeachingRiskBand,
+  medianEstimatedLevel,
+  meteringDbFsToEstimatedLevel,
+  smoothEstimatedLevels,
+  SOUND_BASELINE_CAPTURE_MS,
+  SOUND_METERING_UPDATE_MS,
+  type SoundMeasurement,
+  type SoundTeachingRiskSeverity,
+} from '@/hooks/sound-metering';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Audio } from 'expo-av';
 import { Image } from 'expo-image';
@@ -74,7 +87,7 @@ const INSTRUCTION_STEPS = [
   'Upload your measurements when finished.',
 ];
 
-const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = ['lavender', 'sky', 'lavender'];
+const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = ['mint', 'lavender', 'sky', 'lavender'];
 
 const SOUND_LEVEL_TABLE_ROWS = [
   { level: '0–30 dB', examples: 'Whisper, quiet library', risk: 'No risk', color: '#2E7D32' },
@@ -146,26 +159,35 @@ function StepPanel({ step, title, colour = 'lavender', children }: StepPanelProp
   );
 }
 
-function meterToDb(meter: number): number {
-  const clamped = Math.max(-160, Math.min(0, meter));
-  return Math.round(((clamped + 160) / 160) * 120);
-}
-
-function useDbRisk(db: number) {
+function useSoundRiskPalette() {
   const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
   const warning = useThemeColor({}, 'warning' as any) ?? '#FF9800';
   const error = useThemeColor({}, 'error' as any) ?? '#F44336';
-  const text = useThemeColor({}, 'text');
+  const primary = useThemeColor({}, 'primary');
 
-  if (db < 30) return { label: 'No Risk', color: success };
-  if (db < 60) return { label: 'Safe', color: success };
-  if (db < 85) return { label: 'Long Exposure Risk', color: warning };
-  if (db < 90) return { label: 'Hearing Damage Possible', color: warning };
-  if (db < 100) return { label: 'Hearing Damage Likely', color: error };
-  if (db < 110) return { label: 'Serious Damage', color: error };
-  if (db < 120) return { label: 'Painful', color: error };
-  if (db < 130) return { label: 'Severe Damage', color: text };
-  return { label: 'Instant Permanent Damage', color: text };
+  const colorForSeverity = (severity: SoundTeachingRiskSeverity): string => {
+    switch (severity) {
+      case 'quiet':
+      case 'moderate':
+        return success;
+      case 'lively':
+        return primary;
+      case 'loud':
+        return warning;
+      case 'veryLoud':
+        return error;
+      default:
+        return primary;
+    }
+  };
+
+  return { colorForSeverity };
+}
+
+function useEstimatedSoundRisk(estimatedLevel: number) {
+  const { colorForSeverity } = useSoundRiskPalette();
+  const band = getSoundTeachingRiskBand(estimatedLevel);
+  return { ...band, color: colorForSeverity(band.severity) };
 }
 
 function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
@@ -305,9 +327,63 @@ function OverviewStepByStep() {
   );
 }
 
+type SoundBaselinePanelProps = {
+  roomBaselineDb: number | null;
+  isCapturingBaseline: boolean;
+  isSyncing: boolean;
+  onCaptureBaseline: () => void;
+};
+
+function SoundBaselinePanel({
+  roomBaselineDb,
+  isCapturingBaseline,
+  isSyncing,
+  onCaptureBaseline,
+}: SoundBaselinePanelProps) {
+  const { borderColor, cardIconBg, textColor } = usePanelTheme();
+  const risk = useEstimatedSoundRisk(roomBaselineDb ?? 0);
+
+  return (
+    <>
+      <PanelMuted style={styles.stepHint}>
+        Hold the phone still at your testing spot while the room is quiet. We capture about{' '}
+        {SOUND_BASELINE_CAPTURE_MS / 1000} seconds of microphone metering to set a room baseline.
+        Phone microphones vary — compare actions using the same phone and distance (~30 cm).
+      </PanelMuted>
+      {roomBaselineDb != null ? (
+        <View style={[styles.baselineSummary, { borderColor, backgroundColor: cardIconBg }]}>
+          <Text style={[styles.baselineTitle, { color: textColor }]}>Room baseline captured</Text>
+          <Text style={[styles.dbValue, styles.baselineValue, { color: risk?.color ?? textColor }]}>
+            {formatEstimatedLevel(roomBaselineDb)}
+          </Text>
+          <Text style={[styles.baselineMeta, { color: borderColor }]}>{risk.label}</Text>
+        </View>
+      ) : (
+        <PanelMuted style={styles.baselineMeta}>
+          No baseline yet — capture quiet-room levels before measuring actions.
+        </PanelMuted>
+      )}
+      <PrimaryButton
+        label={
+          isCapturingBaseline
+            ? 'Capturing baseline…'
+            : roomBaselineDb != null
+              ? 'Recalibrate room baseline'
+              : 'Capture room baseline'
+        }
+        variant={isCapturingBaseline ? 'danger' : 'secondary'}
+        disabled={isCapturingBaseline || isSyncing}
+        onPress={onCaptureBaseline}
+      />
+    </>
+  );
+}
+
 type SoundLiveRecordingProps = {
-  liveDb: number;
-  isRecording: boolean;
+  liveEstimated: number;
+  liveAboveBaseline: number | null;
+  roomBaselineDb: number | null;
+  isRecordingAction: boolean;
   isSyncing: boolean;
   measurementsCount: number;
   loudest: number | null;
@@ -316,8 +392,10 @@ type SoundLiveRecordingProps = {
 };
 
 function SoundLiveRecording({
-  liveDb,
-  isRecording,
+  liveEstimated,
+  liveAboveBaseline,
+  roomBaselineDb,
+  isRecordingAction,
   isSyncing,
   measurementsCount,
   loudest,
@@ -325,25 +403,39 @@ function SoundLiveRecording({
   onReset,
 }: SoundLiveRecordingProps) {
   const { borderColor, cardIconBg } = usePanelTheme();
-  const risk = useDbRisk(liveDb);
+  const risk = useEstimatedSoundRisk(liveEstimated);
   const atLimit = measurementsCount >= MAX_MEASUREMENTS;
+  const baselineReady = roomBaselineDb != null;
 
   return (
     <>
       <PanelMuted style={styles.stepHint}>
         Tap Start, perform the labelled action with the phone 30 cm away, then Stop to save the peak
-        reading.
+        reading. Levels are estimated from the microphone — not a certified sound pressure meter.
       </PanelMuted>
 
-      <Text style={[styles.dbValue, { color: risk.color }]}>{liveDb} dB</Text>
+      <Text style={[styles.meterLabel, { color: borderColor }]}>Estimated sound level</Text>
+      <Text style={[styles.dbValue, { color: risk.color }]}>
+        {liveEstimated > 0 ? formatEstimatedLevel(liveEstimated) : '—'}
+      </Text>
+      {liveAboveBaseline != null && liveAboveBaseline > 0 ? (
+        <Text style={[styles.aboveBaselineLine, { color: risk.color }]}>
+          {formatAboveBaseline(liveAboveBaseline)}
+        </Text>
+      ) : null}
+      {roomBaselineDb != null ? (
+        <PanelMuted style={styles.baselineMeta}>
+          Room baseline: {formatEstimatedLevel(roomBaselineDb)}
+        </PanelMuted>
+      ) : null}
       <View style={[styles.riskBadge, { backgroundColor: cardIconBg, borderColor: risk.color }]}>
         <Text style={[styles.riskLabel, { color: risk.color }]}>{risk.label}</Text>
       </View>
 
       <PrimaryButton
-        label={isRecording ? 'Stop & save reading' : 'Start microphone'}
-        variant={isRecording ? 'danger' : 'primary'}
-        disabled={atLimit || isSyncing}
+        label={isRecordingAction ? 'Stop & save peak reading' : 'Start action recording'}
+        variant={isRecordingAction ? 'danger' : 'primary'}
+        disabled={atLimit || isSyncing || !baselineReady}
         onPress={onToggleRecording}
       />
 
@@ -353,7 +445,7 @@ function SoundLiveRecording({
             label="Reset all"
             variant="secondary"
             onPress={onReset}
-            disabled={isSyncing || (measurementsCount === 0 && !isRecording)}
+            disabled={isSyncing || (measurementsCount === 0 && !isRecordingAction)}
           />
         </View>
       </View>
@@ -363,7 +455,9 @@ function SoundLiveRecording({
           Measurements: {measurementsCount}/{MAX_MEASUREMENTS}
         </PanelMuted>
         {loudest !== null ? (
-          <Text style={[styles.helperPeak, { color: borderColor }]}>Peak: {loudest} dB</Text>
+          <Text style={[styles.helperPeak, { color: borderColor }]}>
+            Peak reading: {formatEstimatedLevel(loudest)}
+          </Text>
         ) : null}
       </View>
     </>
@@ -463,13 +557,13 @@ const formatDuration = (ms: number): string => {
 
 type MeasurementRowProps = {
   index: number;
-  measurement: { db: number; label: string };
+  measurement: SoundMeasurement;
   isLoudest: boolean;
 };
 
 function MeasurementRow({ index, measurement, isLoudest }: MeasurementRowProps) {
   const { textColor, borderColor, cardIconBg } = usePanelTheme();
-  const { color: riskColor, label: riskLabel } = useDbRisk(measurement.db);
+  const { color: riskColor, label: riskLabel } = useEstimatedSoundRisk(measurement.db);
 
   return (
     <View
@@ -484,7 +578,19 @@ function MeasurementRow({ index, measurement, isLoudest }: MeasurementRowProps) 
         <Text style={[styles.measureAction, { color: textColor }]}>
           Action {index + 1}: {measurement.label}
         </Text>
-        <Text style={[styles.measureDb, { color: riskColor }]}>{measurement.db} dB</Text>
+        <Text style={[styles.measureDb, { color: riskColor }]}>
+          Peak reading: {formatEstimatedLevel(measurement.db)}
+        </Text>
+        {measurement.avgDb != null ? (
+          <Text style={[styles.measureSubline, { color: borderColor }]}>
+            Avg during action: {formatEstimatedLevel(measurement.avgDb)}
+          </Text>
+        ) : null}
+        {measurement.aboveBaselineDb != null && measurement.aboveBaselineDb > 0 ? (
+          <Text style={[styles.measureSubline, { color: borderColor }]}>
+            {formatAboveBaseline(measurement.aboveBaselineDb)}
+          </Text>
+        ) : null}
       </View>
       <View style={[styles.riskBadge, { backgroundColor: cardIconBg, borderColor: riskColor }]}>
         <Text style={[styles.riskLabel, { color: riskColor }]}>
@@ -504,14 +610,30 @@ export default function SoundScreen() {
   const scrollRef = useRef<ScrollView>(null);
 
   const [screenTab, setScreenTab] = useState<ScreenTab>('overview');
-  const [isRecording, setIsRecording] = useState(false);
+  const [recordingMode, setRecordingMode] = useState<'baseline' | 'action' | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [locationStatus, setLocationStatus] = useState('📡 Searching...');
-  const [liveDb, setLiveDb] = useState(0);
+  const [liveEstimated, setLiveEstimated] = useState(0);
+  const [liveAboveBaseline, setLiveAboveBaseline] = useState<number | null>(null);
+  const [roomBaselineDb, setRoomBaselineDb] = useState<number | null>(null);
   const [actionLabel, setActionLabel] = useState('');
-  const [measurements, setMeasurements] = useState<{ db: number; label: string }[]>([]);
+  const [measurements, setMeasurements] = useState<SoundMeasurement[]>([]);
   const recordingRef = useRef<Audio.Recording | null>(null);
-  const peakDbRef = useRef(0);
+  const recordingModeRef = useRef<'baseline' | 'action' | null>(null);
+  const baselineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peakEstimatedRef = useRef(0);
+  const sumEstimatedRef = useRef(0);
+  const sampleCountRef = useRef(0);
+  const smoothingSamplesRef = useRef<number[]>([]);
+  const sessionSamplesRef = useRef<number[]>([]);
+  const roomBaselineRef = useRef<number | null>(null);
+
+  const isCapturingBaseline = recordingMode === 'baseline';
+  const isRecordingAction = recordingMode === 'action';
+
+  useEffect(() => {
+    roomBaselineRef.current = roomBaselineDb;
+  }, [roomBaselineDb]);
 
   const [challengeTimerStarted, setChallengeTimerStarted] = useState(false);
   const [challengeTimerRunning, setChallengeTimerRunning] = useState(false);
@@ -590,70 +712,174 @@ export default function SoundScreen() {
     })();
   }, []);
 
-  useEffect(() => {
-    return () => {
-      void stopRecording();
-      clearChallengeInterval();
-    };
-  }, [clearChallengeInterval]);
+  const clearBaselineTimer = useCallback(() => {
+    if (baselineTimerRef.current) {
+      clearTimeout(baselineTimerRef.current);
+      baselineTimerRef.current = null;
+    }
+  }, []);
 
-  const startRecording = async () => {
-    if (measurements.length >= MAX_MEASUREMENTS) return;
-    if (!actionLabel.trim()) {
-      Alert.alert('Add a label', 'Describe the action first (e.g. "dropping a book").');
+  const resetMeteringSession = useCallback(() => {
+    peakEstimatedRef.current = 0;
+    sumEstimatedRef.current = 0;
+    sampleCountRef.current = 0;
+    smoothingSamplesRef.current = [];
+    sessionSamplesRef.current = [];
+    setLiveEstimated(0);
+    setLiveAboveBaseline(null);
+  }, []);
+
+  const handleMeteringSample = useCallback((dbfs: number) => {
+    const estimated = meteringDbFsToEstimatedLevel(dbfs);
+    smoothingSamplesRef.current.push(estimated);
+    const smoothed = smoothEstimatedLevels(smoothingSamplesRef.current);
+    sessionSamplesRef.current.push(smoothed);
+
+    peakEstimatedRef.current = Math.max(peakEstimatedRef.current, smoothed);
+    sumEstimatedRef.current += smoothed;
+    sampleCountRef.current += 1;
+
+    setLiveEstimated(smoothed);
+    const baseline = roomBaselineRef.current;
+    setLiveAboveBaseline(baseline != null ? Math.max(0, smoothed - baseline) : null);
+  }, []);
+
+  const finishMeteringSession = useCallback(async () => {
+    clearBaselineTimer();
+
+    if (!recordingRef.current) {
+      setRecordingMode(null);
+      recordingModeRef.current = null;
       return;
     }
 
-    const { status } = await Audio.requestPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Microphone access is required.');
-      return;
-    }
-
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-    });
-
-    peakDbRef.current = 0;
-
-    const { recording } = await Audio.Recording.createAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY,
-      (status) => {
-        if (status.isRecording && status.metering !== undefined) {
-          const db = meterToDb(status.metering);
-          setLiveDb(db);
-          if (db > peakDbRef.current) peakDbRef.current = db;
-        }
-      },
-      100
-    );
-
-    recordingRef.current = recording;
-    setIsRecording(true);
-  };
-
-  const stopRecording = async () => {
-    if (!recordingRef.current) return;
     try {
       await recordingRef.current.stopAndUnloadAsync();
     } catch (_) {}
     recordingRef.current = null;
-    setIsRecording(false);
 
-    const peakDb = peakDbRef.current;
-    if (peakDb > 0 && measurements.length < MAX_MEASUREMENTS) {
-      setMeasurements((prev) => [...prev, { db: peakDb, label: actionLabel.trim() }]);
-      setActionLabel('');
-      setLiveDb(0);
+    const mode = recordingModeRef.current;
+    recordingModeRef.current = null;
+    setRecordingMode(null);
+
+    if (mode === 'baseline') {
+      const baseline =
+        medianEstimatedLevel(sessionSamplesRef.current) || peakEstimatedRef.current;
+      if (baseline > 0) {
+        setRoomBaselineDb(baseline);
+        roomBaselineRef.current = baseline;
+      }
+      resetMeteringSession();
+      return;
     }
-  };
+
+    if (mode === 'action') {
+      const peak = peakEstimatedRef.current;
+      const sampleCount = sampleCountRef.current;
+      const avg =
+        sampleCount > 0 ? Math.round(sumEstimatedRef.current / sampleCount) : peak;
+      const baseline = roomBaselineRef.current;
+      const aboveBaseline =
+        baseline != null && peak > 0 ? Math.max(0, peak - baseline) : undefined;
+
+      const label = actionLabel.trim();
+      setMeasurements((prev) => {
+        if (peak <= 0 || prev.length >= MAX_MEASUREMENTS || !label) return prev;
+        return [
+          ...prev,
+          {
+            db: peak,
+            label,
+            avgDb: avg,
+            aboveBaselineDb: aboveBaseline,
+          },
+        ];
+      });
+      if (peak > 0 && label) {
+        setActionLabel('');
+      }
+      resetMeteringSession();
+    }
+  }, [actionLabel, clearBaselineTimer, resetMeteringSession]);
+
+  const startMeteringSession = useCallback(
+    async (mode: 'baseline' | 'action') => {
+      if (mode === 'action') {
+        if (measurements.length >= MAX_MEASUREMENTS) return;
+        if (!actionLabel.trim()) {
+          Alert.alert('Add a label', 'Describe the action first (e.g. "dropping a book").');
+          return;
+        }
+        if (roomBaselineRef.current == null) {
+          Alert.alert('Capture baseline first', 'Record a quiet room baseline before actions.');
+          return;
+        }
+      }
+
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Microphone access is required.');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      resetMeteringSession();
+
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        (status) => {
+          if (status.isRecording && status.metering !== undefined) {
+            handleMeteringSample(status.metering);
+          }
+        },
+        SOUND_METERING_UPDATE_MS
+      );
+
+      recordingRef.current = recording;
+      recordingModeRef.current = mode;
+      setRecordingMode(mode);
+
+      if (mode === 'baseline') {
+        baselineTimerRef.current = setTimeout(() => {
+          void finishMeteringSession();
+        }, SOUND_BASELINE_CAPTURE_MS);
+      }
+    },
+    [actionLabel, finishMeteringSession, handleMeteringSample, measurements.length, resetMeteringSession]
+  );
+
+  useEffect(() => {
+    return () => {
+      clearBaselineTimer();
+      if (recordingRef.current) {
+        void recordingRef.current.stopAndUnloadAsync().catch(() => {});
+        recordingRef.current = null;
+      }
+      clearChallengeInterval();
+    };
+  }, [clearBaselineTimer, clearChallengeInterval]);
+
+  const startActionRecording = () => void startMeteringSession('action');
+  const captureRoomBaseline = () => void startMeteringSession('baseline');
+  const stopActiveRecording = () => void finishMeteringSession();
 
   const resetAll = () => {
-    void stopRecording();
+    clearBaselineTimer();
+    if (recordingRef.current) {
+      void recordingRef.current.stopAndUnloadAsync().catch(() => {});
+      recordingRef.current = null;
+    }
+    recordingModeRef.current = null;
+    setRecordingMode(null);
     setMeasurements([]);
     setActionLabel('');
-    setLiveDb(0);
+    setRoomBaselineDb(null);
+    roomBaselineRef.current = null;
+    resetMeteringSession();
   };
 
   const finishAndSave = async () => {
@@ -727,12 +953,7 @@ export default function SoundScreen() {
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <TouchableOpacity
-            accessibilityLabel="Go back"
-            onPress={() => router.back()}
-            style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={24} color={text} />
-          </TouchableOpacity>
+          <ScreenBackButton />
 
           <ScrollView
             horizontal
@@ -848,7 +1069,16 @@ export default function SoundScreen() {
                 </View>
               </View>
 
-              <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Label your action">
+              <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Room baseline">
+                <SoundBaselinePanel
+                  roomBaselineDb={roomBaselineDb}
+                  isCapturingBaseline={isCapturingBaseline}
+                  isSyncing={isSyncing}
+                  onCaptureBaseline={captureRoomBaseline}
+                />
+              </StepPanel>
+
+              <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Label your action">
                 <PanelMuted style={styles.stepHint}>
                   Name the sound you are about to measure before you start the microphone.
                 </PanelMuted>
@@ -857,25 +1087,31 @@ export default function SoundScreen() {
                   placeholder='e.g. dropping a textbook, talking, walking'
                   value={actionLabel}
                   onChangeText={setActionLabel}
-                  editable={!isRecording && measurements.length < MAX_MEASUREMENTS}
+                  editable={
+                    !isRecordingAction &&
+                    !isCapturingBaseline &&
+                    measurements.length < MAX_MEASUREMENTS
+                  }
                 />
               </StepPanel>
 
-              <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Record sound level">
+              <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Record sound level">
                 <SoundLiveRecording
-                  liveDb={liveDb}
-                  isRecording={isRecording}
+                  liveEstimated={liveEstimated}
+                  liveAboveBaseline={liveAboveBaseline}
+                  roomBaselineDb={roomBaselineDb}
+                  isRecordingAction={isRecordingAction}
                   isSyncing={isSyncing}
                   measurementsCount={measurements.length}
                   loudest={loudest}
                   onToggleRecording={() =>
-                    isRecording ? void stopRecording() : void startRecording()
+                    isRecordingAction ? void stopActiveRecording() : void startActionRecording()
                   }
                   onReset={resetAll}
                 />
               </StepPanel>
 
-              <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Your measurements">
+              <StepPanel step={4} colour={EXPERIMENT_STEP_COLOURS[3]} title="Your measurements">
                 {measurements.length === 0 ? (
                   <PanelMuted style={styles.emptyHint}>
                     No readings yet — complete Step 2 to log your first measurement.
@@ -898,7 +1134,7 @@ export default function SoundScreen() {
                     variant="primary"
                     style={{ marginTop: Spacing.md }}
                     onPress={() => void finishAndSave()}
-                    disabled={isRecording || isSyncing}
+                    disabled={isRecordingAction || isCapturingBaseline || isSyncing}
                   />
                 )}
               </StepPanel>
@@ -1218,6 +1454,37 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
     marginTop: Spacing.xs,
+  },
+  baselineValue: {
+    fontSize: 40,
+  },
+  baselineSummary: {
+    borderWidth: 2,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: 4,
+  },
+  baselineTitle: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
+  },
+  baselineMeta: {
+    fontSize: FontSize.xs,
+    lineHeight: 18,
+  },
+  meterLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  aboveBaselineLine: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.bold,
+  },
+  measureSubline: {
+    fontSize: FontSize.xs,
+    lineHeight: 17,
   },
   riskBadge: {
     borderWidth: 1,
