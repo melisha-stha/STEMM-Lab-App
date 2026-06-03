@@ -1,3 +1,5 @@
+import { formatLocaleDateTime } from '@/utils/formatters/date';
+
 import {
   getBreathingResults,
   getEarthquakeResults,
@@ -280,8 +282,5 @@ export async function loadLabJournalEntries(
 }
 
 export function formatLabJournalSavedAt(createdAt: number): string | null {
-  if (!createdAt || !Number.isFinite(createdAt)) return null;
-  const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleString();
+  return formatLocaleDateTime(createdAt);
 }

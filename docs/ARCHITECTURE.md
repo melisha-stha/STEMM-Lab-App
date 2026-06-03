@@ -166,7 +166,7 @@ Today, many non-UI modules live under `hooks/` for historical reasons. The targe
 | Subfolder | Examples (current or planned) |
 |-----------|-------------------------------|
 | `utils/calculations/` | `sound-metering.ts`; parachute/earthquake helpers (planned) |
-| `utils/formatters/` | `lab-journal.ts`; duration/date labels (planned) |
+| `utils/formatters/` | `lab-journal.ts`, `duration.ts`, `date.ts`, `team.ts`, `metrics.ts` |
 | `utils/scoring/` | `leaderboard-scoring.ts` |
 
 ### `services/` — I/O and external systems
@@ -224,8 +224,9 @@ Secrets stay in `.env` (`EXPO_PUBLIC_*`); never commit `.env` (see `.env.example
 |-------|--------|------|
 | **Stage 1** | Architecture docs + folder scaffolding (this document) | Very low |
 | **Stage 2A** | Move pure utilities to `utils/` (`sound-metering`, `leaderboard-scoring`, `lab-journal`) — **done**; `hooks/*` re-exports retained | Low |
-| **Stage 2B** | Further formatters (e.g. shared `formatDuration`) with re-exports | Low |
-| **Stage 3** | Extract repeated UI (`StepPanel`, tab bar, equipment checklist, leaderboard rows) | Low–medium |
+| **Stage 2B** | Shared formatters in `utils/formatters/` (`duration`, `date`, `team`, `metrics`) — **done** | Low |
+| **Stage 3A** | Extract repeated UI (`ActivityStepPanel`, `EquipmentChecklist`, `ResultMetricCard`, `LeaderboardRow`, `OverallChampionCard`) — **done** | Low–medium |
+| **Stage 3B** | Activity tab bars, overview heroes, empty states (where duplicated) | Low–medium |
 | **Stage 4** | Optional split of `firestore.ts`, `storage.js` into `services/` | Medium |
 | **Stage 5** | Remove confirmed dead files (template components, unused routes) after reference search | Low |
 

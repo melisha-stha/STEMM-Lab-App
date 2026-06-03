@@ -1,3 +1,4 @@
+import { ActivityStepPanel } from '@/components/activity/ActivityStepPanel';
 import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
 import {
   ColorPanel,
@@ -17,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
+import { formatCountdownSeconds, formatDuration } from '@/utils/formatters/duration';
 import { insertTrial } from '@/hooks/database';
 import type { BreathingSession as BaseBreathingSession } from '@/hooks/firestore';
 import { uploadBreathingResult } from '@/hooks/firestore';
@@ -84,29 +86,6 @@ const SCREEN_TAB_LABELS: Record<ScreenTab, string> = {
 };
 
 const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = ['lavender', 'sky', 'lavender'];
-
-type StepPanelProps = {
-  step: number;
-  title: string;
-  colour?: ActivityCardColour;
-  children: React.ReactNode;
-};
-
-function StepPanel({ step, title, colour = 'lavender', children }: StepPanelProps) {
-  const { textColor, cardIconBg } = useActivityCardColours(colour);
-
-  return (
-    <ColorPanel colour={colour}>
-      <View style={styles.stepHeader}>
-        <View style={[styles.stepBadge, { backgroundColor: cardIconBg }]}>
-          <Text style={[styles.stepBadgeText, { color: textColor }]}>Step {step}</Text>
-        </View>
-        <Text style={[styles.stepTitle, { color: textColor }]}>{title}</Text>
-      </View>
-      <View style={styles.stepBody}>{children}</View>
-    </ColorPanel>
-  );
-}
 
 function BreathingDiagramFrame() {
   const { borderColor, cardIconBg } = usePanelTheme();
@@ -202,18 +181,6 @@ const calculateBPM = (samples: AccelSample[]): number => {
 
   candidates.sort((a, b) => a - b);
   return candidates[Math.floor(candidates.length / 2)];
-};
-
-const formatCountdown = (ms: number): string => {
-  const seconds = Math.ceil(ms / 1000);
-  return `${seconds}s`;
-};
-
-const formatDuration = (ms: number): string => {
-  const totalSeconds = Math.max(0, Math.round(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
 };
 
 export default function BreathingScreen() {
@@ -690,7 +657,7 @@ export default function BreathingScreen() {
             />
           </ColorPanel>
 
-          <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up participant">
+          <ActivityStepPanel variant="inline" step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up participant">
             <Input
               label="Participant student name"
               placeholder="Enter active name..."
@@ -704,9 +671,9 @@ export default function BreathingScreen() {
                 Session {currentSessionIndex + 1} of {SESSION_COUNT} — {SESSION_SHORT_LABELS[currentSessionIndex]}
               </Text>
             )}
-          </StepPanel>
+          </ActivityStepPanel>
 
-          <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Measure breathing rate">
+          <ActivityStepPanel variant="inline" step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Measure breathing rate">
             {activityStep === 'exercise' && (
               <View style={styles.exerciseAlertCard}>
                 <Text style={[styles.exerciseTitle, { color: text }]}>🏃‍♂️ Time to exercise!</Text>
@@ -747,7 +714,7 @@ export default function BreathingScreen() {
                   {activityStep === 'recording' && (
                     <>
                       <Text style={[styles.recordingLabel, { color: primary }]}>LOGGING CHEST MOTION…</Text>
-                      <Text style={[styles.countdown, { color: text }]}>{formatCountdown(countdownMs)}</Text>
+                      <Text style={[styles.countdown, { color: text }]}>{formatCountdownSeconds(countdownMs)}</Text>
                       <Text style={[styles.liveBpm, { color: textSecondary }]}>
                         Live estimate: {liveBpmEstimate != null ? `${liveBpmEstimate} BPM` : '…'}
                       </Text>
@@ -780,7 +747,7 @@ export default function BreathingScreen() {
                 )}
               </View>
             )}
-          </StepPanel>
+          </ActivityStepPanel>
 
             {/* Individual Participant Run Summary Breakdown Views */}
             {(activityStep === 'summary' || currentMemberAttempts.length === SESSION_COUNT) && (

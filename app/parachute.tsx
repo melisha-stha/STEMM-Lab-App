@@ -1,3 +1,5 @@
+import { ActivityStepPanel } from '@/components/activity/ActivityStepPanel';
+import { EquipmentChecklist } from '@/components/activity/EquipmentChecklist';
 import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
 import {
   ColorPanel,
@@ -20,6 +22,7 @@ import { PrimaryButton } from '@/components/ui/primary-button';
 import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { VideoScrubber } from '@/components/ui/video-scrubber';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
+import { formatDuration } from '@/utils/formatters/duration';
 import { insertTrial } from '@/hooks/database';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -104,36 +107,6 @@ const INSTRUCTION_STEPS = [
   'Upload videos, results, and team reflections.',
 ];
 
-const formatDuration = (ms: number): string => {
-  const totalSeconds = Math.max(0, Math.round(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
-};
-
-type StepPanelProps = {
-  step: number;
-  title: string;
-  colour?: ActivityCardColour;
-  children: React.ReactNode;
-};
-
-function StepPanel({ step, title, colour = 'lavender', children }: StepPanelProps) {
-  const { textColor, cardIconBg, borderColor } = useActivityCardColours(colour);
-
-  return (
-    <ColorPanel colour={colour}>
-      <View style={styles.stepHeader}>
-        <View style={[styles.stepBadge, { backgroundColor: cardIconBg }]}>
-          <Text style={[styles.stepBadgeText, { color: borderColor }]}>Step {step}</Text>
-        </View>
-        <Text style={[styles.stepTitle, { color: textColor }]}>{title}</Text>
-      </View>
-      <View style={styles.stepBody}>{children}</View>
-    </ColorPanel>
-  );
-}
-
 function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
   const { textColor } = usePanelTheme();
   return (
@@ -174,82 +147,10 @@ function OverviewInstructionList() {
 }
 
 function OverviewHowToConduct() {
-  const { textColor, borderColor, cardIconBg } = usePanelTheme();
-  const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
-  const error = useThemeColor({}, 'error' as any) ?? '#F44336';
-
-  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
-  );
-
-  const missingItems = EQUIPMENT_ITEMS.filter((item) => !checked[item]);
-  const allGathered = missingItems.length === 0;
-  const hasStartedSelecting = EQUIPMENT_ITEMS.some((item) => checked[item]);
-
-  const toggleEquipment = (item: string) => {
-    setChecked((prev) => ({ ...prev, [item]: !prev[item] }));
-  };
-
   return (
     <>
       <PanelTitle>How to conduct the experiment</PanelTitle>
-      <PanelMuted style={styles.equipmentIntro}>First, gather all this equipment:</PanelMuted>
-      <PanelMuted style={styles.equipmentSelectHint}>
-        Select all equipment you have gathered
-      </PanelMuted>
-
-      <View style={styles.equipmentChecklist}>
-        {EQUIPMENT_ITEMS.map((item) => {
-          const isChecked = checked[item];
-          return (
-            <Pressable
-              key={item}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: isChecked }}
-              accessibilityLabel={item}
-              onPress={() => toggleEquipment(item)}
-              style={[
-                styles.equipmentCheckRow,
-                {
-                  borderColor: isChecked ? success : borderColor,
-                  backgroundColor: cardIconBg,
-                },
-              ]}>
-              <MaterialIcons
-                name={isChecked ? 'check-box' : 'check-box-outline-blank'}
-                size={22}
-                color={isChecked ? success : borderColor}
-              />
-              <Text
-                style={[
-                  styles.equipmentCheckLabel,
-                  { color: textColor, fontWeight: isChecked ? '700' : '500' },
-                ]}>
-                {item}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {allGathered ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
-          <MaterialIcons name="celebration" size={20} color={success} />
-          <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
-        </View>
-      ) : hasStartedSelecting ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
-          <MaterialIcons name="warning" size={20} color={error} />
-          <View style={styles.missingEquipmentBlock}>
-            <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
-            {missingItems.map((item) => (
-              <Text key={item} style={[styles.missingEquipmentItem, { color: error }]}>
-                • {item}
-              </Text>
-            ))}
-          </View>
-        </View>
-      ) : null}
+      <EquipmentChecklist items={EQUIPMENT_ITEMS} />
     </>
   );
 }
@@ -1278,7 +1179,7 @@ export default function ParachuteScreen() {
                 </View>
               </View>
 
-              <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up your drop">
+              <ActivityStepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up your drop">
                 <Input
                   label="Mass of Payload toy (kg)"
                   placeholder="e.g. 0.20"
@@ -1293,9 +1194,9 @@ export default function ParachuteScreen() {
                   onChangeText={setHeightM}
                   keyboardType="decimal-pad"
                 />
-              </StepPanel>
+              </ActivityStepPanel>
 
-              <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Record slow-motion drop">
+              <ActivityStepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Record slow-motion drop">
                 <PanelMuted style={styles.stepHint}>
                   Film each prototype drop. Mark release, impact, and stop frames in the analyser.
                 </PanelMuted>
@@ -1304,10 +1205,10 @@ export default function ParachuteScreen() {
                   onPress={() => void captureVideoAsset()}
                   disabled={attempts.length >= MAX_ATTEMPTS || currentVideoUri !== null || isSyncing}
                 />
-              </StepPanel>
+              </ActivityStepPanel>
 
               {currentVideoUri && (
-                <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Mark frames on timeline">
+                <ActivityStepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Mark frames on timeline">
                   {learningTier === 'upper_primary' ? (
                     <UpperPrimaryMarkerTool
                       uri={currentVideoUri}
@@ -1340,11 +1241,11 @@ export default function ParachuteScreen() {
                     style={{ marginTop: Spacing.md }}
                     onPress={processFrameMathematics}
                   />
-                </StepPanel>
+                </ActivityStepPanel>
               )}
 
               {calculatedOutputs && (
-                <StepPanel step={4} colour={EXPERIMENT_STEP_COLOURS[3]} title="Review your results">
+                <ActivityStepPanel step={4} colour={EXPERIMENT_STEP_COLOURS[3]} title="Review your results">
                   <ExperimentReviewResults
                     calculatedOutputs={calculatedOutputs}
                     getGForceRiskColor={getGForceRiskColor}
@@ -1359,10 +1260,10 @@ export default function ParachuteScreen() {
                     style={{ borderColor: primary, marginTop: Spacing.sm }}
                     onPress={commitAttemptToLocalState}
                   />
-                </StepPanel>
+                </ActivityStepPanel>
               )}
 
-              <StepPanel step={5} colour={EXPERIMENT_STEP_COLOURS[4]} title="Your attempts">
+              <ActivityStepPanel step={5} colour={EXPERIMENT_STEP_COLOURS[4]} title="Your attempts">
                 {attempts.length === 0 ? (
                   <PanelMuted style={styles.emptyHint}>
                     Awaiting valid experiment metrics updates.
@@ -1391,7 +1292,7 @@ export default function ParachuteScreen() {
                     disabled={isSyncing}
                   />
                 )}
-              </StepPanel>
+              </ActivityStepPanel>
             </View>
           )}
 

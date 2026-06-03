@@ -12,12 +12,7 @@ import { getTrials } from '@/hooks/database';
 import { useScreenScrollInsets } from '@/hooks/use-screen-scroll-insets';
 import { getTeamData, saveParachuteResults } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
-
-function formatTime(ms: number) {
-  const seconds = Math.floor((ms % 60000) / 1000);
-  const centiseconds = Math.floor((ms % 1000) / 10);
-  return `${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
-}
+import { formatCentisecondsTimer } from '@/utils/formatters/duration';
 
 export default function ResultsScreen() {
   const router = useRouter();
@@ -111,7 +106,7 @@ export default function ResultsScreen() {
                   ]}>
                   <View style={styles.attemptRowLeft}>
                     <Text style={[styles.attemptLabel, { color: mutedText }]}>Attempt {idx + 1}</Text>
-                    <Text style={[styles.attemptValue, { color: text }]}>{formatTime(item.time)}s</Text> 
+                    <Text style={[styles.attemptValue, { color: text }]}>{formatCentisecondsTimer(item.time)}s</Text> 
                   </View>
                   {isBest ? (
                     <View style={[styles.badge, { backgroundColor: success }]}>

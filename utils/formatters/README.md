@@ -1,9 +1,17 @@
-# Formatter utilities
+# Formatters
 
-Shared formatting for display strings (not business rules).
+Pure display helpers (no React, no I/O).
 
-Examples: `formatDuration`, team discriminator labels, saved-at timestamps for lab journal.
+## Files (Stage 2A + 2B)
 
-**Implemented (Stage 2A):** `lab-journal.ts` — loads/normalises/filters local reflection history via `hooks/storage` getters.
+| File | Functions |
+|------|-----------|
+| `duration.ts` | `formatDuration`, `formatCentisecondsTimer`, `formatCountdownSeconds`, `formatChallengeClock` |
+| `date.ts` | `formatLocaleDateTime`, `formatLocaleDateTimeFromString` |
+| `team.ts` | `formatYearLevelLabel`, `stripYearLevelPrefix` |
+| `metrics.ts` | `shortDesignLabel` |
+| `lab-journal.ts` | `loadLabJournalEntries`, `formatLabJournalSavedAt`, team filter helpers |
 
-`hooks/lab-journal.ts` re-exports from here for compatibility.
+Sound dB display strings remain in `utils/calculations/sound-metering.ts` (`formatEstimatedLevel`, `formatAboveBaseline`).
+
+`components/ui/experiment-challenge-timer.tsx` re-exports `formatChallengeClock` from `duration.ts`.

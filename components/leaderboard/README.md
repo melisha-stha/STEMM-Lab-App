@@ -1,13 +1,12 @@
 # Leaderboard components
 
-Reusable leaderboard presentation pieces.
+Reusable leaderboard presentation (Stage 3A).
 
-**Planned contents (Stage 3):**
+| Component | Purpose |
+|-----------|---------|
+| `LeaderboardRow.tsx` | Rank, avatar, team name, year, metric/points lines |
+| `OverallChampionCard.tsx` | All-time lab champion summary card |
 
-- Leaderboard row (rank, avatar, team name, metric)
-- All-time lab champion card
-- Empty and error states
+Scoring and Firestore subscriptions stay in `utils/scoring/leaderboard-scoring.ts` and `app/leaderboard.tsx`.
 
-**Current location:** `app/leaderboard.tsx` (UI); scoring in `utils/scoring/leaderboard-scoring.ts`.
-
-Extracting UI here must **not** change Firestore queries, ranking points, or deduplication rules without explicit testing.
+Empty states and activity tab pills remain in `app/leaderboard.tsx` (screen-specific copy and selection state).

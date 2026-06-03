@@ -1,3 +1,5 @@
+import { ActivityStepPanel } from '@/components/activity/ActivityStepPanel';
+import { EquipmentChecklist } from '@/components/activity/EquipmentChecklist';
 import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
 import {
   ColorPanel,
@@ -18,6 +20,7 @@ import {
   useReactionScreenBackground,
 } from '@/components/ui/reaction-screen-background';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
+import { formatDuration } from '@/utils/formatters/duration';
 import { insertTrial } from '@/hooks/database';
 import { uploadReactionResult } from '@/hooks/firestore';
 import { scheduleAppNotification } from '@/hooks/notifications';
@@ -124,29 +127,6 @@ const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = ['lavender', 'sky', 'laven
 
 const GRID_CELL_COUNT = 9;
 
-type StepPanelProps = {
-  step: number;
-  title: string;
-  colour?: ActivityCardColour;
-  children: React.ReactNode;
-};
-
-function StepPanel({ step, title, colour = 'lavender', children }: StepPanelProps) {
-  const { textColor, cardIconBg, borderColor } = useActivityCardColours(colour);
-
-  return (
-    <ColorPanel colour={colour}>
-      <View style={styles.stepHeader}>
-        <View style={[styles.stepBadge, { backgroundColor: cardIconBg }]}>
-          <Text style={[styles.stepBadgeText, { color: borderColor }]}>Step {step}</Text>
-        </View>
-        <Text style={[styles.stepTitle, { color: textColor }]}>{title}</Text>
-      </View>
-      <View style={styles.stepBody}>{children}</View>
-    </ColorPanel>
-  );
-}
-
 const formatTrialSubtitle = (item: ExtendedReactionAttempt): string => {
   if (item.phase === 3) {
     return `Accuracy ${item.accuracyPercent}% · lag ${item.delayMs}ms`;
@@ -168,13 +148,6 @@ const hasPhaseRecorded = (
   const trimmed = name.trim();
   if (!trimmed) return false;
   return trialAttempts.some((a) => a.memberName === trimmed && a.phase === phase);
-};
-
-const formatDuration = (ms: number): string => {
-  const totalSeconds = Math.max(0, Math.round(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
 };
 
 function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
@@ -231,82 +204,10 @@ function PhaseActivityGuide({ phase }: { phase: ActivityPhase }) {
 }
 
 function OverviewHowToConductActivity() {
-  const { textColor, borderColor, cardIconBg } = usePanelTheme();
-  const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
-  const error = useThemeColor({}, 'error' as any) ?? '#F44336';
-
-  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
-  );
-
-  const missingItems = EQUIPMENT_ITEMS.filter((item) => !checked[item]);
-  const allGathered = missingItems.length === 0;
-  const hasStartedSelecting = EQUIPMENT_ITEMS.some((item) => checked[item]);
-
-  const toggleEquipment = (item: string) => {
-    setChecked((prev) => ({ ...prev, [item]: !prev[item] }));
-  };
-
   return (
     <>
       <PanelTitle>How to conduct the activity</PanelTitle>
-      <PanelMuted style={styles.equipmentIntro}>First, gather all this equipment:</PanelMuted>
-      <PanelMuted style={styles.equipmentSelectHint}>
-        Select all equipment you have gathered
-      </PanelMuted>
-
-      <View style={styles.equipmentChecklist}>
-        {EQUIPMENT_ITEMS.map((item) => {
-          const isChecked = checked[item];
-          return (
-            <Pressable
-              key={item}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: isChecked }}
-              accessibilityLabel={item}
-              onPress={() => toggleEquipment(item)}
-              style={[
-                styles.equipmentCheckRow,
-                {
-                  borderColor: isChecked ? success : borderColor,
-                  backgroundColor: cardIconBg,
-                },
-              ]}>
-              <MaterialIcons
-                name={isChecked ? 'check-box' : 'check-box-outline-blank'}
-                size={22}
-                color={isChecked ? success : borderColor}
-              />
-              <Text
-                style={[
-                  styles.equipmentCheckLabel,
-                  { color: textColor, fontWeight: isChecked ? '700' : '500' },
-                ]}>
-                {item}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {allGathered ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
-          <MaterialIcons name="celebration" size={20} color={success} />
-          <Text style={[styles.equipmentStatusText, { color: success }]}>You are good to go!</Text>
-        </View>
-      ) : hasStartedSelecting ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
-          <MaterialIcons name="warning" size={20} color={error} />
-          <View style={styles.missingEquipmentBlock}>
-            <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
-            {missingItems.map((item) => (
-              <Text key={item} style={[styles.missingEquipmentItem, { color: error }]}>
-                • {item}
-              </Text>
-            ))}
-          </View>
-        </View>
-      ) : null}
+      <EquipmentChecklist items={EQUIPMENT_ITEMS} readyMessage="You are good to go!" />
     </>
   );
 }
@@ -1059,7 +960,7 @@ export default function ReactionScreen() {
                 })}
               </View>
 
-              <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Student & phase">
+              <ActivityStepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Student & phase">
                 <PanelMuted style={styles.stepHint}>
                   Enter the student name, choose a phase above, then run the round in Step 2.
                 </PanelMuted>
@@ -1070,9 +971,9 @@ export default function ReactionScreen() {
                   onChangeText={setMemberName}
                   editable={!roundActive}
                 />
-              </StepPanel>
+              </ActivityStepPanel>
 
-              <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Run round">
+              <ActivityStepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Run round">
                 <ReactionRoundArena
                   activePhase={activePhase}
                   roundActive={roundActive}
@@ -1095,9 +996,9 @@ export default function ReactionScreen() {
                   showNextPhase={!!currentName && !allPhasesComplete && (activePhase === 1 || activePhase === 2)}
                   nextPhaseDisabled={activePhase === 1 ? !phase1Done : activePhase === 2 ? !phase2Done : true}
                 />
-              </StepPanel>
+              </ActivityStepPanel>
 
-              <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Trial records">
+              <ActivityStepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Trial records">
                 {userAttempts.length === 0 ? (
                   <PanelMuted style={styles.emptyHint}>No trials recorded yet for this student.</PanelMuted>
                 ) : (
@@ -1127,7 +1028,7 @@ export default function ReactionScreen() {
                     disabled={isSyncing || roundActive || !allPhasesComplete}
                   />
                 )}
-              </StepPanel>
+              </ActivityStepPanel>
             </View>
           )}
 

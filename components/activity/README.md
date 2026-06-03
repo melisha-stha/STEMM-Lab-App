@@ -1,14 +1,15 @@
 # Activity components
 
-Shared UI for lab activity screens (not tied to a single experiment).
+Shared presentational UI for lab activity screens.
 
-**Planned contents (Stage 3):**
+## Stage 3A
 
-- Activity step panels (e.g. `ActivityStepPanel`)
-- Overview / experiment / write-up / discussion tab bars
-- Equipment checklist blocks
-- Reusable overview hero and diagram frames
+| Component | Purpose |
+|-----------|---------|
+| `ActivityStepPanel.tsx` | Coloured step panel (`stacked` or `inline` layout) |
+| `EquipmentChecklist.tsx` | Interactive equipment checklist (`standard`, `performance`, `compact`) |
+| `ResultMetricCard.tsx` | Sound measurement result row (metric + risk badge) |
 
-Code will be **extracted gradually** from files under `app/` (e.g. `parachute.tsx`, `sound.tsx`). No behaviour changes during moves—presentation props only.
+Used from `app/parachute.tsx`, `sound.tsx`, `earthquake.tsx`, `reaction.tsx`, `breathing.tsx`, `handfan.tsx`, `performance.tsx`.
 
-**Current location:** Most activity UI still lives inside individual `app/*.tsx` files and `components/ui/` (e.g. `activity-color-panel`, `experiment-challenge-timer`).
+Overview heroes, tab bars, and experiment state remain in each activity screen.

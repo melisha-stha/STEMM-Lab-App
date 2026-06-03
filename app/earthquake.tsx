@@ -1,3 +1,5 @@
+import { ActivityStepPanel } from '@/components/activity/ActivityStepPanel';
+import { EquipmentChecklist } from '@/components/activity/EquipmentChecklist';
 import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
 import {
   ColorPanel,
@@ -19,6 +21,8 @@ import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
+import { formatCentisecondsTimer, formatDuration } from '@/utils/formatters/duration';
+import { shortDesignLabel } from '@/utils/formatters/metrics';
 import { insertTrial } from '@/hooks/database';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -111,37 +115,7 @@ const INSTRUCTION_STEPS = [
   'Upload your results when all three designs are logged.',
 ];
 
-const formatDuration = (ms: number): string => {
-  const totalSeconds = Math.max(0, Math.round(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
-};
-
 const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = ['lavender', 'sky', 'lavender'];
-
-type StepPanelProps = {
-  step: number;
-  title: string;
-  colour?: ActivityCardColour;
-  children: React.ReactNode;
-};
-
-function StepPanel({ step, title, colour = 'lavender', children }: StepPanelProps) {
-  const { textColor, cardIconBg, borderColor } = useActivityCardColours(colour);
-
-  return (
-    <ColorPanel colour={colour}>
-      <View style={styles.stepHeader}>
-        <View style={[styles.stepBadge, { backgroundColor: cardIconBg }]}>
-          <Text style={[styles.stepBadgeText, { color: borderColor }]}>Step {step}</Text>
-        </View>
-        <Text style={[styles.stepTitle, { color: textColor }]}>{title}</Text>
-      </View>
-      <View style={styles.stepBody}>{children}</View>
-    </ColorPanel>
-  );
-}
 
 const calculateStabilityScore = (gyro: SensorVector, accel: SensorVector): number => {
   const gyroMagnitude = Math.sqrt(gyro.x ** 2 + gyro.y ** 2 + gyro.z ** 2);
@@ -161,16 +135,8 @@ function useStabilityPresentation(score: number) {
   return { color: error, label: 'Unstable' };
 }
 
-const formatTime = (ms: number): string => {
-  const seconds = Math.floor((ms % 60000) / 1000);
-  const centiseconds = Math.floor((ms % 1000) / 10);
-  return `${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
-};
-
-const shortDesignLabel = (designName: string): string => designName.split(' (')[0] ?? designName;
-
 const formatAttemptMetrics = (attempt: EarthquakeAttempt): string =>
-  `${attempt.score} pts · ${formatTime(attempt.duration)}s`;
+  `${attempt.score} pts · ${formatCentisecondsTimer(attempt.duration)}s`;
 
 function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
   const { textColor } = usePanelTheme();
@@ -212,82 +178,10 @@ function OverviewInstructionList() {
 }
 
 function OverviewHowToConduct() {
-  const { textColor, borderColor, cardIconBg } = usePanelTheme();
-  const success = useThemeColor({}, 'success');
-  const error = useThemeColor({}, 'error' as any) ?? '#EF4444';
-
-  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
-  );
-
-  const missingItems = EQUIPMENT_ITEMS.filter((item) => !checked[item]);
-  const allGathered = missingItems.length === 0;
-  const hasStartedSelecting = EQUIPMENT_ITEMS.some((item) => checked[item]);
-
-  const toggleEquipment = (item: string) => {
-    setChecked((prev) => ({ ...prev, [item]: !prev[item] }));
-  };
-
   return (
     <>
       <PanelTitle>How to conduct the experiment</PanelTitle>
-      <PanelMuted style={styles.equipmentIntro}>First, gather all this equipment:</PanelMuted>
-      <PanelMuted style={styles.equipmentSelectHint}>
-        Select all equipment you have gathered
-      </PanelMuted>
-
-      <View style={styles.equipmentChecklist}>
-        {EQUIPMENT_ITEMS.map((item) => {
-          const isChecked = checked[item];
-          return (
-            <Pressable
-              key={item}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: isChecked }}
-              accessibilityLabel={item}
-              onPress={() => toggleEquipment(item)}
-              style={[
-                styles.equipmentCheckRow,
-                {
-                  borderColor: isChecked ? success : borderColor,
-                  backgroundColor: cardIconBg,
-                },
-              ]}>
-              <MaterialIcons
-                name={isChecked ? 'check-box' : 'check-box-outline-blank'}
-                size={22}
-                color={isChecked ? success : borderColor}
-              />
-              <Text
-                style={[
-                  styles.equipmentCheckLabel,
-                  { color: textColor, fontWeight: isChecked ? '700' : '500' },
-                ]}>
-                {item}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {allGathered ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
-          <MaterialIcons name="celebration" size={20} color={success} />
-          <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
-        </View>
-      ) : hasStartedSelecting ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
-          <MaterialIcons name="warning" size={20} color={error} />
-          <View style={styles.missingEquipmentBlock}>
-            <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
-            {missingItems.map((item) => (
-              <Text key={item} style={[styles.missingEquipmentItem, { color: error }]}>
-                • {item}
-              </Text>
-            ))}
-          </View>
-        </View>
-      ) : null}
+      <EquipmentChecklist items={EQUIPMENT_ITEMS} />
     </>
   );
 }
@@ -492,7 +386,7 @@ function EarthquakeStabilityMonitor({
 
       <Text style={[styles.scoreValue, { color: stabilityColor }]}>{liveScore}</Text>
       <Text style={[styles.scoreLabel, { color: stabilityColor }]}>{stabilityLabel}</Text>
-      <Text style={[styles.timerValue, { color: borderColor }]}>{formatTime(time)}s</Text>
+      <Text style={[styles.timerValue, { color: borderColor }]}>{formatCentisecondsTimer(time)}s</Text>
 
       <View style={[styles.graphContainer, { borderColor, backgroundColor: cardIconBg }]}>
         <Svg height="80" width="100%">
@@ -1068,7 +962,7 @@ export default function EarthquakeScreen() {
                 </View>
               </View>
 
-              <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Choose structure design">
+              <ActivityStepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Choose structure design">
                 <StructureDesignsPanel
                   designName={designName}
                   attempts={attempts}
@@ -1086,9 +980,9 @@ export default function EarthquakeScreen() {
                     setCustomPrediction={setCustomPrediction}
                   />
                 ) : null}
-              </StepPanel>
+              </ActivityStepPanel>
 
-              <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Run shaker test">
+              <ActivityStepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Run shaker test">
                 <EarthquakeStabilityMonitor
                   isActive={isActive}
                   time={time}
@@ -1106,9 +1000,9 @@ export default function EarthquakeScreen() {
                   onToggleTest={() => (isActive ? stopAttempt() : startAttempt())}
                   onReset={resetAll}
                 />
-              </StepPanel>
+              </ActivityStepPanel>
 
-              <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Your results">
+              <ActivityStepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Your results">
                 {attempts.length === 0 ? (
                   <PanelMuted style={styles.emptyHint}>
                     No stability trials recorded yet — complete Step 2 for each design.
@@ -1135,7 +1029,7 @@ export default function EarthquakeScreen() {
                     disabled={isActive || isSyncing}
                   />
                 )}
-              </StepPanel>
+              </ActivityStepPanel>
             </View>
           )}
 

@@ -26,6 +26,7 @@ import { TeamScreenBackground, useTeamScreenBackground } from '@/components/ui/t
 import { auth } from '@/hooks/firebaseConfig';
 import { filterTrialsByTeam, getTrials } from '@/hooks/database';
 import { loadLabJournalEntries, type LabJournalEntry } from '@/utils/formatters/lab-journal';
+import { formatYearLevelLabel, stripYearLevelPrefix } from '@/utils/formatters/team';
 
 type AvatarKey = 'ben' | 'girl' | 'frog' | 'bunny' | 'cat' | 'fox';
 
@@ -128,7 +129,7 @@ export default function TeamTabScreen() {
       setPendingAvatarKey(avatarKey);
       setForm({
         teamName: data?.name ?? '',
-        yearLevel: (data?.yearLevel ?? '').toString().replace(/^Year\s*/i, ''),
+        yearLevel: stripYearLevelPrefix((data?.yearLevel ?? '').toString()),
         learningLevel: (data?.learningLevel as any) ?? '',
         members: Array.isArray(data?.members) && data.members.length ? data.members : [''],
         avatarKey,
@@ -255,7 +256,7 @@ export default function TeamTabScreen() {
   const yearDisplay = (() => {
     const raw = (team?.yearLevel ?? team?.grade ?? '').toString().trim();
     if (!raw) return '—';
-    return /^year\s+/i.test(raw) ? raw : `Year ${raw}`;
+    return formatYearLevelLabel(raw);
   })();
   const levelDisplay =
     team?.learningLevel === 'lower_secondary'
@@ -350,9 +351,7 @@ export default function TeamTabScreen() {
 
     setIsSaving(true);
     try {
-      const yearLabel = form.yearLevel.trim().toLowerCase().startsWith('year ')
-        ? form.yearLevel.trim()
-        : `Year ${form.yearLevel.trim()}`;
+      const yearLabel = formatYearLevelLabel(form.yearLevel.trim());
 
       await saveTeamData(form.teamName.trim(), cleanedMembers, team.grade || yearLabel, {
         yearLevel: yearLabel,
