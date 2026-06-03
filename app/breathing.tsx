@@ -592,7 +592,7 @@ export default function BreathingScreen() {
                 <PanelTitle>How to conduct</PanelTitle>
                 <PanelMuted style={styles.bodyMuted}>Instructions Layout</PanelMuted>
                 <PanelMuted style={styles.bulletPrompt}>
-                  1. Enter your participant identity label inside the field box bounds.
+                  1. Enter student name in the field below.
                 </PanelMuted>
                 <PanelMuted style={styles.bulletPrompt}>
                   2. Lie down flat, rest the phone directly over your chest center plate, and tap start.
@@ -660,8 +660,8 @@ export default function BreathingScreen() {
 
           <ActivityStepPanel variant="inline" step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up participant">
             <Input
-              label="Participant student name"
-              placeholder="Enter active name..."
+              label="Student name"
+              placeholder="Enter student name"
               value={memberName}
               onChangeText={setMemberName}
               editable={activityStep === 'ready' || activityStep === 'summary'}

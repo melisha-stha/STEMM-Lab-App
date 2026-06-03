@@ -765,6 +765,7 @@ export default function TeamTabScreen() {
           {team ? (
             <LabJournalSection
               entries={journalEntries}
+              trials={teamTrials}
               loading={journalLoading}
               pixelFontLoaded={pixelFontLoaded}
               pixelFamily={pixelFamily}

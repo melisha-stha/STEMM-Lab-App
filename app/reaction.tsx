@@ -986,7 +986,7 @@ export default function ReactionScreen() {
                 </PanelMuted>
                 <Input
                   label="Student name"
-                  placeholder="Enter name"
+                  placeholder="Enter student name"
                   value={memberName}
                   onChangeText={setMemberName}
                   editable={!roundActive}

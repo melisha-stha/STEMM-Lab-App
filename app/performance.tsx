@@ -477,8 +477,8 @@ export default function PerformanceScreen() {
       <>
         <ActivityStepPanel variant="inline" step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up participant">
           <Input
-            label="Participant student name"
-            placeholder="Enter student name..."
+            label="Student name"
+            placeholder="Enter student name"
             value={memberName}
             onChangeText={setMemberName}
             editable={!isActive}

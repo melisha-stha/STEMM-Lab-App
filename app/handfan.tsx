@@ -480,8 +480,8 @@ export default function HandFanScreen() {
 
           <ActivityStepPanel variant="inline" step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up participant">
             <Input
-              label="Participant identity name"
-              placeholder="Input user identity..."
+              label="Student name"
+              placeholder="Enter student name"
               value={memberName}
               onChangeText={setMemberName}
             />

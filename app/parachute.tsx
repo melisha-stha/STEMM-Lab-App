@@ -6,6 +6,7 @@ import {
   PanelMuted,
   PanelTitle,
   usePanelTableTokens,
+  usePanelPlaybackColors,
   usePanelTheme,
 } from '@/components/ui/activity-color-panel';
 import { AttemptRow } from '@/components/ui/attempt-row';
@@ -216,12 +217,8 @@ function UpperPrimaryMarkerTool({
   onMarkersChange: (markers: { releaseFrame: number | null; impactFrame: number | null }) => void;
 }) {
   const { textColor } = usePanelTheme();
-  const primary = useThemeColor({}, 'primary');
+  const playback = usePanelPlaybackColors();
   const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
-  const onPrimary = useThemeColor({}, 'onPrimary');
-  const border = useThemeColor({}, 'border');
-  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary' as any) ?? 'rgba(0,0,0,0.04)';
-  const cardIconBg = useThemeColor({}, 'cardIconBg' as any) ?? 'rgba(0,0,0,0.03)';
   const videoRef = useRef<Video>(null);
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
@@ -305,15 +302,15 @@ function UpperPrimaryMarkerTool({
         accessibilityLabel="Timeline"
         onLayout={(e) => setScrubBarWidth(e.nativeEvent.layout.width)}
         onPress={(e) => handleScrubBarPress(e.nativeEvent.locationX)}
-        style={[styles.primaryScrubBar, { backgroundColor: border }]}>
-        <View style={[styles.primaryScrubFill, { width: `${progress * 100}%`, backgroundColor: primary }]} />
+        style={[styles.primaryScrubBar, { backgroundColor: playback.scrubTrack }]}>
+        <View style={[styles.primaryScrubFill, { width: `${progress * 100}%`, backgroundColor: playback.scrubFill }]} />
         {markers.releaseFrame !== null && totalFrameCount > 0 ? (
           <View
             style={[
               styles.primaryMarkerDotOnBar,
               {
                 left: `${(markers.releaseFrame / totalFrameCount) * 100}%`,
-                backgroundColor: primary,
+                backgroundColor: playback.playSurface,
               },
             ]}
           />
@@ -339,22 +336,22 @@ function UpperPrimaryMarkerTool({
         <Pressable
           accessibilityRole="button"
           onPress={() => void seekToFrame(currentFrameIndex - 10)}
-          style={[styles.primaryControlBtn, { backgroundColor: cardIconBg, borderColor: border }]}>
-          <Text style={[styles.primaryControlBtnText, { color: textColor }]}>《 -10f</Text>
+          style={[styles.primaryControlBtn, { backgroundColor: playback.stepSurface, borderColor: playback.stepBorder }]}>
+          <Text style={[styles.primaryControlBtnText, { color: playback.stepText }]}>《 -10f</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={() => void togglePlay()}
-          style={[styles.primaryControlBtn, { backgroundColor: primary, borderColor: primary }]}>
-          <Text style={[styles.primaryControlBtnText, { color: onPrimary }]}>
+          style={[styles.primaryControlBtn, { backgroundColor: playback.playSurface, borderColor: playback.playSurface }]}>
+          <Text style={[styles.primaryControlBtnText, { color: playback.playText }]}>
             {isPlaying ? 'Pause' : positionMs >= durationMs - 100 ? 'Replay' : 'Play'}
           </Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={() => void seekToFrame(currentFrameIndex + 10)}
-          style={[styles.primaryControlBtn, { backgroundColor: cardIconBg, borderColor: border }]}>
-          <Text style={[styles.primaryControlBtnText, { color: textColor }]}>+10f 》</Text>
+          style={[styles.primaryControlBtn, { backgroundColor: playback.stepSurface, borderColor: playback.stepBorder }]}>
+          <Text style={[styles.primaryControlBtnText, { color: playback.stepText }]}>+10f 》</Text>
         </Pressable>
       </View>
 
@@ -372,11 +369,15 @@ function UpperPrimaryMarkerTool({
               style={[
                 styles.primarySpeedPill,
                 {
-                  backgroundColor: selected ? primary : backgroundSecondary,
-                  borderColor: border,
+                  backgroundColor: selected ? playback.speedActiveSurface : playback.speedIdleSurface,
+                  borderColor: playback.stepBorder,
                 },
               ]}>
-              <Text style={[styles.primarySpeedPillText, { color: selected ? onPrimary : textColor }]}>
+              <Text
+                style={[
+                  styles.primarySpeedPillText,
+                  { color: selected ? playback.speedActiveText : playback.speedIdleText },
+                ]}>
                 {s.label}
               </Text>
             </Pressable>
@@ -386,7 +387,7 @@ function UpperPrimaryMarkerTool({
 
       <View style={{ gap: Spacing.xs }}>
         <View style={styles.primaryMarkerRow}>
-          <View style={[styles.primaryMarkerDot, { backgroundColor: primary }]} />
+          <View style={[styles.primaryMarkerDot, { backgroundColor: playback.playSurface }]} />
           <View style={{ flex: 1 }}>
             <PrimaryButton label="Mark Release" variant="secondary" onPress={() => mark('releaseFrame')} />
           </View>

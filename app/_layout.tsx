@@ -69,6 +69,7 @@ function RootNavigation() {
         <Stack.Screen name="sound-results" options={{ headerShown: false }} />
         <Stack.Screen name="handfan-results" options={{ headerShown: false }} />
         <Stack.Screen name="performance-results" options={{ headerShown: false }} />
+        <Stack.Screen name="lab-journal-detail" options={{ headerShown: false }} />
 
         {/* System Overlays and Info Modals */}
         <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: false }} />
