@@ -129,7 +129,7 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // Collection: performanceResults — Human Performance Lab activity results
+    // Collection: performanceResults — Human Performance Lab Activity Results
     // -------------------------------------------------------------------------
     match /performanceResults/{docId} {
 
