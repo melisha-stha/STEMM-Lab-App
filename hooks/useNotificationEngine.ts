@@ -1,65 +1,57 @@
-import * as Notifications from 'expo-notifications';
+import {
+  areAppNotificationsAvailable,
+  configureNotificationHandler,
+  ensureNotificationPermissions,
+  setupNotificationCategories,
+} from '@/hooks/notifications';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useRef } from 'react';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+export { triggerMissionWelcome } from '@/hooks/notifications';
 
 export function useNotificationEngine() {
   const router = useRouter();
+  const setupStarted = useRef(false);
 
   useEffect(() => {
-    async function configureNotifications() {
-      console.log('[Debug]: Notification engine initializing...');
-      
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      console.log(`[Debug]: Current permission status is: ${existingStatus}`);
-      
-      let finalStatus = existingStatus;
-      if (existingStatus !== 'granted') {
-        console.log('Asking device for permissions...');
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
+    if (setupStarted.current) return;
+    setupStarted.current = true;
 
-      if (finalStatus !== 'granted') {
-        console.log('[Debug]: Permissions denied or blocked by system.');
+    async function initializeEngine() {
+      if (!areAppNotificationsAvailable()) {
+        if (__DEV__) {
+          console.log('[Notifications]: Engine skipped for this runtime.');
+        }
         return;
       }
-      
-      console.log('[Debug]: Permissions are GRANTED. Setting up categories...');
 
-      await Notifications.setNotificationCategoryAsync('timer-warning', [
-        { identifier: 'OK_ACTION', buttonTitle: 'Okay', options: { opensAppToForeground: false } },
-      ]);
+      if (__DEV__) console.log('[Notifications]: Engine initializing...');
 
-      await Notifications.setNotificationCategoryAsync('mission-reminder', [
-        { identifier: 'GO_ACTION', buttonTitle: 'Go', options: { opensAppToForeground: true } },
-      ]);
+      configureNotificationHandler();
 
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-        });
+      const granted = await ensureNotificationPermissions();
+      if (!granted) {
+        if (__DEV__) console.log('[Notifications]: Engine setup paused (no permission).');
+        return;
       }
-      console.log('[Debug]: Notification categories configured perfectly!');
+
+      await setupNotificationCategories();
+
+      if (__DEV__) console.log('[Notifications]: Engine ready.');
     }
 
-    configureNotifications();
+    void initializeEngine();
   }, []);
 
   useEffect(() => {
+    if (!areAppNotificationsAvailable()) return;
+
+    const Notifications = require('expo-notifications') as typeof import('expo-notifications');
+
     const foregroundSubscription = Notifications.addNotificationReceivedListener((notification) => {
-      console.log('[SUCCESS]: Local notification received in foreground!');
-      console.log(`Title: ${notification.request.content.title}`);
+      if (__DEV__) {
+        console.log('[Notifications]: Received in foreground:', notification.request.content.title);
+      }
     });
 
     const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
@@ -74,20 +66,4 @@ export function useNotificationEngine() {
       responseSubscription.remove();
     };
   }, [router]);
-}
-
-export async function triggerMissionWelcome(activeMissionName: string) {
-  const routeslug = `/${activeMissionName.toLowerCase().replace(/\s+/g, '')}`;
-  console.log(`[Debug]: Attempting to dispatch notification for ${activeMissionName}...`);
-
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Today lab mission is active',
-      body: `Try to complete the ${activeMissionName} challenge with your team today!`,
-      categoryIdentifier: 'mission-reminder',
-      data: { route: routeslug },
-    },
-    trigger: null,
-  });
-  console.log('[Debug]: scheduleNotificationAsync command successfully executed.');
 }

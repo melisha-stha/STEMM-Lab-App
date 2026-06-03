@@ -1,6 +1,7 @@
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SectionCard } from '@/components/ui/section-card';
-import { Spacing, Typography } from '@/constants/design';
+import { SCREEN_BOTTOM_INSET, Spacing, TAB_BAR_HEIGHT, Typography } from '@/constants/design';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { getTrials } from '@/hooks/database';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -8,6 +9,12 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Callout, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const MAP_HEIGHT = 350;
+/** Android PrimaryButton minHeight + clearance above floating tab bar */
+const ANDROID_FOOTER_BTN_HEIGHT = 56;
+const ANDROID_FLOATING_TAB_MARGIN = Spacing.md;
 
 interface Trial {
   id: number;
@@ -33,13 +40,22 @@ function getMarkerColor(activity: string): string {
 
 function formatActivity(activity: string): string {
   switch (activity) {
-    case 'parachute': return '🪂 Parachute Drop';
-    case 'sound': return '🔊 Sound Pollution';
-    case 'earthquake': return '🏗️ Earthquake';
-    case 'handfan': return '🌬️ Hand Fan Challenge';
-    case 'reaction': return '⚡ Reaction Board';
-    case 'breathing': return '🫁 Breathing Trainer';
-    default: return activity;
+    case 'parachute':
+      return 'Parachute Drop';
+    case 'sound':
+      return 'Sound Pollution Hunter';
+    case 'earthquake':
+      return 'Earthquake Structure';
+    case 'handfan':
+      return 'Hand Fan Challenge';
+    case 'reaction':
+      return 'Reaction Board';
+    case 'breathing':
+      return 'Breathing Pace Trainer';
+    case 'performance':
+      return 'Human Performance Lab';
+    default:
+      return activity;
   }
 }
 
@@ -52,8 +68,19 @@ function formatTime(ms: number, activity: string): string {
 
 export default function MapScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const [trials, setTrials] = useState<Trial[]>([]);
   const [loading, setLoading] = useState(true);
+  const isAndroid = Platform.OS === 'android';
+
+  const scrollBottomPadding = isAndroid
+    ? Math.max(tabBarHeight, TAB_BAR_HEIGHT) +
+      ANDROID_FLOATING_TAB_MARGIN +
+      ANDROID_FOOTER_BTN_HEIGHT +
+      Spacing.lg +
+      Math.max(insets.bottom, Spacing.md)
+    : SCREEN_BOTTOM_INSET + insets.bottom;
 
   const background = useThemeColor({}, 'background');
   const text = useThemeColor({}, 'text');
@@ -87,7 +114,17 @@ export default function MapScreen() {
   };
 
   return (
-    <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
+    <SafeAreaView style={[styles.page, { backgroundColor: background }]} edges={['top']}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={[
+        styles.content,
+        isAndroid ? styles.contentAndroid : null,
+        { paddingBottom: scrollBottomPadding },
+      ]}
+      nestedScrollEnabled={isAndroid}
+      showsVerticalScrollIndicator
+      keyboardShouldPersistTaps="handled">
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
         <MaterialIcons name="arrow-back" size={24} color={text} />
       </TouchableOpacity>
@@ -117,6 +154,10 @@ export default function MapScreen() {
               initialRegion={initialRegion}
               showsUserLocation
               showsMyLocationButton
+              scrollEnabled={!isAndroid}
+              zoomEnabled={!isAndroid}
+              rotateEnabled={!isAndroid}
+              pitchEnabled={!isAndroid}
             >
               {trials.map((trial) => (
                 <Marker
@@ -175,7 +216,7 @@ export default function MapScreen() {
                   {trial.teamName} • {formatTime(trial.time, trial.activity)}
                 </Text>
                 <Text style={[styles.trialDetail, { color: mutedText }]}>
-                  📍 {trial.latitude.toFixed(4)}, {trial.longitude.toFixed(4)}
+                  {trial.latitude.toFixed(4)}, {trial.longitude.toFixed(4)}
                 </Text>
               </View>
             </View>
@@ -183,22 +224,52 @@ export default function MapScreen() {
         )}
       </SectionCard>
 
-      <PrimaryButton label="Back to dashboard" variant="secondary" onPress={() => router.back()} />
+      <PrimaryButton
+        label="Back to dashboard"
+        variant="secondary"
+        onPress={() => router.replace('/(tabs)')}
+        style={styles.footerButton}
+      />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   page: { flex: 1 },
-  content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
+  scroll: { flex: 1 },
+  content: {
+    padding: Spacing.lg,
+    gap: Spacing.md,
+    flexGrow: 1,
+  },
+  contentAndroid: {
+    flexGrow: 0,
+  },
+  footerButton: {
+    marginTop: Spacing.sm,
+  },
   backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
   header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   title: { ...Typography.hero, fontSize: 26 },
   subtitle: { marginTop: Spacing.xs, ...Typography.body },
   sectionTitle: { ...Typography.section, marginBottom: Spacing.sm },
-  mapContainer: { borderWidth: 1, borderRadius: 16, overflow: 'hidden', height: 350 },
-  map: { flex: 1 },
-  mapPlaceholder: { height: 350, justifyContent: 'center', alignItems: 'center', padding: Spacing.lg },
+  mapContainer: {
+    borderWidth: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+    height: MAP_HEIGHT,
+  },
+  map: {
+    width: '100%',
+    height: MAP_HEIGHT,
+  },
+  mapPlaceholder: {
+    height: MAP_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
   placeholderText: { ...Typography.body, fontSize: 13, textAlign: 'center' },
   callout: { padding: 8, minWidth: 150 },
   calloutActivity: { fontWeight: '700', fontSize: 13, marginBottom: 2 },

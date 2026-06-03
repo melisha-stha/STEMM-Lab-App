@@ -2,13 +2,13 @@ import { ActivityCard, type ActivityCardColour } from '@/components/ui/activity-
 import AdBanner from '@/components/ui/AdBanner';
 import { AuthScreenBackground, useAuthScreenBackground } from '@/components/ui/auth-screen-background';
 import { ThemeModeToggle } from '@/components/ui/theme-mode-toggle';
-import { FontWeight, Radius, Spacing } from '@/constants/design';
+import { FontWeight, Radius, Spacing, TAB_BAR_HEIGHT } from '@/constants/design';
 import { resolveAppRoute } from '@/hooks/app-routing';
 import { getTrials } from '@/hooks/database';
 import { getTeamData } from '@/hooks/storage';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { triggerMissionWelcome } from '@/hooks/useNotificationEngine';
+import { triggerMissionWelcome } from '@/hooks/notifications';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { type Href, useRouter } from 'expo-router';
@@ -31,6 +31,8 @@ import { auth } from '../../hooks/firebaseConfig';
 
 const TOTAL_ACTIVITIES = 7;
 const HORIZONTAL_PAD = 20;
+/** Floating tab bar height + margin so the ad slot clears the navbar */
+const AD_SLOT_BOTTOM_CLEARANCE = TAB_BAR_HEIGHT + Spacing.md + Spacing.sm;
 
 interface TeamData {
   name: string;
@@ -442,7 +444,12 @@ export default function HomeScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Lab alerts"
-                onPress={() => Alert.alert('Lab Alerts', 'No new alerts')}
+                onPress={() =>
+                  Alert.alert(
+                    'Lab Alerts',
+                    'Notifications are used for lab reminders and sync updates. Some notification features may only appear in a development build or APK.'
+                  )
+                }
                 style={[styles.bellBtn, { backgroundColor: backgroundSecondary }]}>
                 <MaterialIcons name="notifications-none" size={24} color={textSecondary} />
               </Pressable>
@@ -618,8 +625,10 @@ export default function HomeScreen() {
             </View>
           </View>
         </ScrollView>
+        <View style={[styles.adSlot, { paddingBottom: AD_SLOT_BOTTOM_CLEARANCE }]}>
+          <AdBanner />
+        </View>
       </View>
-      <AdBanner />
     </SafeAreaView>
   );
 }
@@ -636,8 +645,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingBottom: 120,
+    paddingBottom: Spacing.lg,
     paddingHorizontal: HORIZONTAL_PAD,
+  },
+  adSlot: {
+    paddingHorizontal: HORIZONTAL_PAD,
+    paddingTop: Spacing.xs,
   },
   dotGrid: {
     position: 'absolute',

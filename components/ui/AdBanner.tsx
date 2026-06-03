@@ -1,51 +1,72 @@
+import { Radius, Spacing } from '@/constants/design';
+import { getAdMobBannerUnitId } from '@/hooks/notifications';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useThemeColor } from '@/hooks/use-theme-color';
+import Constants from 'expo-constants';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
-// Dynamically check environments to prevent Expo Go runtime crashes
-const isExpoGo = Platform.OS === 'web' || (typeof global !== 'undefined' && (global as any).__expo_expo_go_available__);
+const isExpoGo = Constants.appOwnership === 'expo';
 
 let BannerAd: any = null;
 let BannerAdSize: any = null;
 let TestIds: any = null;
 
-if (!isExpoGo) {
+if (!isExpoGo && Platform.OS !== 'web') {
   try {
     const mobileAds = require('react-native-google-mobile-ads');
     BannerAd = mobileAds.BannerAd;
     BannerAdSize = mobileAds.BannerAdSize;
     TestIds = mobileAds.TestIds;
   } catch (e) {
-    console.warn('AdMob SDK module loading bypassed:', e);
+    if (__DEV__) console.warn('[AdMob]: Native module unavailable.', e);
   }
 }
 
-const PRODUCTION_AD_UNIT_ID = 'ca-app-pub-1472940621207668/5718257345';
-
-const AD_UNIT_ID = __DEV__ 
-  ? (TestIds?.BANNER || 'ca-app-pub-3940256099942544/6300978111') 
-  : PRODUCTION_AD_UNIT_ID;
+const useRealAds = !isExpoGo && BannerAd != null;
 
 export default function AdBanner() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  const cardSky = useThemeColor({}, 'cardSky');
+  const cardSkyBorder = useThemeColor({}, 'cardSkyBorder');
+  const cardSkyText = useThemeColor({}, 'cardSkyText');
+  const mutedText = useThemeColor({}, 'mutedText');
+
   if (Platform.OS === 'web') return null;
 
-  if (isExpoGo || !BannerAd) {
+  if (!useRealAds) {
     return (
-      <View style={styles.devContainer}>
-        <Text style={styles.devText}>AdMob Banner Placeholder</Text>
-        <Text style={styles.devSubtext}>ID: {PRODUCTION_AD_UNIT_ID}</Text>
+      <View
+        style={[
+          styles.previewCard,
+          {
+            backgroundColor: isDark ? `${cardSky}33` : cardSky,
+            borderColor: cardSkyBorder,
+          },
+        ]}>
+        <Text style={[styles.previewTitle, { color: cardSkyText }]}>AdMob Preview</Text>
+        <Text style={[styles.previewSubtitle, { color: mutedText }]}>
+          Real ads appear in APK / dev build
+        </Text>
       </View>
     );
   }
 
+  const adUnitId = getAdMobBannerUnitId(TestIds?.BANNER ?? null);
+
   return (
     <View style={styles.container}>
       <BannerAd
-        unitId={AD_UNIT_ID}
+        unitId={adUnitId}
         size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
         requestOptions={{
           requestNonPersonalizedAdsOnly: true,
         }}
-        onAdFailedToLoad={(error: any) => console.log('Ad failed to load wrapper trace: ', error)}
+        onAdFailedToLoad={(error: unknown) => {
+          if (__DEV__) console.log('[AdMob]: Banner failed to load.', error);
+        }}
       />
     </View>
   );
@@ -56,32 +77,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    paddingVertical: 6,
+    paddingVertical: Spacing.xs,
     backgroundColor: 'transparent',
   },
-  devContainer: {
+  previewCard: {
     width: '100%',
-    height: 60,
-    backgroundColor: '#E6F4FE',
+    minHeight: 56,
     borderWidth: 2,
-    borderColor: '#0071E3',
-    borderStyle: 'dashed',
-    borderRadius: 8,
+    borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 4,
-    marginVertical: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: 2,
   },
-  devText: {
-    fontSize: 12,
+  previewTitle: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#0071E3',
+    textAlign: 'center',
   },
-  devSubtext: {
-    fontSize: 10,
-    color: '#0071E3',
-    opacity: 0.8,
-    marginTop: 2,
-    fontFamily: 'monospace',
+  previewSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 15,
   },
 });

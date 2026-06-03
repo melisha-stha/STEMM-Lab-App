@@ -25,7 +25,7 @@ import { useBatteryTracker } from '@/hooks/useBatteryTracker';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
-import * as Notifications from 'expo-notifications';
+import { scheduleAppNotification } from '@/hooks/notifications';
 import { useRouter } from 'expo-router';
 import { Accelerometer, Gyroscope } from 'expo-sensors';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -909,13 +909,10 @@ export default function EarthquakeScreen() {
 
       stopChallengeTimer();
 
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'STEMM Lab Sync Complete',
-          body: `${teamData?.name || 'Your team'} — Earthquake result saved. ${timeSummary}`,
-          data: { screen: 'earthquake-results' },
-        },
-        trigger: null,
+      await scheduleAppNotification({
+        title: 'STEMM Lab Sync Complete',
+        body: `${teamData?.name || 'Your team'} — Earthquake result saved. ${timeSummary}`,
+        data: { screen: 'earthquake-results' },
       });
 
       router.push({

@@ -16,8 +16,9 @@
  *   - `db`   — the shared `Firestore` instance (used by hooks/firestore.ts).
  */
 
+import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, getReactNativePersistence, initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -36,4 +37,14 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 export const db = getFirestore(app);   // Needed for SCRUM-92 (Data Sync)
-export const auth = getAuth(app);      // Needed for SCRUM-91 (Authentication)
+
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+  });
+} catch {
+  auth = getAuth(app);
+}
+
+export { auth };

@@ -28,7 +28,7 @@ import { ResizeMode, Video } from 'expo-av';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import * as Notifications from 'expo-notifications';
+import { scheduleAppNotification } from '@/hooks/notifications';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -1124,13 +1124,10 @@ export default function ParachuteScreen() {
 
       stopChallengeTimer();
 
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '🚀 STEMM Lab Sync Complete',
-          body: `Trial data for ${teamData?.name || 'your team'} saved. ${timeSummary}`,
-          data: { screen: 'parachute-results' },
-        },
-        trigger: null,
+      await scheduleAppNotification({
+        title: '🚀 STEMM Lab Sync Complete',
+        body: `Trial data for ${teamData?.name || 'your team'} saved. ${timeSummary}`,
+        data: { screen: 'parachute-results' },
       });
 
       // Redirects securely to the discrete results dashboard via query string payload

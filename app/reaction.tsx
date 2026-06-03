@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/reaction-screen-background';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { uploadReactionResult } from '@/hooks/firestore';
+import { scheduleAppNotification } from '@/hooks/notifications';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useBatteryTracker } from '@/hooks/useBatteryTracker';
@@ -838,6 +839,12 @@ export default function ReactionScreen() {
 
       await uploadReactionResult(user.uid, teamInfo, mappedPayload, locationData);
       stopChallengeTimer();
+
+      await scheduleAppNotification({
+        title: 'STEMM Lab Sync Complete',
+        body: 'Reaction result saved',
+        data: { screen: 'reaction-results' },
+      });
       
       Alert.alert(
         'Sync Complete', 

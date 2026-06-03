@@ -5,9 +5,9 @@ import {
 } from '@/components/ui/auth-screen-background';
 import { ThemeModeToggle } from '@/components/ui/theme-mode-toggle';
 import { Spacing } from '@/constants/design';
+import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -94,14 +94,15 @@ export default function WelcomeScreen() {
   const [logoFailed, setLogoFailed] = useState(false);
   const { loaded: pixelFontLoaded, family: pixelFamily } = usePixelFont();
 
-  const textSecondary = useThemeColor({}, 'textSecondary' as any) ?? '#6E6E73';
-  const text = useThemeColor({}, 'text');
-  const surface = useThemeColor({}, 'surface');
-  const primary = useThemeColor({}, 'primary');
-  const primarySoft = useThemeColor({}, 'primarySoft');
-  const primaryDark = useThemeColor({}, 'primaryDark');
-  const onPrimary = useThemeColor({}, 'onPrimary');
-  const border = useThemeColor({}, 'border');
+  const theme = Colors[colorScheme ?? 'light'];
+  const textSecondary = theme.textSecondary ?? '#6E6E73';
+  const text = theme.text;
+  const surface = theme.surface;
+  const primary = theme.primary;
+  const primarySoft = theme.primarySoft;
+  const primaryDark = theme.primaryDark;
+  const onPrimary = theme.onPrimary;
+  const border = theme.border;
   const isDark = colorScheme === 'dark';
   const welcomeTitleColor = isDark ? text : primary;
   const welcomeMutedColor = isDark ? textSecondary : BRAND.textMuted;
