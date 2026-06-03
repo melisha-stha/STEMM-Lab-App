@@ -660,6 +660,11 @@ export default function HandFanScreen() {
             </PanelMuted>
           </ColorPanel>
 
+          <ColorPanel colour="mint">
+            <PanelTitle>Curriculum links</PanelTitle>
+            <PanelMuted style={styles.bulletPrompt}>• Science — ACSSU076: Forces and motion</PanelMuted>
+          </ColorPanel>
+
           <ColorPanel colour="lavender">
             <PanelTitle>Calculations framework</PanelTitle>
             <PanelMuted style={styles.bodyMuted}>

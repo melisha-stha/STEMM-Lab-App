@@ -609,9 +609,13 @@ export default function PerformanceScreen() {
         </PanelMuted>
 
         <PanelMuted style={[styles.bodyMuted, { marginTop: Spacing.md }]}>Curriculum links</PanelMuted>
-        <PanelMuted style={styles.bulletPrompt}>• ACPPS051 — Movement skills</PanelMuted>
-        <PanelMuted style={styles.bulletPrompt}>• ACPPS054 — Physical performance</PanelMuted>
-        <PanelMuted style={styles.bulletPrompt}>• ACSSU176 — Structure and function of body systems</PanelMuted>
+        <PanelMuted style={styles.bulletPrompt}>• Health and Physical Education — ACPPS051: Movement skills</PanelMuted>
+        <PanelMuted style={styles.bulletPrompt}>
+          • Health and Physical Education — ACPPS054: Physical performance, health, and wellbeing
+        </PanelMuted>
+        <PanelMuted style={styles.bulletPrompt}>
+          • Science — ACSSU175: Body systems work together to maintain a functioning body
+        </PanelMuted>
       </ColorPanel>
     </View>
   );

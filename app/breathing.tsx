@@ -809,6 +809,16 @@ export default function BreathingScreen() {
               Breathing frequencies ramp up dynamically alongside exertion loads to fast-track oxygen cellular transmission into fatigued skeletal muscle fibers. Lying completely supine aligns the phone along structural gravity bounds, transforming the underlying accelerometer into an precise physical chest tracking device.
             </PanelMuted>
           </ColorPanel>
+
+          <ColorPanel colour="lavender">
+            <PanelTitle>Curriculum links</PanelTitle>
+            <PanelMuted style={styles.bulletPrompt}>
+              • Science — ACSSU175: Body systems work together to maintain a functioning body
+            </PanelMuted>
+            <PanelMuted style={styles.bulletPrompt}>
+              • Health and Physical Education — ACPPS054: Physical activity, health, and wellbeing
+            </PanelMuted>
+          </ColorPanel>
         </View>
       )}
 

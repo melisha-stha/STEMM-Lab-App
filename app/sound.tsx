@@ -1076,10 +1076,11 @@ export default function SoundScreen() {
               <ColorPanel colour="sky">
                 <PanelTitle>Curriculum links</PanelTitle>
                 <PanelMuted style={styles.bullet}>
-                  • Science (Physics): wave mechanics, sound intensity, and energy transfer.
+                  • Science — ACSSU020: Light and sound are produced by a range of sources and can be
+                  sensed
                 </PanelMuted>
                 <PanelMuted style={[styles.bullet, { marginTop: 2 }]}>
-                  • Health: environmental hazards and auditory wellbeing.
+                  • Health and Physical Education — ACPPS053: Health, safety, and wellbeing
                 </PanelMuted>
               </ColorPanel>
             </View>

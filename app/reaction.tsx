@@ -1062,6 +1062,19 @@ export default function ReactionScreen() {
                   moving target.
                 </PanelMuted>
               </ColorPanel>
+
+              <ColorPanel colour="sky">
+                <PanelTitle>Curriculum links</PanelTitle>
+                <PanelMuted style={styles.body}>
+                  • Science Inquiry — ACSIS130: Collecting, summarising, and analysing data
+                </PanelMuted>
+                <PanelMuted style={styles.body}>
+                  • Mathematics — ACMSP147: Averages and variation
+                </PanelMuted>
+                <PanelMuted style={styles.body}>
+                  • Health — ACPPS057: Understanding physical performance and decision-making
+                </PanelMuted>
+              </ColorPanel>
             </View>
           )}
 

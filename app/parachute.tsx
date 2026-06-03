@@ -1350,10 +1350,22 @@ export default function ParachuteScreen() {
               <ColorPanel colour="sky">
                 <PanelTitle>Curriculum Links</PanelTitle>
                 <PanelMuted style={styles.bullet}>
-                  • Science (Physics): forces, motion, and energy in falling objects.
+                  • Science — ACSSU076 / ACSSU117: Forces affect motion
                 </PanelMuted>
                 <PanelMuted style={[styles.bullet, { marginTop: 2 }]}>
-                  • Design & Technologies: iterative prototyping and testing under constraints.
+                  • Science — ACSIS124: Planning and conducting investigations
+                </PanelMuted>
+                <PanelMuted style={[styles.bullet, { marginTop: 2 }]}>
+                  • Science — ACSIS126: Analysing patterns in data
+                </PanelMuted>
+                <PanelMuted style={[styles.bullet, { marginTop: 2 }]}>
+                  • Design and Technologies — ACTDEP036: Generate, test, and improve solutions
+                </PanelMuted>
+                <PanelMuted style={[styles.bullet, { marginTop: 2 }]}>
+                  • Mathematics — ACMMG108: Measuring speed
+                </PanelMuted>
+                <PanelMuted style={[styles.bullet, { marginTop: 2 }]}>
+                  • Mathematics — ACMSP147: Comparing data and averages
                 </PanelMuted>
               </ColorPanel>
             </View>

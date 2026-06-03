@@ -1074,10 +1074,10 @@ export default function EarthquakeScreen() {
               <ColorPanel colour="sky">
                 <PanelTitle>Curriculum links</PanelTitle>
                 <PanelMuted style={styles.bullet}>
-                  • ACSSU096 – Earth processes and tectonic activity.
+                  • Science — ACSSU096: Earth processes and sudden geological changes
                 </PanelMuted>
                 <PanelMuted style={[styles.bullet, { marginTop: Spacing.xs }]}>
-                  • ACTDEP036 – Testing and improving designs with evidence.
+                  • Design and Technologies — ACTDEP036: Testing and improving designs
                 </PanelMuted>
               </ColorPanel>
             </View>
