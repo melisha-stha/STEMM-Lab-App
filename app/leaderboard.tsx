@@ -21,7 +21,7 @@ import {
   type LeaderboardActivity,
   type LeaderboardRow,
   type OverallTeamStanding,
-} from '@/hooks/leaderboard-scoring';
+} from '@/utils/scoring/leaderboard-scoring';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';

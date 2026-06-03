@@ -33,7 +33,7 @@ import {
   SOUND_METERING_UPDATE_MS,
   type SoundMeasurement,
   type SoundTeachingRiskSeverity,
-} from '@/hooks/sound-metering';
+} from '@/utils/calculations/sound-metering';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Audio } from 'expo-av';
 import { Image } from 'expo-image';

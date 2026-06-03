@@ -25,7 +25,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TeamScreenBackground, useTeamScreenBackground } from '@/components/ui/team-screen-background';
 import { auth } from '@/hooks/firebaseConfig';
 import { filterTrialsByTeam, getTrials } from '@/hooks/database';
-import { loadLabJournalEntries, type LabJournalEntry } from '@/hooks/lab-journal';
+import { loadLabJournalEntries, type LabJournalEntry } from '@/utils/formatters/lab-journal';
 
 type AvatarKey = 'ben' | 'girl' | 'frog' | 'bunny' | 'cat' | 'fox';
 

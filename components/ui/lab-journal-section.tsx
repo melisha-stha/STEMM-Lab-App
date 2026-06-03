@@ -1,6 +1,6 @@
 import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
-import { formatLabJournalSavedAt, type LabJournalEntry } from '@/hooks/lab-journal';
+import { formatLabJournalSavedAt, type LabJournalEntry } from '@/utils/formatters/lab-journal';
 import { withPixelFontStyle } from '@/hooks/use-pixel-font';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useState } from 'react';
