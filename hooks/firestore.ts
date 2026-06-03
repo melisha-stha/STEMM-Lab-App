@@ -8,7 +8,7 @@ import {
   serverTimestamp,
   where,
 } from "firebase/firestore";
-import { LEADERBOARD_SOURCE_LIMIT } from './leaderboard-scoring';
+import { LEADERBOARD_SOURCE_LIMIT } from '@/utils/scoring/leaderboard-scoring';
 import { db } from './firebaseConfig';
 
 type LeaderboardErrorHandler = (error: Error) => void;

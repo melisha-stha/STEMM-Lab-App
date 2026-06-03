@@ -12,6 +12,8 @@ import {
 } from '@/hooks/firestore';
 import { getTeamData } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { formatLocaleDateTimeFromString } from '@/utils/formatters/date';
+import { formatCentisecondsTimer } from '@/utils/formatters/duration';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -111,16 +113,7 @@ function formatTime(ms: number, activity: string): string {
   if (activity === 'handfan') return `${ms}° bend`;
   if (activity === 'performance') return `Control ${ms}`;
   if (activity === 'reaction') return `${ms} ms`;
-  const seconds = Math.floor((ms % 60000) / 1000);
-  const centiseconds = Math.floor((ms % 1000) / 10);
-  return `${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}s`;
-}
-
-function formatPinDate(createdAt: string): string {
-  if (!createdAt) return '';
-  const parsed = new Date(createdAt);
-  if (Number.isNaN(parsed.getTime())) return '';
-  return parsed.toLocaleString();
+  return `${formatCentisecondsTimer(ms)}s`;
 }
 
 function loadLocalTeamPins(teamName: string | null | undefined): MapTrialPin[] {
@@ -318,7 +311,7 @@ export default function MapScreen() {
                           Result: {formatTime(trial.time, trial.activity)}
                         </Text>
                         {trial.createdAt ? (
-                          <Text style={styles.calloutDate}>{formatPinDate(trial.createdAt)}</Text>
+                          <Text style={styles.calloutDate}>{formatLocaleDateTimeFromString(trial.createdAt)}</Text>
                         ) : null}
                       </View>
                     </Callout>
@@ -359,7 +352,7 @@ export default function MapScreen() {
                   </Text>
                   {trial.createdAt ? (
                     <Text style={[styles.trialDetail, { color: mutedText }]}>
-                      {formatPinDate(trial.createdAt)}
+                      {formatLocaleDateTimeFromString(trial.createdAt)}
                     </Text>
                   ) : null}
                 </View>

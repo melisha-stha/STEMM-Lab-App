@@ -13,6 +13,7 @@ Built with **Expo SDK 54**, **React Native**, **Expo Router**, **Firebase**, and
 - [User flows](#user-flows)
 - [Tech stack](#tech-stack)
 - [Project structure](#project-structure)
+- [Project Structure and Architecture](#project-structure-and-architecture)
 - [Data & sync](#data--sync)
 - [Getting started](#getting-started)
 - [Environment variables](#environment-variables)
@@ -142,6 +143,31 @@ firestore.rules         # Security rules for result collections + teamProfiles
 ```
 
 Path alias `@/` maps to the project root (see `tsconfig.json`).
+
+---
+
+## Project Structure and Architecture
+
+STEMM Lab uses **Expo Router** file-based routing under `app/`, shared UI under `components/`, and data access modules under `hooks/` (with `utils/` and `services/` scaffolded for gradual cleanup). Design tokens live in `constants/`; theme and font providers in `contexts/`; images and fonts in `assets/`. Full layer diagrams, route tables, data stores, and staged refactor rules are documented in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+
+```text
+app/                      # Screens and routes
+components/
+  ui/                     # Shared buttons, cards, inputs (existing)
+  activity/               # Future shared activity UI (scaffold)
+  leaderboard/            # Future leaderboard UI (scaffold)
+  layout/                 # Future layout helpers (scaffold)
+  team/                   # Future team profile UI (scaffold)
+hooks/                    # React hooks + current Firebase/SQLite/storage modules
+constants/                # Theme and design tokens
+contexts/                 # Theme preference, pixel font
+assets/                   # Images, fonts
+docs/                     # Architecture, security, build guides
+utils/                    # Pure formatters, calculations, scoring (scaffold)
+services/                 # Firebase, database, storage, notifications (scaffold)
+```
+
+Stage 1 adds documentation and empty target folders only—**no application code has been moved** yet.
 
 ---
 

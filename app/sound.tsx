@@ -1,3 +1,6 @@
+import { ActivityStepPanel } from '@/components/activity/ActivityStepPanel';
+import { EquipmentChecklist } from '@/components/activity/EquipmentChecklist';
+import { ResultMetricCard } from '@/components/activity/ResultMetricCard';
 import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
 import {
   ColorPanel,
@@ -18,6 +21,7 @@ import {
   useSoundScreenBackground,
 } from '@/components/ui/sound-screen-background';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
+import { formatDuration } from '@/utils/formatters/duration';
 import { insertTrial } from '@/hooks/database';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -33,7 +37,7 @@ import {
   SOUND_METERING_UPDATE_MS,
   type SoundMeasurement,
   type SoundTeachingRiskSeverity,
-} from '@/hooks/sound-metering';
+} from '@/utils/calculations/sound-metering';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Audio } from 'expo-av';
 import { Image } from 'expo-image';
@@ -53,6 +57,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadSoundResult } from '../hooks/firestore';
+import { queueSoundUploadFallback } from '@/services/sync/activity-upload-fallback';
 import { getTeamData } from '../hooks/storage';
 
 export const options = {
@@ -136,29 +141,6 @@ const SOUND_LEVEL_TABLE_ROWS = [
   },
 ] as const;
 
-type StepPanelProps = {
-  step: number;
-  title: string;
-  colour?: ActivityCardColour;
-  children: React.ReactNode;
-};
-
-function StepPanel({ step, title, colour = 'lavender', children }: StepPanelProps) {
-  const { textColor, cardIconBg, borderColor } = useActivityCardColours(colour);
-
-  return (
-    <ColorPanel colour={colour}>
-      <View style={styles.stepHeader}>
-        <View style={[styles.stepBadge, { backgroundColor: cardIconBg }]}>
-          <Text style={[styles.stepBadgeText, { color: borderColor }]}>Step {step}</Text>
-        </View>
-        <Text style={[styles.stepTitle, { color: textColor }]}>{title}</Text>
-      </View>
-      <View style={styles.stepBody}>{children}</View>
-    </ColorPanel>
-  );
-}
-
 function useSoundRiskPalette() {
   const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
   const warning = useThemeColor({}, 'warning' as any) ?? '#FF9800';
@@ -230,82 +212,10 @@ function OverviewInstructionList() {
 }
 
 function OverviewHowToConduct() {
-  const { textColor, borderColor, cardIconBg } = usePanelTheme();
-  const success = useThemeColor({}, 'success' as any) ?? '#4CAF50';
-  const error = useThemeColor({}, 'error' as any) ?? '#F44336';
-
-  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
-  );
-
-  const missingItems = EQUIPMENT_ITEMS.filter((item) => !checked[item]);
-  const allGathered = missingItems.length === 0;
-  const hasStartedSelecting = EQUIPMENT_ITEMS.some((item) => checked[item]);
-
-  const toggleEquipment = (item: string) => {
-    setChecked((prev) => ({ ...prev, [item]: !prev[item] }));
-  };
-
   return (
     <>
       <PanelTitle>How to conduct the experiment</PanelTitle>
-      <PanelMuted style={styles.equipmentIntro}>First, gather all this equipment:</PanelMuted>
-      <PanelMuted style={styles.equipmentSelectHint}>
-        Select all equipment you have gathered
-      </PanelMuted>
-
-      <View style={styles.equipmentChecklist}>
-        {EQUIPMENT_ITEMS.map((item) => {
-          const isChecked = checked[item];
-          return (
-            <Pressable
-              key={item}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: isChecked }}
-              accessibilityLabel={item}
-              onPress={() => toggleEquipment(item)}
-              style={[
-                styles.equipmentCheckRow,
-                {
-                  borderColor: isChecked ? success : borderColor,
-                  backgroundColor: cardIconBg,
-                },
-              ]}>
-              <MaterialIcons
-                name={isChecked ? 'check-box' : 'check-box-outline-blank'}
-                size={22}
-                color={isChecked ? success : borderColor}
-              />
-              <Text
-                style={[
-                  styles.equipmentCheckLabel,
-                  { color: textColor, fontWeight: isChecked ? '700' : '500' },
-                ]}>
-                {item}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {allGathered ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
-          <MaterialIcons name="celebration" size={20} color={success} />
-          <Text style={[styles.equipmentStatusText, { color: success }]}>You are good to go!</Text>
-        </View>
-      ) : hasStartedSelecting ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
-          <MaterialIcons name="warning" size={20} color={error} />
-          <View style={styles.missingEquipmentBlock}>
-            <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
-            {missingItems.map((item) => (
-              <Text key={item} style={[styles.missingEquipmentItem, { color: error }]}>
-                • {item}
-              </Text>
-            ))}
-          </View>
-        </View>
-      ) : null}
+      <EquipmentChecklist items={EQUIPMENT_ITEMS} readyMessage="You are good to go!" />
     </>
   );
 }
@@ -548,13 +458,6 @@ function HearingDamageTable() {
   );
 }
 
-const formatDuration = (ms: number): string => {
-  const totalSeconds = Math.max(0, Math.round(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
-};
-
 type MeasurementRowProps = {
   index: number;
   measurement: SoundMeasurement;
@@ -562,42 +465,27 @@ type MeasurementRowProps = {
 };
 
 function MeasurementRow({ index, measurement, isLoudest }: MeasurementRowProps) {
-  const { textColor, borderColor, cardIconBg } = usePanelTheme();
+  const { borderColor } = usePanelTheme();
   const { color: riskColor, label: riskLabel } = useEstimatedSoundRisk(measurement.db);
+  const sublines: string[] = [];
+  if (measurement.avgDb != null) {
+    sublines.push(`Avg during action: ${formatEstimatedLevel(measurement.avgDb)}`);
+  }
+  if (measurement.aboveBaselineDb != null && measurement.aboveBaselineDb > 0) {
+    sublines.push(formatAboveBaseline(measurement.aboveBaselineDb));
+  }
 
   return (
-    <View
-      style={[
-        styles.measureRow,
-        {
-          borderColor: isLoudest ? riskColor : borderColor,
-          backgroundColor: cardIconBg,
-        },
-      ]}>
-      <View style={styles.measureRowMain}>
-        <Text style={[styles.measureAction, { color: textColor }]}>
-          Action {index + 1}: {measurement.label}
-        </Text>
-        <Text style={[styles.measureDb, { color: riskColor }]}>
-          Peak reading: {formatEstimatedLevel(measurement.db)}
-        </Text>
-        {measurement.avgDb != null ? (
-          <Text style={[styles.measureSubline, { color: borderColor }]}>
-            Avg during action: {formatEstimatedLevel(measurement.avgDb)}
-          </Text>
-        ) : null}
-        {measurement.aboveBaselineDb != null && measurement.aboveBaselineDb > 0 ? (
-          <Text style={[styles.measureSubline, { color: borderColor }]}>
-            {formatAboveBaseline(measurement.aboveBaselineDb)}
-          </Text>
-        ) : null}
-      </View>
-      <View style={[styles.riskBadge, { backgroundColor: cardIconBg, borderColor: riskColor }]}>
-        <Text style={[styles.riskLabel, { color: riskColor }]}>
-          {isLoudest ? 'Peak' : riskLabel}
-        </Text>
-      </View>
-    </View>
+    <ResultMetricCard
+      title={`Action ${index + 1}: ${measurement.label}`}
+      primaryLine={`Peak reading: ${formatEstimatedLevel(measurement.db)}`}
+      primaryColor={riskColor}
+      sublines={sublines}
+      sublineColor={borderColor}
+      badgeLabel={isLoudest ? 'Peak' : riskLabel}
+      badgeBorderColor={riskColor}
+      highlighted={isLoudest}
+    />
   );
 }
 
@@ -888,15 +776,17 @@ export default function SoundScreen() {
     if (!user) return;
 
     setIsSyncing(true);
+    let teamData: Awaited<ReturnType<typeof getTeamData>> = null;
+    let locationData: { latitude: number; longitude: number } | null = null;
+    const peakDb = Math.max(...measurements.map((m) => m.db));
+
     try {
-      let locationData = null;
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         locationData = await getOptimizedLocation();      
       }
 
-      const teamData = await getTeamData();
-      const peakDb = Math.max(...measurements.map((m) => m.db));
+      teamData = await getTeamData();
 
       await Promise.all([
         uploadSoundResult(user.uid, teamData, measurements, locationData),
@@ -938,7 +828,23 @@ export default function SoundScreen() {
       ]);
     } catch (error) {
       console.error('Sound Save Error:', error);
-      Alert.alert('Save Error', "We couldn't save your data. Please check your connection.");
+      try {
+        await queueSoundUploadFallback({
+          userId: user.uid,
+          teamData,
+          measurements,
+          locationData,
+          peakDb,
+          latitudeForTrial: locationData?.latitude ?? null,
+          longitudeForTrial: locationData?.longitude ?? null,
+        });
+      } catch (queueError) {
+        console.error('[PendingSync] Failed to queue sound upload.', queueError);
+      }
+      Alert.alert(
+        'Save Error',
+        "Cloud sync failed. Measurements are saved on this device and queued for background sync when you are back online."
+      );
     } finally {
       setIsSyncing(false);
     }
@@ -1069,16 +975,16 @@ export default function SoundScreen() {
                 </View>
               </View>
 
-              <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Room baseline">
+              <ActivityStepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Room baseline">
                 <SoundBaselinePanel
                   roomBaselineDb={roomBaselineDb}
                   isCapturingBaseline={isCapturingBaseline}
                   isSyncing={isSyncing}
                   onCaptureBaseline={captureRoomBaseline}
                 />
-              </StepPanel>
+              </ActivityStepPanel>
 
-              <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Label your action">
+              <ActivityStepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Label your action">
                 <PanelMuted style={styles.stepHint}>
                   Name the sound you are about to measure before you start the microphone.
                 </PanelMuted>
@@ -1093,9 +999,9 @@ export default function SoundScreen() {
                     measurements.length < MAX_MEASUREMENTS
                   }
                 />
-              </StepPanel>
+              </ActivityStepPanel>
 
-              <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Record sound level">
+              <ActivityStepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Record sound level">
                 <SoundLiveRecording
                   liveEstimated={liveEstimated}
                   liveAboveBaseline={liveAboveBaseline}
@@ -1109,9 +1015,9 @@ export default function SoundScreen() {
                   }
                   onReset={resetAll}
                 />
-              </StepPanel>
+              </ActivityStepPanel>
 
-              <StepPanel step={4} colour={EXPERIMENT_STEP_COLOURS[3]} title="Your measurements">
+              <ActivityStepPanel step={4} colour={EXPERIMENT_STEP_COLOURS[3]} title="Your measurements">
                 {measurements.length === 0 ? (
                   <PanelMuted style={styles.emptyHint}>
                     No readings yet — complete Step 2 to log your first measurement.
@@ -1137,7 +1043,7 @@ export default function SoundScreen() {
                     disabled={isRecordingAction || isCapturingBaseline || isSyncing}
                   />
                 )}
-              </StepPanel>
+              </ActivityStepPanel>
             </View>
           )}
 
@@ -1189,10 +1095,11 @@ export default function SoundScreen() {
               <ColorPanel colour="sky">
                 <PanelTitle>Curriculum links</PanelTitle>
                 <PanelMuted style={styles.bullet}>
-                  • Science (Physics): wave mechanics, sound intensity, and energy transfer.
+                  • Science — ACSSU020: Light and sound are produced by a range of sources and can be
+                  sensed
                 </PanelMuted>
                 <PanelMuted style={[styles.bullet, { marginTop: 2 }]}>
-                  • Health: environmental hazards and auditory wellbeing.
+                  • Health and Physical Education — ACPPS053: Health, safety, and wellbeing
                 </PanelMuted>
               </ColorPanel>
             </View>

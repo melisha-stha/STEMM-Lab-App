@@ -1,3 +1,5 @@
+import { ActivityStepPanel } from '@/components/activity/ActivityStepPanel';
+import { EquipmentChecklist } from '@/components/activity/EquipmentChecklist';
 import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
 import {
   ColorPanel,
@@ -18,6 +20,7 @@ import {
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
+import { formatDuration } from '@/utils/formatters/duration';
 import { insertTrial } from '@/hooks/database';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -62,42 +65,12 @@ const MOVEMENT_IMAGES = [
   require('@/assets/images/movement-3.jpeg'),
 ] as const;
 
-const formatDuration = (ms: number): string => {
-  const totalSeconds = Math.max(0, Math.round(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
-};
-
 const EQUIPMENT_ITEMS = ['Mobile phone with STEMM Lab app', 'Open space to move safely'] as const;
 
 const MOVEMENT_DURATION_MS = 30000;
 const SENSOR_INTERVAL_MS = 100;
 
 const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = ['lavender', 'sky', 'lavender'];
-
-type StepPanelProps = {
-  step: number;
-  title: string;
-  colour?: ActivityCardColour;
-  children: React.ReactNode;
-};
-
-function StepPanel({ step, title, colour = 'lavender', children }: StepPanelProps) {
-  const { textColor, cardIconBg } = useActivityCardColours(colour);
-
-  return (
-    <ColorPanel colour={colour}>
-      <View style={styles.stepHeader}>
-        <View style={[styles.stepBadge, { backgroundColor: cardIconBg }]}>
-          <Text style={[styles.stepBadgeText, { color: textColor }]}>Step {step}</Text>
-        </View>
-        <Text style={[styles.stepTitle, { color: textColor }]}>{title}</Text>
-      </View>
-      <View style={styles.stepBody}>{children}</View>
-    </ColorPanel>
-  );
-}
 
 function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
   const { textColor } = usePanelTheme();
@@ -123,80 +96,7 @@ function MovementImageFrame({ index }: { index: 0 | 1 | 2 }) {
 }
 
 function OverviewEquipmentChecklist() {
-  const { textColor, borderColor, cardIconBg } = usePanelTheme();
-  const success = useThemeColor({}, 'success');
-  const error = useThemeColor({}, 'error');
-
-  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
-  );
-
-  const missingItems = EQUIPMENT_ITEMS.filter((item) => !checked[item]);
-  const allGathered = missingItems.length === 0;
-  const hasStartedSelecting = EQUIPMENT_ITEMS.some((item) => checked[item]);
-
-  const toggleEquipment = (item: string) => {
-    setChecked((prev) => ({ ...prev, [item]: !prev[item] }));
-  };
-
-  return (
-    <>
-      <PanelMuted style={styles.bodyMuted}>Select all equipment you have gathered</PanelMuted>
-
-      <View style={styles.equipmentChecklist}>
-        {EQUIPMENT_ITEMS.map((item) => {
-          const isChecked = checked[item];
-          return (
-            <Pressable
-              key={item}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: isChecked }}
-              accessibilityLabel={item}
-              onPress={() => toggleEquipment(item)}
-              style={[
-                styles.equipmentRow,
-                {
-                  borderColor: isChecked ? success : borderColor,
-                  backgroundColor: cardIconBg,
-                },
-              ]}>
-              <MaterialIcons
-                name={isChecked ? 'check-box' : 'check-box-outline-blank'}
-                size={20}
-                color={isChecked ? success : borderColor}
-              />
-              <Text
-                style={[
-                  styles.equipmentText,
-                  { color: textColor, fontWeight: isChecked ? '700' : '600' },
-                ]}>
-                {item}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {allGathered ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
-          <MaterialIcons name="celebration" size={20} color={success} />
-          <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
-        </View>
-      ) : hasStartedSelecting ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
-          <MaterialIcons name="warning" size={20} color={error} />
-          <View style={styles.missingEquipmentBlock}>
-            <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
-            {missingItems.map((m) => (
-              <Text key={m} style={[styles.missingEquipmentItem, { color: error }]}>
-                • {m}
-              </Text>
-            ))}
-          </View>
-        </View>
-      ) : null}
-    </>
-  );
+  return <EquipmentChecklist items={EQUIPMENT_ITEMS} variant="performance" />;
 }
 
 
@@ -575,10 +475,10 @@ export default function PerformanceScreen() {
 
     return (
       <>
-        <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up participant">
+        <ActivityStepPanel variant="inline" step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up participant">
           <Input
-            label="Participant student name"
-            placeholder="Enter student name..."
+            label="Student name"
+            placeholder="Enter student name"
             value={memberName}
             onChangeText={setMemberName}
             editable={!isActive}
@@ -589,10 +489,10 @@ export default function PerformanceScreen() {
               Attempts recorded for {memberName.trim()}: {filteredAttempts.length}/{MOVEMENTS.length}
             </PanelMuted>
           ) : null}
-        </StepPanel>
+        </ActivityStepPanel>
 
         {!allDone && memberName.trim().length > 0 ? (
-          <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title={currentMovement.label}>
+          <ActivityStepPanel variant="inline" step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title={currentMovement.label}>
             <PanelMuted style={styles.bodyMuted}>{currentMovement.description}</PanelMuted>
 
             {isActive ? (
@@ -625,10 +525,10 @@ export default function PerformanceScreen() {
                 style={{ flex: 1 }}
               />
             </View>
-          </StepPanel>
+          </ActivityStepPanel>
         ) : null}
 
-        <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Your results">
+        <ActivityStepPanel variant="inline" step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Your results">
           {filteredAttempts.length > 0 ? (
             <View style={styles.attemptsWrap}>
               {filteredAttempts.map((a, i) => (
@@ -660,7 +560,7 @@ export default function PerformanceScreen() {
               />
             </View>
           ) : null}
-        </StepPanel>
+        </ActivityStepPanel>
       </>
     );
   };
@@ -709,9 +609,13 @@ export default function PerformanceScreen() {
         </PanelMuted>
 
         <PanelMuted style={[styles.bodyMuted, { marginTop: Spacing.md }]}>Curriculum links</PanelMuted>
-        <PanelMuted style={styles.bulletPrompt}>• ACPPS051 — Movement skills</PanelMuted>
-        <PanelMuted style={styles.bulletPrompt}>• ACPPS054 — Physical performance</PanelMuted>
-        <PanelMuted style={styles.bulletPrompt}>• ACSSU176 — Structure and function of body systems</PanelMuted>
+        <PanelMuted style={styles.bulletPrompt}>• Health and Physical Education — ACPPS051: Movement skills</PanelMuted>
+        <PanelMuted style={styles.bulletPrompt}>
+          • Health and Physical Education — ACPPS054: Physical performance, health, and wellbeing
+        </PanelMuted>
+        <PanelMuted style={styles.bulletPrompt}>
+          • Science — ACSSU175: Body systems work together to maintain a functioning body
+        </PanelMuted>
       </ColorPanel>
     </View>
   );

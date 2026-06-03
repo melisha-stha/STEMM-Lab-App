@@ -91,6 +91,7 @@ export async function restoreTeamProfileFromCloud(): Promise<boolean> {
       yearLevel: data.yearLevel ?? undefined,
       learningLevel: data.learningLevel ?? undefined,
       avatarKey: data.avatarKey ?? undefined,
+      id: data.id ?? undefined,
     });
 
     return true;

@@ -1,4 +1,7 @@
-import { usePanelFieldColors } from '@/components/ui/activity-color-panel';
+import {
+  useOptionalPanelTheme,
+  usePanelPlaybackColors,
+} from '@/components/ui/activity-color-panel';
 import { Radius, Spacing, Typography } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -93,13 +96,17 @@ export function VideoScrubber({ uri, onMarkersChange }: Props) {
     maxBounceFrame: null,
   });
 
-  const { foreground: text, muted: mutedText, surface: card, border, onPanel } =
-    usePanelFieldColors();
+  const playback = usePanelPlaybackColors();
+  const panel = useOptionalPanelTheme();
   const primary = useThemeColor({}, 'primary');
   const success = useThemeColor({}, 'success');
   const warning = useThemeColor({}, 'warning');
   const danger = useThemeColor({}, 'danger');
-  const onPrimary = useThemeColor({}, 'onPrimary');
+
+  const text = playback.stepText;
+  const mutedText = playback.stepText;
+  const border = playback.stepBorder;
+  const markerPrimary = panel?.borderColor ?? primary;
 
   const currentFrameIndex = Math.floor((positionMs / 1000) * ULTRA_SLOW_FPS);
   const totalFrameCount = Math.floor((durationMs / 1000) * ULTRA_SLOW_FPS);
@@ -168,8 +175,8 @@ export function VideoScrubber({ uri, onMarkersChange }: Props) {
     {
       key: 'releaseFrame' as const,
       label: 'Mark Release',
-      color: primary,
-      textColor: onPrimary,
+      color: markerPrimary,
+      textColor: '#fff',
       help: HELP.release,
     },
     {
@@ -212,8 +219,8 @@ return (
         }}
       />
 
-      <Pressable style={[styles.scrubBar, { backgroundColor: border }]} onLayout={e => setScrubBarWidth(e.nativeEvent.layout.width)} onPress={handleScrubBarPress}>
-        <View style={[styles.scrubFill, { width: `${progress * 100}%`, backgroundColor: primary }]} />
+      <Pressable style={[styles.scrubBar, { backgroundColor: playback.scrubTrack }]} onLayout={e => setScrubBarWidth(e.nativeEvent.layout.width)} onPress={handleScrubBarPress}>
+        <View style={[styles.scrubFill, { width: `${progress * 100}%`, backgroundColor: playback.scrubFill }]} />
         {[...CORE_STEPS, { key: 'maxBounceFrame' as const, color: danger }].map(step => {
           const frame = markers[step.key];
           return frame !== null && totalFrameCount > 0 ? (
@@ -222,7 +229,7 @@ return (
         })}
       </Pressable>
 
-      <Text style={[styles.timeLabel, { color: mutedText, opacity: onPanel ? 0.8 : 1 }]}>
+      <Text style={[styles.timeLabel, { color: mutedText, opacity: 0.85 }]}>
         Frame: {currentFrameIndex}f / {totalFrameCount}f ({fmtTime(positionMs)})
       </Text>
 
@@ -230,25 +237,27 @@ return (
       <View style={styles.controls}>
         {/* Step Backward 10 Frames */}
         <Pressable 
-          style={[styles.stepActionBtn, { backgroundColor: card, borderColor: border }]} 
+          style={[styles.stepActionBtn, { backgroundColor: playback.stepSurface, borderColor: playback.stepBorder }]} 
           onPress={() => void seekToFrame(currentFrameIndex - 10)}
         >
-          <Text style={[styles.stepBtnText, { color: text }]}>《 -10f</Text>
+          <Text style={[styles.stepBtnText, { color: playback.stepText }]}>《 -10f</Text>
         </Pressable>
 
         {/* Master Play Engine Toggle */}
-        <Pressable style={[styles.playbackEngineTrigger, { backgroundColor: primary }]} onPress={togglePlay}>
-          <Text style={[styles.playbackTriggerText, { color: onPrimary }]}>
+        <Pressable
+          style={[styles.playbackEngineTrigger, { backgroundColor: playback.playSurface, borderColor: playback.playSurface, borderWidth: 1 }]}
+          onPress={togglePlay}>
+          <Text style={[styles.playbackTriggerText, { color: playback.playText }]}>
             {isPlaying ? 'Pause' : positionMs >= durationMs - 100 ? 'Replay' : 'Play'}
           </Text>
         </Pressable>
 
         {/* Step Forward 10 Frames */}
         <Pressable 
-          style={[styles.stepActionBtn, { backgroundColor: card, borderColor: border }]} 
+          style={[styles.stepActionBtn, { backgroundColor: playback.stepSurface, borderColor: playback.stepBorder }]} 
           onPress={() => void seekToFrame(currentFrameIndex + 10)}
         >
-          <Text style={[styles.stepBtnText, { color: text }]}>+10f 》</Text>
+          <Text style={[styles.stepBtnText, { color: playback.stepText }]}>+10f 》</Text>
         </Pressable>
       </View>
 
@@ -260,16 +269,23 @@ return (
               onPress={() => void changeSpeed(s.value)}
               style={[
                 styles.speedPill,
-                { backgroundColor: speed === s.value ? primary : card, borderColor: border },
+                {
+                  backgroundColor: speed === s.value ? playback.speedActiveSurface : playback.speedIdleSurface,
+                  borderColor: playback.stepBorder,
+                },
               ]}>
-              <Text style={[styles.speedPillText, { color: speed === s.value ? onPrimary : mutedText }]}>
+              <Text
+                style={[
+                  styles.speedPillText,
+                  { color: speed === s.value ? playback.speedActiveText : playback.speedIdleText },
+                ]}>
                 {s.label}
               </Text>
             </Pressable>
           ))}
         </View>
         <HelpButton
-          color={primary}
+          color={playback.helpIcon}
           onPress={() => Alert.alert(HELP.playback.title, HELP.playback.message)}
         />
       </View>
@@ -285,11 +301,11 @@ return (
                 onPress={() => markEvent(step.key)}
                 style={[
                   styles.markerBtn,
-                  { backgroundColor: isSet ? step.color : card, borderColor: border, opacity: unlocked ? 1 : 0.4 },
+                  { backgroundColor: isSet ? step.color : playback.stepSurface, borderColor: playback.stepBorder, opacity: unlocked ? 1 : 0.4 },
                 ]}>
                 <Text style={[styles.markerBtnText, { color: isSet ? step.textColor : text }]}>{step.label}</Text>
               </Pressable>
-              <HelpButton color={primary} onPress={() => Alert.alert(step.help.title, step.help.message)} />
+              <HelpButton color={playback.helpIcon} onPress={() => Alert.alert(step.help.title, step.help.message)} />
               {isSet && (
                 <View style={styles.resultBadge}>
                   <Text style={{ color: step.color, fontWeight: 'bold', fontSize: 12 }}>f {markers[step.key]}</Text>
@@ -302,27 +318,43 @@ return (
 
         {/* Embedded Physics Case Switcher */}
         {markers.stopFrame !== null && (
-          <View style={[styles.inlineProfileStack, { backgroundColor: card, borderColor: border }]}>
+          <View style={[styles.inlineProfileStack, { backgroundColor: playback.stepSurface, borderColor: playback.stepBorder }]}>
             <View style={styles.profileHeadingRow}>
               <Text style={[styles.profileHeading, { color: text }]}>Collision Rebound Profile</Text>
               <HelpButton
-                color={primary}
+                color={playback.helpIcon}
                 onPress={() => Alert.alert(HELP.bounce.title, HELP.bounce.message)}
               />
             </View>
             <View style={styles.toggleRow}>
-              <Pressable onPress={() => toggleBounceMode('no_bounce')} style={[styles.togglePill, { backgroundColor: bounceMode === 'no_bounce' ? primary : card, borderColor: border }]}>
-                <Text style={{ color: bounceMode === 'no_bounce' ? onPrimary : text, fontSize: 12, fontWeight: '600' }}>Static (No Bounce)</Text>
+              <Pressable
+                onPress={() => toggleBounceMode('no_bounce')}
+                style={[
+                  styles.togglePill,
+                  {
+                    backgroundColor: bounceMode === 'no_bounce' ? playback.speedActiveSurface : playback.speedIdleSurface,
+                    borderColor: playback.stepBorder,
+                  },
+                ]}>
+                <Text style={{ color: bounceMode === 'no_bounce' ? playback.speedActiveText : text, fontSize: 12, fontWeight: '600' }}>Static (No Bounce)</Text>
               </Pressable>
-              <Pressable onPress={() => toggleBounceMode('bounced')} style={[styles.togglePill, { backgroundColor: bounceMode === 'bounced' ? primary : card, borderColor: border }]}>
-                <Text style={{ color: bounceMode === 'bounced' ? onPrimary : text, fontSize: 12, fontWeight: '600' }}>Kinetic Bounce</Text>
+              <Pressable
+                onPress={() => toggleBounceMode('bounced')}
+                style={[
+                  styles.togglePill,
+                  {
+                    backgroundColor: bounceMode === 'bounced' ? playback.speedActiveSurface : playback.speedIdleSurface,
+                    borderColor: playback.stepBorder,
+                  },
+                ]}>
+                <Text style={{ color: bounceMode === 'bounced' ? playback.speedActiveText : text, fontSize: 12, fontWeight: '600' }}>Kinetic Bounce</Text>
               </Pressable>
             </View>
 
             {/* Progressive Disclosure Variable Field */}
             {bounceMode === 'bounced' && (
               <View style={styles.markerRow}>
-                <Pressable disabled={!checkUnlocked('maxBounceFrame')} onPress={() => markEvent('maxBounceFrame')} style={[styles.markerBtn, { backgroundColor: markers.maxBounceFrame ? danger : card, borderColor: border }]}>
+                <Pressable disabled={!checkUnlocked('maxBounceFrame')} onPress={() => markEvent('maxBounceFrame')} style={[styles.markerBtn, { backgroundColor: markers.maxBounceFrame ? danger : playback.stepSurface, borderColor: playback.stepBorder }]}>
                   <Text style={[styles.markerBtnText, { color: markers.maxBounceFrame ? '#fff' : text }]}>Mark Bounce Apex height</Text>
                 </Pressable>
                 {markers.maxBounceFrame !== null && (

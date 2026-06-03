@@ -11,6 +11,8 @@ import { Radius, Spacing, Typography } from '@/constants/design';
 import { useScreenScrollInsets } from '@/hooks/use-screen-scroll-insets';
 import { getTeamData, saveEarthquakeResults } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { formatCentisecondsTimer } from '@/utils/formatters/duration';
+import { shortDesignLabel } from '@/utils/formatters/metrics';
 
 interface EarthquakeAttempt {
   designName: string;
@@ -29,14 +31,6 @@ const getStabilityLabel = (score: number): string => {
   if (score >= 40) return 'Moderate';
   return 'Unstable';
 };
-
-const formatTime = (ms: number): string => {
-  const seconds = Math.floor((ms % 60000) / 1000);
-  const centiseconds = Math.floor((ms % 1000) / 10);
-  return `${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
-};
-
-const shortDesignLabel = (designName: string): string => designName.split(' (')[0] ?? designName;
 
 const parseAttempts = (attemptsJson: string | string[] | undefined): EarthquakeAttempt[] => {
   if (!attemptsJson || Array.isArray(attemptsJson)) {
@@ -147,7 +141,7 @@ export default function EarthquakeResultsScreen() {
                     <Text style={[styles.attemptLabel, { color: mutedText }]}>{shortDesignLabel(item.designName)}</Text>
                     <Text style={[styles.attemptValue, { color: scoreColor }]}>{item.score} pts</Text>
                     <Text style={[styles.attemptMeta, { color: mutedText }]}>
-                      Duration: {formatTime(item.duration)}s · {getStabilityLabel(item.score)}
+                      Duration: {formatCentisecondsTimer(item.duration)}s · {getStabilityLabel(item.score)}
                     </Text>
                   </View>
                   {isBest ? (

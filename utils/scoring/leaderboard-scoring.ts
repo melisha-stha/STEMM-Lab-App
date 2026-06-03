@@ -1,3 +1,5 @@
+import { formatYearLevelLabel } from '@/utils/formatters/team';
+
 export const LEADERBOARD_SOURCE_LIMIT = 75;
 export const LEADERBOARD_DISPLAY_LIMIT = 10;
 export const OVERALL_RANKINGS_DISPLAY_LIMIT = 8;
@@ -87,7 +89,7 @@ export function getLeaderboardDiscriminator(row: LeaderboardRow): string {
 export function getLeaderboardYearLabel(row: LeaderboardRow): string | null {
   const raw = (row.yearLevel ?? row.grade ?? '').toString().trim();
   if (!raw) return null;
-  return /^year\s+/i.test(raw) ? raw : `Year ${raw}`;
+  return formatYearLevelLabel(raw);
 }
 
 export function getStandingDiscriminator(standing: OverallTeamStanding): string {
@@ -106,7 +108,7 @@ export function getStandingDiscriminator(standing: OverallTeamStanding): string 
 export function getStandingYearLabel(standing: OverallTeamStanding): string | null {
   const raw = (standing.yearLevel ?? standing.grade ?? '').toString().trim();
   if (!raw) return null;
-  return /^year\s+/i.test(raw) ? raw : `Year ${raw}`;
+  return formatYearLevelLabel(raw);
 }
 
 function resolveSoundPeakDb(row: LeaderboardRow): number | null {

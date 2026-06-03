@@ -1,7 +1,9 @@
+import { ActivityStepPanel } from '@/components/activity/ActivityStepPanel';
 import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
 import {
   ColorPanel,
   PanelMuted,
+  PanelText,
   PanelTitle,
   usePanelTheme,
 } from '@/components/ui/activity-color-panel';
@@ -17,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
+import { formatCountdownSeconds, formatDuration } from '@/utils/formatters/duration';
 import { insertTrial } from '@/hooks/database';
 import type { BreathingSession as BaseBreathingSession } from '@/hooks/firestore';
 import { uploadBreathingResult } from '@/hooks/firestore';
@@ -84,29 +87,6 @@ const SCREEN_TAB_LABELS: Record<ScreenTab, string> = {
 };
 
 const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = ['lavender', 'sky', 'lavender'];
-
-type StepPanelProps = {
-  step: number;
-  title: string;
-  colour?: ActivityCardColour;
-  children: React.ReactNode;
-};
-
-function StepPanel({ step, title, colour = 'lavender', children }: StepPanelProps) {
-  const { textColor, cardIconBg } = useActivityCardColours(colour);
-
-  return (
-    <ColorPanel colour={colour}>
-      <View style={styles.stepHeader}>
-        <View style={[styles.stepBadge, { backgroundColor: cardIconBg }]}>
-          <Text style={[styles.stepBadgeText, { color: textColor }]}>Step {step}</Text>
-        </View>
-        <Text style={[styles.stepTitle, { color: textColor }]}>{title}</Text>
-      </View>
-      <View style={styles.stepBody}>{children}</View>
-    </ColorPanel>
-  );
-}
 
 function BreathingDiagramFrame() {
   const { borderColor, cardIconBg } = usePanelTheme();
@@ -202,18 +182,6 @@ const calculateBPM = (samples: AccelSample[]): number => {
 
   candidates.sort((a, b) => a - b);
   return candidates[Math.floor(candidates.length / 2)];
-};
-
-const formatCountdown = (ms: number): string => {
-  const seconds = Math.ceil(ms / 1000);
-  return `${seconds}s`;
-};
-
-const formatDuration = (ms: number): string => {
-  const totalSeconds = Math.max(0, Math.round(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
 };
 
 export default function BreathingScreen() {
@@ -624,7 +592,7 @@ export default function BreathingScreen() {
                 <PanelTitle>How to conduct</PanelTitle>
                 <PanelMuted style={styles.bodyMuted}>Instructions Layout</PanelMuted>
                 <PanelMuted style={styles.bulletPrompt}>
-                  1. Enter your participant identity label inside the field box bounds.
+                  1. Enter student name in the field below.
                 </PanelMuted>
                 <PanelMuted style={styles.bulletPrompt}>
                   2. Lie down flat, rest the phone directly over your chest center plate, and tap start.
@@ -690,44 +658,42 @@ export default function BreathingScreen() {
             />
           </ColorPanel>
 
-          <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up participant">
+          <ActivityStepPanel variant="inline" step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up participant">
             <Input
-              label="Participant student name"
-              placeholder="Enter active name..."
+              label="Student name"
+              placeholder="Enter student name"
               value={memberName}
               onChangeText={setMemberName}
               editable={activityStep === 'ready' || activityStep === 'summary'}
             />
 
             {activityStep !== 'summary' && memberName.trim().length > 0 && (
-              <Text style={[styles.sessionIndicator, { color: text }]}>
+              <PanelText style={styles.sessionIndicator}>
                 Session {currentSessionIndex + 1} of {SESSION_COUNT} — {SESSION_SHORT_LABELS[currentSessionIndex]}
-              </Text>
+              </PanelText>
             )}
-          </StepPanel>
+          </ActivityStepPanel>
 
-          <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Measure breathing rate">
+          <ActivityStepPanel variant="inline" step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Measure breathing rate">
             {activityStep === 'exercise' && (
               <View style={styles.exerciseAlertCard}>
-                <Text style={[styles.exerciseTitle, { color: text }]}>🏃‍♂️ Time to exercise!</Text>
-                <Text style={[styles.body, { color: mutedText, marginBottom: Spacing.sm }]}>
+                <PanelText style={styles.exerciseTitle}>🏃‍♂️ Time to exercise!</PanelText>
+                <PanelText subdued style={[styles.body, { marginBottom: Spacing.sm }]}>
                   Jog on the spot for 1 minute or carry out 100 star jumps. Tap ready when your chest is pounding.
-                </Text>
+                </PanelText>
                 <PrimaryButton label="Ready to Measure" onPress={handleExerciseReady} />
               </View>
             )}
 
             {(activityStep === 'ready' || activityStep === 'recording' || activityStep === 'session_done') && (
               <View style={styles.activityBlock}>
-                <PanelMuted style={[styles.instruction, { color: textSecondary }]}>
+                <PanelMuted style={styles.instruction}>
                   Place phone flat on your chest and breathe normally. The bar moves with your chest —
                   measured by the device accelerometer.
                 </PanelMuted>
 
                 {sensorReady === false && (
-                  <PanelMuted style={[styles.sensorHint, { color: mutedText }]}>
-                    Accelerometer not available on this device.
-                  </PanelMuted>
+                  <PanelMuted style={styles.sensorHint}>Accelerometer not available on this device.</PanelMuted>
                 )}
 
                 <View style={[styles.indicatorCard, { borderColor: border, backgroundColor: backgroundSecondary }]}>
@@ -747,7 +713,7 @@ export default function BreathingScreen() {
                   {activityStep === 'recording' && (
                     <>
                       <Text style={[styles.recordingLabel, { color: primary }]}>LOGGING CHEST MOTION…</Text>
-                      <Text style={[styles.countdown, { color: text }]}>{formatCountdown(countdownMs)}</Text>
+                      <Text style={[styles.countdown, { color: text }]}>{formatCountdownSeconds(countdownMs)}</Text>
                       <Text style={[styles.liveBpm, { color: textSecondary }]}>
                         Live estimate: {liveBpmEstimate != null ? `${liveBpmEstimate} BPM` : '…'}
                       </Text>
@@ -780,7 +746,7 @@ export default function BreathingScreen() {
                 )}
               </View>
             )}
-          </StepPanel>
+          </ActivityStepPanel>
 
             {/* Individual Participant Run Summary Breakdown Views */}
             {(activityStep === 'summary' || currentMemberAttempts.length === SESSION_COUNT) && (
@@ -823,10 +789,10 @@ export default function BreathingScreen() {
             ) : (
               attempts.map((item, index) => (
                 <View key={`${item.memberName}-${item.sessionIndex}-${index}`} style={[styles.attemptRowListItem, { borderBottomColor: border }]}>
-                  <Text style={[styles.body, { color: text, fontWeight: '700' }]}>{item.memberName}</Text>
-                  <Text style={[styles.body, { color: textSecondary }]}>
+                  <PanelText style={[styles.body, { fontWeight: '700' }]}>{item.memberName}</PanelText>
+                  <PanelText subdued style={styles.body}>
                     {SESSION_SHORT_LABELS[item.sessionIndex]}: {item.bpm} BPM
-                  </Text>
+                  </PanelText>
                 </View>
               ))
             )}
@@ -841,6 +807,16 @@ export default function BreathingScreen() {
             <PanelTitle>Biology system insights</PanelTitle>
             <PanelMuted style={styles.bodyMuted}>
               Breathing frequencies ramp up dynamically alongside exertion loads to fast-track oxygen cellular transmission into fatigued skeletal muscle fibers. Lying completely supine aligns the phone along structural gravity bounds, transforming the underlying accelerometer into an precise physical chest tracking device.
+            </PanelMuted>
+          </ColorPanel>
+
+          <ColorPanel colour="lavender">
+            <PanelTitle>Curriculum links</PanelTitle>
+            <PanelMuted style={styles.bulletPrompt}>
+              • Science — ACSSU175: Body systems work together to maintain a functioning body
+            </PanelMuted>
+            <PanelMuted style={styles.bulletPrompt}>
+              • Health and Physical Education — ACPPS054: Physical activity, health, and wellbeing
             </PanelMuted>
           </ColorPanel>
         </View>

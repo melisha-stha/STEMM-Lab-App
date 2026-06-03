@@ -15,7 +15,7 @@ import {
   getSoundTeachingRiskBand,
   type SoundMeasurement,
   type SoundTeachingRiskSeverity,
-} from '@/hooks/sound-metering';
+} from '@/utils/calculations/sound-metering';
 import { getTeamData, saveSoundResults } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
