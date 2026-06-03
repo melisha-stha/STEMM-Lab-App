@@ -18,7 +18,7 @@ jest.mock('@/hooks/firebaseConfig', () => ({
   db: {},
 }));
 
-describe('Cloud Firestore Database Service Test Suite (Melsa)', () => {
+describe('Cloud Firestore Database Service Test Suite (Melisha)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(console, 'log').mockImplementation(() => {});
