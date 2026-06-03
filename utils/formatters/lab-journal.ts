@@ -80,7 +80,10 @@ export function belongsToCurrentTeam(
   }
 
   if (hasStoredId && hasCurrentId) {
-    return String(storedId) === String(teamId);
+    if (String(storedId) === String(teamId)) return true;
+    // Same account/team name after sign-out: local team id may be regenerated on cloud restore.
+    if (storedName && currentName && storedName === currentName) return true;
+    return false;
   }
 
   if (hasStoredId && !hasCurrentId) {

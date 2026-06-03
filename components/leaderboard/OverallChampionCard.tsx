@@ -1,6 +1,5 @@
 import { usePanelTheme } from '@/components/ui/activity-color-panel';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import type { OverallTeamStanding } from '@/utils/scoring/leaderboard-scoring';
 import { Image } from 'expo-image';
 import React from 'react';
@@ -26,14 +25,13 @@ export type OverallChampionCardProps = {
 };
 
 export function OverallChampionCard({ champion, avatarKey }: OverallChampionCardProps) {
-  const { textColor, cardIconBg } = usePanelTheme();
-  const gold = useThemeColor({}, 'gold');
+  const { textColor, borderColor, shadowColor, cardIconBg } = usePanelTheme();
   const avatarSource = getAvatarSource(avatarKey);
 
   return (
-    <View style={[styles.championCard, { borderColor: gold, backgroundColor: cardIconBg }]}>
+    <View style={[styles.championCard, { borderColor, backgroundColor: cardIconBg }]}>
       <View style={styles.championRow}>
-        <View style={[styles.avatarWrap, styles.championAvatar, { borderColor: gold }]}>
+        <View style={[styles.avatarWrap, styles.championAvatar, { borderColor: shadowColor }]}>
           {avatarSource ? (
             <Image source={avatarSource} style={styles.avatar} contentFit="cover" />
           ) : null}
@@ -42,7 +40,7 @@ export function OverallChampionCard({ champion, avatarKey }: OverallChampionCard
           <Text style={[styles.championTeam, { color: textColor }]} numberOfLines={2}>
             {champion.teamName}
           </Text>
-          <Text style={[styles.championPoints, { color: gold }]}>
+          <Text style={[styles.championPoints, { color: textColor, opacity: 0.85 }]}>
             {champion.totalPoints} points · {champion.activitiesCompleted} activities
           </Text>
         </View>

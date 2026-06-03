@@ -43,6 +43,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../hooks/firebaseConfig';
 import { getTeamData } from '../hooks/storage';
@@ -56,7 +57,7 @@ const REACTION_PHASE3_ASPECT = 418 / 274;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ACTIVITY_REACTION = 'reaction';
-const ROUND_DURATION_MS = 60000; 
+const GRID_ROUND_DURATION_MS = 30000; 
 
 const TARGET_SPAWN_INTERVAL_MS = 1400; 
 const TARGET_LIFESPAN_MS = 2400; 
@@ -66,6 +67,23 @@ const GRID_CELL_SIZE = 70;
 
 const TRACE_DURATION_MS = 10000; 
 const TARGET_SIZE = 44; 
+
+function buildPhase3TracingGuidePath(): string {
+  const radiusRadius = (BOARD_SIZE - TARGET_SIZE) / 2 - 10;
+  const centerPoint = BOARD_SIZE / 2;
+  const maxTheta = (TRACE_DURATION_MS / 1500) * Math.PI;
+  const samples = 160;
+  const segments: string[] = [];
+  for (let i = 0; i <= samples; i++) {
+    const theta = (i / samples) * maxTheta;
+    const x = centerPoint + radiusRadius * Math.cos(theta);
+    const y = centerPoint + (radiusRadius * Math.sin(2 * theta)) / 2;
+    segments.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`);
+  }
+  return segments.join(' ');
+}
+
+const PHASE3_TRACING_GUIDE_PATH = buildPhase3TracingGuidePath();
 
 type ScreenTab = 'instructions' | 'activity' | 'discussion';
 type ActivityPhase = 1 | 2 | 3;
@@ -95,7 +113,7 @@ const PHASE_LABELS: Record<ActivityPhase, string> = {
 const PHASE_1_STEPS = [
   'Use your dominant hand.',
   'Tap each circle as soon as it lights up on the grid.',
-  'Score as many hits as you can in 60 seconds.',
+  'Score as many hits as you can in 30 seconds.',
 ];
 
 const PHASE_2_STEPS = [
@@ -259,8 +277,8 @@ type ReactionRoundArenaProps = {
   onNextMember: () => void;
   onNextPhase: () => void;
   showNextMember: boolean;
-  showNextPhase: boolean;
-  nextPhaseDisabled: boolean;
+  showPhaseAdvance: boolean;
+  repeatPhaseLabel: string;
 };
 
 function ReactionRoundArena({
@@ -280,8 +298,8 @@ function ReactionRoundArena({
   onNextMember,
   onNextPhase,
   showNextMember,
-  showNextPhase,
-  nextPhaseDisabled,
+  showPhaseAdvance,
+  repeatPhaseLabel,
 }: ReactionRoundArenaProps) {
   const { cardIconBg, borderColor, textColor } = usePanelTheme();
   const primary = useThemeColor({}, 'primary');
@@ -360,6 +378,21 @@ function ReactionRoundArena({
               backgroundColor: cardIconBg,
             },
           ]}>
+          <Svg
+            width={BOARD_SIZE}
+            height={BOARD_SIZE}
+            style={styles.tracingGuideSvg}
+            pointerEvents="none">
+            <Path
+              d={PHASE3_TRACING_GUIDE_PATH}
+              fill="none"
+              stroke={borderColor}
+              strokeWidth={2.5}
+              strokeDasharray="8 10"
+              strokeLinecap="round"
+              opacity={0.7}
+            />
+          </Svg>
           <View
             style={[
               styles.tracingTargetNode,
@@ -383,55 +416,38 @@ function ReactionRoundArena({
         <Text style={[styles.metricsSummaryOutputText, { color: borderColor }]}>{lastMetricsText}</Text>
       ) : null}
 
-      <View style={styles.actionControlRow}>
-        <View style={styles.actionHalf}>
-          <PrimaryButton
-            label={roundActive ? 'Running...' : 'Start round'}
-            onPress={onStartRound}
-            disabled={roundActive}
-          />
-        </View>
-        <View style={styles.actionHalf}>
-          <PrimaryButton label="Reset round" variant="secondary" onPress={onResetRound} />
-        </View>
-      </View>
-
-      {!roundActive && (showNextMember || showNextPhase) && (
+      {showPhaseAdvance ? (
         <View style={styles.postRoundActions}>
-          {showNextPhase ? (
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityState={{ disabled: nextPhaseDisabled }}
-              disabled={nextPhaseDisabled}
-              style={[
-                styles.nextPhaseButton,
-                {
-                  borderColor,
-                  backgroundColor: cardIconBg,
-                  opacity: nextPhaseDisabled ? 0.5 : 1,
-                },
-              ]}
-              onPress={onNextPhase}>
-              <MaterialIcons name="skip-next" size={18} color={borderColor} />
-              <Text style={[styles.nextMemberButtonText, { color: borderColor }]}>
-                Go to next phase
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-
-          {showNextMember ? (
-            <TouchableOpacity
-              accessibilityRole="button"
-              style={[styles.nextMemberButton, { borderColor, backgroundColor: cardIconBg }]}
-              onPress={onNextMember}>
-              <MaterialIcons name="person-add" size={16} color={borderColor} />
-              <Text style={[styles.nextMemberButtonText, { color: borderColor }]}>
-                Next team member
-              </Text>
-            </TouchableOpacity>
-          ) : null}
+          <PrimaryButton label="Go to next round" onPress={onNextPhase} />
+          <PrimaryButton label={repeatPhaseLabel} variant="secondary" onPress={onStartRound} />
+          <PrimaryButton label="Reset" variant="secondary" onPress={onResetRound} />
+        </View>
+      ) : (
+        <View style={styles.actionControlRow}>
+          <View style={styles.actionHalf}>
+            <PrimaryButton
+              label={roundActive ? 'Running...' : 'Start round'}
+              onPress={onStartRound}
+              disabled={roundActive}
+            />
+          </View>
+          <View style={styles.actionHalf}>
+            <PrimaryButton label="Reset round" variant="secondary" onPress={onResetRound} />
+          </View>
         </View>
       )}
+
+      {showNextMember ? (
+        <View style={styles.postRoundActions}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={[styles.nextMemberButton, { borderColor, backgroundColor: cardIconBg }]}
+            onPress={onNextMember}>
+            <MaterialIcons name="person-add" size={16} color={borderColor} />
+            <Text style={[styles.nextMemberButtonText, { color: borderColor }]}>Next team member</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </>
   );
 }
@@ -453,7 +469,7 @@ export default function ReactionScreen() {
 
   const [roundActive, setRoundActive] = useState(false);
   const [activeCellIndices, setActiveCellIndices] = useState<number[]>([]);
-  const [timeLeftMs, setTimeLeftMs] = useState(ROUND_DURATION_MS);
+  const [timeLeftMs, setTimeLeftMs] = useState(GRID_ROUND_DURATION_MS);
   const [lastMetricsText, setLastMetricsText] = useState('');
 
   const [challengeTimerStarted, setChallengeTimerStarted] = useState(false);
@@ -542,7 +558,7 @@ export default function ReactionScreen() {
   const resetRoundState = (): void => {
     setRoundActive(false);
     setActiveCellIndices([]);
-    setTimeLeftMs(ROUND_DURATION_MS);
+    setTimeLeftMs(GRID_ROUND_DURATION_MS);
     setLastMetricsText('');
     setLiveAccuracy(null);
     setScrollEnabled(true);
@@ -800,10 +816,14 @@ export default function ReactionScreen() {
   const allPhasesComplete = hasAllPhasesRecorded(attempts, currentName);
   const userAttempts = attempts.filter(a => a.memberName === currentName);
   const phasesRecordedCount = new Set(userAttempts.map((a) => a.phase)).size;
-  const timeBarWidthPercent = `${Math.max(0, Math.min(100, (timeLeftMs / ROUND_DURATION_MS) * 100))}%`;
+  const timeBarWidthPercent = `${Math.max(0, Math.min(100, (timeLeftMs / GRID_ROUND_DURATION_MS) * 100))}%`;
   const phase1Done = hasPhaseRecorded(attempts, currentName, 1);
   const phase2Done = hasPhaseRecorded(attempts, currentName, 2);
   const phase3Done = hasPhaseRecorded(attempts, currentName, 3);
+  const currentPhaseDone =
+    activePhase === 1 ? phase1Done : activePhase === 2 ? phase2Done : activePhase === 3 ? phase3Done : false;
+  const showPhaseAdvance =
+    !roundActive && !!currentName && (activePhase === 1 || activePhase === 2) && currentPhaseDone;
 
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
@@ -992,9 +1012,9 @@ export default function ReactionScreen() {
                   onResetRound={resetRoundState}
                   onNextMember={prepNextTeamMemberAttempt}
                   onNextPhase={goToNextPhase}
-                  showNextMember={allPhasesComplete}
-                  showNextPhase={!!currentName && !allPhasesComplete && (activePhase === 1 || activePhase === 2)}
-                  nextPhaseDisabled={activePhase === 1 ? !phase1Done : activePhase === 2 ? !phase2Done : true}
+                  showNextMember={allPhasesComplete && !roundActive}
+                  showPhaseAdvance={showPhaseAdvance}
+                  repeatPhaseLabel={`Repeat phase ${activePhase}`}
                 />
               </ActivityStepPanel>
 
@@ -1342,6 +1362,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     fontSize: FontSize.sm,
   },
+  tracingGuideSvg: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
   tracingTargetNode: {
     position: 'absolute',
     width: TARGET_SIZE,
@@ -1402,15 +1427,7 @@ const styles = StyleSheet.create({
   postRoundActions: {
     gap: Spacing.sm,
     marginTop: Spacing.md,
-  },
-  nextPhaseButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    height: 40,
+    width: '100%',
   },
   nextMemberButtonText: {
     fontSize: FontSize.sm,

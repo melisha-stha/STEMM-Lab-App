@@ -2,6 +2,7 @@ import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
 import { formatLabJournalSavedAt, type LabJournalEntry } from '@/utils/formatters/lab-journal';
 import { withPixelFontStyle } from '@/hooks/use-pixel-font';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -11,8 +12,6 @@ type LabJournalSectionProps = {
   loading: boolean;
   pixelFontLoaded: boolean;
   pixelFamily: string | null | undefined;
-  textColor: string;
-  mutedTextColor: string;
   borderColor: string;
   cardBackground: string;
   cardBorder: string;
@@ -25,8 +24,6 @@ export function LabJournalSection({
   loading,
   pixelFontLoaded,
   pixelFamily,
-  textColor,
-  mutedTextColor,
   borderColor,
   cardBackground,
   cardBorder,
@@ -35,14 +32,16 @@ export function LabJournalSection({
 }: LabJournalSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const reflectionCount = entries.length;
+  const sectionMuted = useThemeColor({}, 'mutedText');
+  const cardMuted = accentColor;
 
   const toggleTitle =
     pixelFontLoaded && pixelFamily ? (
-      <Text style={withPixelFontStyle(pixelFamily, styles.toggleTitle, { color: textColor })}>
+      <Text style={withPixelFontStyle(pixelFamily, styles.toggleTitle, { color: accentColor })}>
         Lab Journal — Saved reflections
       </Text>
     ) : (
-      <Text style={[styles.toggleTitle, { color: textColor }]}>Lab Journal — Saved reflections</Text>
+      <Text style={[styles.toggleTitle, { color: accentColor }]}>Lab Journal — Saved reflections</Text>
     );
 
   return (
@@ -68,7 +67,7 @@ export function LabJournalSection({
           <MaterialIcons name="menu-book" size={24} color={accentColor} />
           <View style={styles.toggleTextBlock}>
             {toggleTitle}
-            <Text style={[styles.toggleHint, { color: mutedTextColor }]}>
+            <Text style={[styles.toggleHint, { color: cardMuted, opacity: 0.78 }]}>
               {expanded
                 ? 'Tap to hide your team\'s saved reflections'
                 : 'Tap to view your team\'s saved reflections'}
@@ -82,14 +81,14 @@ export function LabJournalSection({
           <MaterialIcons
             name={expanded ? 'expand-less' : 'expand-more'}
             size={28}
-            color={mutedTextColor}
+            color={accentColor}
           />
         </View>
       </Pressable>
 
       {expanded ? (
         <SectionCard>
-          <Text style={[styles.subtitle, { color: mutedTextColor }]}>
+          <Text style={[styles.subtitle, { color: sectionMuted }]}>
             Your team&apos;s saved reflections from completed activities.
           </Text>
 
@@ -105,8 +104,8 @@ export function LabJournalSection({
                   borderBottomColor: cardShadow,
                 },
               ]}>
-              <Text style={[styles.emptyTitle, { color: textColor }]}>No reflections yet</Text>
-              <Text style={[styles.emptyBody, { color: mutedTextColor }]}>
+              <Text style={[styles.emptyTitle, { color: accentColor }]}>No reflections yet</Text>
+              <Text style={[styles.emptyBody, { color: cardMuted, opacity: 0.78 }]}>
                 Complete an activity and submit a reflection to build your team&apos;s lab journal.
               </Text>
             </View>
@@ -130,23 +129,25 @@ export function LabJournalSection({
                         {entry.activityName}
                       </Text>
                       <View style={[styles.activityBadge, { borderColor: cardBorder }]}>
-                        <Text style={[styles.activityBadgeText, { color: mutedTextColor }]}>
+                        <Text style={[styles.activityBadgeText, { color: cardMuted, opacity: 0.78 }]}>
                           {entry.activityKey}
                         </Text>
                       </View>
                     </View>
                     {savedLabel ? (
-                      <Text style={[styles.metaLine, { color: mutedTextColor }]}>{savedLabel}</Text>
+                      <Text style={[styles.metaLine, { color: cardMuted, opacity: 0.78 }]}>
+                        {savedLabel}
+                      </Text>
                     ) : null}
-                    <Text style={[styles.summaryLine, { color: textColor }]}>
+                    <Text style={[styles.summaryLine, { color: accentColor }]}>
                       {entry.resultSummary}
                     </Text>
                     <View style={[styles.quoteBlock, { borderLeftColor: accentColor }]}>
-                      <Text style={[styles.commentText, { color: textColor }]}>
+                      <Text style={[styles.commentText, { color: accentColor }]}>
                         {entry.reflectionText}
                       </Text>
                     </View>
-                    <Text style={[styles.teamLine, { color: mutedTextColor }]}>
+                    <Text style={[styles.teamLine, { color: cardMuted, opacity: 0.78 }]}>
                       {entry.teamName || 'Your team'}
                     </Text>
                   </View>
@@ -154,7 +155,7 @@ export function LabJournalSection({
               })}
             </View>
           )}
-          <Text style={[styles.privacyNote, { color: mutedTextColor, borderTopColor: borderColor }]}>
+          <Text style={[styles.privacyNote, { color: sectionMuted, borderTopColor: borderColor }]}>
             Only reflections from this team are shown on this device.
           </Text>
         </SectionCard>

@@ -7,17 +7,32 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 type Props = ViewProps & {
   label: string;
   value: string;
+  /** Use on light pastel cards (dark mode keeps card backgrounds light). */
+  labelColor?: string;
+  valueColor?: string;
+  borderColor?: string;
 };
 
-export function InfoRow({ label, value, style, ...rest }: Props) {
-  const borderColor = useThemeColor({}, 'border');
-  const mutedText = useThemeColor({}, 'mutedText');
-  const text = useThemeColor({}, 'text');
+export function InfoRow({
+  label,
+  value,
+  style,
+  labelColor,
+  valueColor,
+  borderColor: borderColorProp,
+  ...rest
+}: Props) {
+  const themeBorder = useThemeColor({}, 'border');
+  const themeMuted = useThemeColor({}, 'mutedText');
+  const themeText = useThemeColor({}, 'text');
+  const borderColor = borderColorProp ?? themeBorder;
+  const labelInk = labelColor ?? themeMuted;
+  const valueInk = valueColor ?? themeText;
 
   return (
     <View style={[styles.row, { borderTopColor: borderColor }, style]} {...rest}>
-      <Text style={[styles.label, { color: mutedText }]}>{label}</Text>
-      <Text style={[styles.value, { color: text }]} numberOfLines={1}>
+      <Text style={[styles.label, { color: labelInk, opacity: labelColor ? 0.78 : 1 }]}>{label}</Text>
+      <Text style={[styles.value, { color: valueInk }]} numberOfLines={1}>
         {value}
       </Text>
     </View>

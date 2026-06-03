@@ -4,6 +4,7 @@ import { type ActivityCardColour, useActivityCardColours } from '@/components/ui
 import {
   ColorPanel,
   PanelMuted,
+  PanelText,
   PanelTitle,
   usePanelTheme,
 } from '@/components/ui/activity-color-panel';
@@ -642,7 +643,7 @@ export default function HandFanScreen() {
           ].map((q, i) => (
             <View key={i} style={[styles.questionBlock, { borderTopColor: border }]}>
               <Text style={[styles.questionNumber, { color: primary }]}>{i + 1}.</Text>
-              <Text style={[styles.questionText, { color: text }]}>{q}</Text>
+              <PanelText style={styles.questionText}>{q}</PanelText>
             </View>
           ))}
           </ColorPanel>
@@ -674,9 +675,9 @@ export default function HandFanScreen() {
             <View style={[styles.table, { borderColor: border }]}>
               <View style={[styles.tableHeaderRow, { borderBottomColor: border }]}>
                 {['Material', 'Thick (mm)', 'k (N/rad)'].map((h) => (
-                  <Text key={h} style={[styles.tableHeaderCell, { color: text, flex: 1 }]}>
+                  <PanelText key={h} style={[styles.tableHeaderCell, { flex: 1 }]}>
                     {h}
-                  </Text>
+                  </PanelText>
                 ))}
               </View>
               {MATERIALS_LIST.map((row, i) => (
@@ -686,10 +687,10 @@ export default function HandFanScreen() {
                     styles.tableRow,
                     { backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.18)', borderBottomColor: border },
                   ]}>
-                  <Text style={[styles.tableCell, { color: text, flex: 1, fontWeight: '700' }]}>
-                    {row.label}
-                  </Text>
-                  <Text style={[styles.tableCell, { color: text, opacity: 0.75, flex: 1 }]}>{row.thickness}</Text>
+                  <PanelText style={[styles.tableCell, { flex: 1, fontWeight: '700' }]}>{row.label}</PanelText>
+                  <PanelText subdued style={[styles.tableCell, { flex: 1 }]}>
+                    {row.thickness}
+                  </PanelText>
                   <Text style={[styles.tableCell, { color: primary, flex: 1, fontWeight: '700' }]}>{row.k}</Text>
                 </View>
               ))}

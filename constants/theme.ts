@@ -38,6 +38,15 @@ const sharedCards = {
 
   gold: '#F0C040',
   goldDark: '#D4A010',
+
+  /** Icon tiles / badges on pastel cards — keep identical in light & dark (cards stay light). */
+  cardIconBg: 'rgba(91, 33, 182, 0.08)',
+  cardIconBorder: 'rgba(91, 33, 182, 0.18)',
+  cardBadgeBg: 'rgba(91, 33, 182, 0.12)',
+  missionBadgeBg: 'rgba(91, 33, 182, 0.1)',
+  missionIconBg: 'rgba(255, 255, 255, 0.85)',
+  missionIconBorder: 'rgba(91, 33, 182, 0.2)',
+  cardLavenderDecor: 'rgba(124, 58, 237, 0.3)',
 };
 
 const light = {
@@ -55,13 +64,6 @@ const light = {
   onGold: '#1A1035',
   onPrimary: '#FFFFFF',
   ...sharedCards,
-  cardIconBg: 'rgba(91, 33, 182, 0.08)',
-  cardIconBorder: 'rgba(91, 33, 182, 0.18)',
-  cardBadgeBg: 'rgba(91, 33, 182, 0.12)',
-  missionBadgeBg: 'rgba(91, 33, 182, 0.1)',
-  missionIconBg: 'rgba(255, 255, 255, 0.85)',
-  missionIconBorder: 'rgba(91, 33, 182, 0.2)',
-  cardLavenderDecor: 'rgba(124, 58, 237, 0.3)',
   border: '#E5E7EB',
   borderLight: '#E5E7EB',
   shadow: '#1A1035',
@@ -105,13 +107,6 @@ const dark = {
   onGold: '#1A1035',
   onPrimary: '#FFFFFF',
   ...sharedCards,
-  cardIconBg: 'rgba(255, 255, 255, 0.12)',
-  cardIconBorder: 'rgba(255, 255, 255, 0.22)',
-  cardBadgeBg: 'rgba(255, 255, 255, 0.14)',
-  missionBadgeBg: 'rgba(255, 255, 255, 0.12)',
-  missionIconBg: 'rgba(26, 26, 53, 0.85)',
-  missionIconBorder: 'rgba(255, 255, 255, 0.2)',
-  cardLavenderDecor: 'rgba(124, 58, 237, 0.3)',
   border: '#2D2D4F',
   borderLight: '#2D2D4F',
   shadow: '#000000',

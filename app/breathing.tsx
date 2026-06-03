@@ -3,6 +3,7 @@ import { type ActivityCardColour, useActivityCardColours } from '@/components/ui
 import {
   ColorPanel,
   PanelMuted,
+  PanelText,
   PanelTitle,
   usePanelTheme,
 } from '@/components/ui/activity-color-panel';
@@ -667,34 +668,32 @@ export default function BreathingScreen() {
             />
 
             {activityStep !== 'summary' && memberName.trim().length > 0 && (
-              <Text style={[styles.sessionIndicator, { color: text }]}>
+              <PanelText style={styles.sessionIndicator}>
                 Session {currentSessionIndex + 1} of {SESSION_COUNT} — {SESSION_SHORT_LABELS[currentSessionIndex]}
-              </Text>
+              </PanelText>
             )}
           </ActivityStepPanel>
 
           <ActivityStepPanel variant="inline" step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Measure breathing rate">
             {activityStep === 'exercise' && (
               <View style={styles.exerciseAlertCard}>
-                <Text style={[styles.exerciseTitle, { color: text }]}>🏃‍♂️ Time to exercise!</Text>
-                <Text style={[styles.body, { color: mutedText, marginBottom: Spacing.sm }]}>
+                <PanelText style={styles.exerciseTitle}>🏃‍♂️ Time to exercise!</PanelText>
+                <PanelText subdued style={[styles.body, { marginBottom: Spacing.sm }]}>
                   Jog on the spot for 1 minute or carry out 100 star jumps. Tap ready when your chest is pounding.
-                </Text>
+                </PanelText>
                 <PrimaryButton label="Ready to Measure" onPress={handleExerciseReady} />
               </View>
             )}
 
             {(activityStep === 'ready' || activityStep === 'recording' || activityStep === 'session_done') && (
               <View style={styles.activityBlock}>
-                <PanelMuted style={[styles.instruction, { color: textSecondary }]}>
+                <PanelMuted style={styles.instruction}>
                   Place phone flat on your chest and breathe normally. The bar moves with your chest —
                   measured by the device accelerometer.
                 </PanelMuted>
 
                 {sensorReady === false && (
-                  <PanelMuted style={[styles.sensorHint, { color: mutedText }]}>
-                    Accelerometer not available on this device.
-                  </PanelMuted>
+                  <PanelMuted style={styles.sensorHint}>Accelerometer not available on this device.</PanelMuted>
                 )}
 
                 <View style={[styles.indicatorCard, { borderColor: border, backgroundColor: backgroundSecondary }]}>
@@ -790,10 +789,10 @@ export default function BreathingScreen() {
             ) : (
               attempts.map((item, index) => (
                 <View key={`${item.memberName}-${item.sessionIndex}-${index}`} style={[styles.attemptRowListItem, { borderBottomColor: border }]}>
-                  <Text style={[styles.body, { color: text, fontWeight: '700' }]}>{item.memberName}</Text>
-                  <Text style={[styles.body, { color: textSecondary }]}>
+                  <PanelText style={[styles.body, { fontWeight: '700' }]}>{item.memberName}</PanelText>
+                  <PanelText subdued style={styles.body}>
                     {SESSION_SHORT_LABELS[item.sessionIndex]}: {item.bpm} BPM
-                  </Text>
+                  </PanelText>
                 </View>
               ))
             )}
