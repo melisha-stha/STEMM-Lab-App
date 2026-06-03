@@ -1,12 +1,14 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
+import { useScreenScrollInsets } from '@/hooks/use-screen-scroll-insets';
 import { getTeamData, saveEarthquakeResults } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
@@ -77,6 +79,7 @@ export default function EarthquakeResultsScreen() {
   const border = useThemeColor({}, 'border');
   const card = useThemeColor({}, 'card');
   const success = useThemeColor({}, 'success');
+  const { scrollContentStyle } = useScreenScrollInsets();
 
   const handleSubmit = async (): Promise<void> => {
     if (!attempts.length) {
@@ -108,10 +111,9 @@ export default function EarthquakeResultsScreen() {
   };
 
   return (
-    <ScrollView style={[styles.page, { backgroundColor: background }]} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <MaterialIcons name="arrow-back" size={24} color={text} />
-      </TouchableOpacity>
+    <SafeAreaView style={[styles.page, { backgroundColor: background }]} edges={['top']}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, scrollContentStyle]}>
+        <ScreenBackButton />
       <View style={styles.header}>
         <Text style={[styles.title, { color: text }]}>Earthquake Results</Text>
         <Text style={[styles.subtitle, { color: mutedText }]}>
@@ -193,14 +195,15 @@ export default function EarthquakeResultsScreen() {
           onPress={() => router.replace('/(tabs)')}
         />
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   page: { flex: 1 },
-  content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
-  backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
+  scroll: { flex: 1 },
+  content: {},
   header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   title: { ...Typography.hero, fontSize: 26 },
   subtitle: { marginTop: Spacing.xs, ...Typography.body },

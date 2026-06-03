@@ -5,6 +5,7 @@ import {
   useLeaderboardScreenBackground,
 } from '@/components/ui/leaderboard-screen-background';
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -345,12 +346,7 @@ export default function LeaderboardScreen() {
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <TouchableOpacity
-            accessibilityLabel="Go back"
-            onPress={() => router.back()}
-            style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={24} color={text} />
-          </TouchableOpacity>
+          <ScreenBackButton />
 
           <ColorPanel colour="lavender">
             {pixelFontLoaded ? <LeaderboardHeroTitle pixelFamily={pixelFamily} /> : null}
@@ -456,11 +452,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: SCREEN_BOTTOM_INSET,
     gap: Spacing.lg,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    padding: Spacing.xs,
-    marginBottom: Spacing.xs,
   },
   heroTitle: {
     fontSize: FontSize.xxl,

@@ -1,4 +1,5 @@
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { SectionCard } from '@/components/ui/section-card';
 import { SCREEN_BOTTOM_INSET, Spacing, TAB_BAR_HEIGHT, Typography } from '@/constants/design';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -267,9 +268,7 @@ export default function MapScreen() {
         nestedScrollEnabled={isAndroid}
         showsVerticalScrollIndicator
         keyboardShouldPersistTaps="handled">
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color={text} />
-        </TouchableOpacity>
+        <ScreenBackButton />
         <View style={styles.header}>
           <Text style={[styles.title, { color: text }]}>Drop Site Map</Text>
           <Text style={[styles.subtitle, { color: mutedText }]}>
@@ -408,7 +407,6 @@ const styles = StyleSheet.create({
   footerButton: {
     marginTop: Spacing.sm,
   },
-  backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
   header: { paddingHorizontal: Spacing.xs, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   title: { ...Typography.hero, fontSize: 26 },
   subtitle: { marginTop: Spacing.xs, ...Typography.body },

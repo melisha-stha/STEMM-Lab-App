@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/experiment-challenge-timer';
 import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { insertTrial } from '@/hooks/database';
 import type { BreathingSession as BaseBreathingSession } from '@/hooks/firestore';
@@ -578,12 +579,7 @@ export default function BreathingScreen() {
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <TouchableOpacity
-            accessibilityLabel="Go back"
-            onPress={() => router.back()}
-            style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={24} color={text} />
-          </TouchableOpacity>
+          <ScreenBackButton />
 
           <ScrollView
             horizontal
@@ -888,7 +884,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingBottom: SCREEN_BOTTOM_INSET + Spacing.xl,
   },
-  backButton: { alignSelf: 'flex-start', padding: Spacing.xs, marginBottom: Spacing.xs },
   tabRow: { gap: Spacing.sm, paddingBottom: Spacing.xs },
   tabPill: {
     paddingHorizontal: 14,

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/experiment-challenge-timer';
 import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
 import { insertTrial } from '@/hooks/database';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
@@ -950,12 +951,7 @@ export default function EarthquakeScreen() {
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <TouchableOpacity
-            accessibilityLabel="Go back"
-            onPress={() => router.back()}
-            style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={24} color={text} />
-          </TouchableOpacity>
+          <ScreenBackButton />
 
           <ScrollView
             horizontal

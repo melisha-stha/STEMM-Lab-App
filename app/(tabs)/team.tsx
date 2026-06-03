@@ -2,6 +2,7 @@ import { InfoRow } from '@/components/ui/info-row';
 import { Input } from '@/components/ui/input';
 import { PixelBatteryIcon } from '@/components/ui/pixel-battery-icon';
 import { PrimaryButton } from '@/components/ui/primary-button';
+import { LabJournalSection } from '@/components/ui/lab-journal-section';
 import { SectionCard } from '@/components/ui/section-card';
 import { SCREEN_BOTTOM_INSET, Spacing, Typography } from '@/constants/design';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
@@ -24,6 +25,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TeamScreenBackground, useTeamScreenBackground } from '@/components/ui/team-screen-background';
 import { auth } from '@/hooks/firebaseConfig';
 import { filterTrialsByTeam, getTrials } from '@/hooks/database';
+import { loadLabJournalEntries, type LabJournalEntry } from '@/hooks/lab-journal';
 
 type AvatarKey = 'ben' | 'girl' | 'frog' | 'bunny' | 'cat' | 'fox';
 
@@ -50,6 +52,8 @@ export default function TeamTabScreen() {
     avatarKey?: AvatarKey;
   } | null>(null);
   const [trials, setTrials] = useState<any[]>([]);
+  const [journalEntries, setJournalEntries] = useState<LabJournalEntry[]>([]);
+  const [journalLoading, setJournalLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -142,11 +146,41 @@ export default function TeamTabScreen() {
     }
   }, []);
 
+  const refreshLabJournal = useCallback(async () => {
+    if (!team?.name?.trim() && team?.id == null) {
+      setJournalEntries([]);
+      setJournalLoading(false);
+      return;
+    }
+
+    setJournalLoading(true);
+    try {
+      const entries = await loadLabJournalEntries(team.name, team.id ?? null);
+      setJournalEntries(entries);
+    } catch {
+      setJournalEntries([]);
+    } finally {
+      setJournalLoading(false);
+    }
+  }, [team]);
+
   useFocusEffect(
     useCallback(() => {
       refreshTrials();
-    }, [refreshTrials])
+      if (team) {
+        void refreshLabJournal();
+      } else {
+        setJournalEntries([]);
+        setJournalLoading(false);
+      }
+    }, [refreshTrials, refreshLabJournal, team])
   );
+
+  useEffect(() => {
+    if (team) {
+      void refreshLabJournal();
+    }
+  }, [team, refreshLabJournal]);
 
   const handleResetTeam = () => {
     const performReset = async () => {
@@ -708,6 +742,22 @@ export default function TeamTabScreen() {
             <InfoRow label="Latest activity" value={latestActivityLabel || 'Not started'} />
             <InfoRow label="Sync status" value={syncStatus} />
           </SectionCard>
+
+          {team ? (
+            <LabJournalSection
+              entries={journalEntries}
+              loading={journalLoading}
+              pixelFontLoaded={pixelFontLoaded}
+              pixelFamily={pixelFamily}
+              textColor={text}
+              mutedTextColor={mutedText}
+              borderColor={border}
+              cardBackground={cardLavender}
+              cardBorder={cardLavenderBorder}
+              cardShadow={cardLavenderShadow}
+              accentColor={cardLavenderText}
+            />
+          ) : null}
 
           <View style={styles.sectionHeaderRow}>
             {pixelFontLoaded ? (
