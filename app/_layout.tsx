@@ -1,3 +1,5 @@
+import '@/services/tasks/sync-task';
+
 import { PixelFontProvider, usePixelFontContext } from '@/contexts/pixel-font-context';
 import { ThemePreferenceProvider } from '@/contexts/theme-preference';
 import { initDatabase } from '@/hooks/database';

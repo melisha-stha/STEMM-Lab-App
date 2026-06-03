@@ -129,6 +129,26 @@ Upload and subscription logic: `hooks/firestore.ts`. Security rules: `firestore.
 | **Camera / video** (`expo-av`, image picker) | Parachute |
 | **Location** | Upload flows, map, battery/location helper |
 | **Notifications** | Post-sync alerts (`hooks/notifications.ts`) |
+| **Task Manager (pending sync)** | `STEMM_PENDING_SYNC_TASK` — see `docs/task-manager.md` |
+
+### Task Manager / pending sync
+
+- Task defined in `services/tasks/sync-task.ts`; loaded from `app/_layout.tsx`.
+- Failed Parachute/Sound Firestore uploads enqueue to AsyncStorage; `hooks/usePendingSyncEngine.ts` retries when the app is foregrounded and the user is signed in.
+- **Expo Go:** foreground retry is reliable; OS-scheduled background runs need a dev build/APK (optional `expo-background-fetch` not installed).
+- Notifications are separate — not Task Manager.
+
+### Parallel / asynchronous processing (honest summary)
+
+JavaScript runs on a single thread; the app uses **concurrent I/O and event callbacks**, not multi-threading:
+
+| Pattern | Where |
+|---------|--------|
+| `Promise.all` | Activity save: Firestore upload + SQLite `insertTrial` in parallel |
+| `async` / `await` | Auth, team profile, GPS (`useBatteryTracker`), save pipelines |
+| Live sensor callbacks | Breathing, Performance (accelerometer); Earthquake (accel + gyro); Sound (microphone metering via `expo-av`) |
+| Timers | Challenge timers, reaction spawn/trace intervals, earthquake trial timer |
+| Firestore `onSnapshot` | Leaderboards, map locations — live updates while UI renders |
 
 ---
 
@@ -172,6 +192,7 @@ Today, many non-UI modules live under `hooks/` for historical reasons. The targe
 | `services/database/` | `database.ts` (SQLite) |
 | `services/storage/` | `storage.js` (AsyncStorage team + reflections) |
 | `services/notifications/` | `notifications.ts`, notification engine wiring |
+| `services/sync/`, `services/tasks/` | Pending sync queue, `STEMM_PENDING_SYNC_TASK` |
 
 ### `hooks/` — React hooks only (target)
 

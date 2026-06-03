@@ -57,6 +57,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../hooks/firebaseConfig';
 import { uploadSoundResult } from '../hooks/firestore';
+import { queueSoundUploadFallback } from '@/services/sync/activity-upload-fallback';
 import { getTeamData } from '../hooks/storage';
 
 export const options = {
@@ -775,15 +776,17 @@ export default function SoundScreen() {
     if (!user) return;
 
     setIsSyncing(true);
+    let teamData: Awaited<ReturnType<typeof getTeamData>> = null;
+    let locationData: { latitude: number; longitude: number } | null = null;
+    const peakDb = Math.max(...measurements.map((m) => m.db));
+
     try {
-      let locationData = null;
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         locationData = await getOptimizedLocation();      
       }
 
-      const teamData = await getTeamData();
-      const peakDb = Math.max(...measurements.map((m) => m.db));
+      teamData = await getTeamData();
 
       await Promise.all([
         uploadSoundResult(user.uid, teamData, measurements, locationData),
@@ -825,7 +828,23 @@ export default function SoundScreen() {
       ]);
     } catch (error) {
       console.error('Sound Save Error:', error);
-      Alert.alert('Save Error', "We couldn't save your data. Please check your connection.");
+      try {
+        await queueSoundUploadFallback({
+          userId: user.uid,
+          teamData,
+          measurements,
+          locationData,
+          peakDb,
+          latitudeForTrial: locationData?.latitude ?? null,
+          longitudeForTrial: locationData?.longitude ?? null,
+        });
+      } catch (queueError) {
+        console.error('[PendingSync] Failed to queue sound upload.', queueError);
+      }
+      Alert.alert(
+        'Save Error',
+        "Cloud sync failed. Measurements are saved on this device and queued for background sync when you are back online."
+      );
     } finally {
       setIsSyncing(false);
     }
