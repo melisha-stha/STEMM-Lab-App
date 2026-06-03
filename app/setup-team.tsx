@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/team-setup-screen-background';
 import { PIXEL_BRAND } from '@/constants/pixel-brand';
 import { Spacing } from '@/constants/design';
+import { markMissionWelcomePending } from '@/hooks/notifications';
 import { clearSkipCloudTeamRestore, saveTeamProfile } from '@/hooks/team-profile';
 import { getTeamData, saveTeamData } from '@/hooks/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -99,6 +100,7 @@ export default function SetupTeamScreen() {
       id: saved?.id,
     });
     await clearSkipCloudTeamRestore();
+    await markMissionWelcomePending();
 
     router.replace('/(tabs)');
   };

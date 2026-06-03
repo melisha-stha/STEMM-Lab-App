@@ -1,5 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+
+const MISSION_WELCOME_PENDING_KEY = '@stemm/mission_welcome_pending';
 
 type NotificationContent = {
   title: string;
@@ -126,6 +129,36 @@ export async function scheduleAppNotification(content: NotificationContent): Pro
     });
   } catch (error) {
     if (__DEV__) console.warn('[Notifications]: Failed to schedule notification.', error);
+  }
+}
+
+/** Call after login or team setup when the user is heading to the home dashboard. */
+export async function markMissionWelcomePending(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(MISSION_WELCOME_PENDING_KEY, '1');
+  } catch (error) {
+    if (__DEV__) console.warn('[Notifications]: Failed to mark mission welcome pending.', error);
+  }
+}
+
+export async function clearMissionWelcomePending(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(MISSION_WELCOME_PENDING_KEY);
+  } catch (error) {
+    if (__DEV__) console.warn('[Notifications]: Failed to clear mission welcome pending.', error);
+  }
+}
+
+/** Returns true once, then clears the pending flag. */
+export async function consumeMissionWelcomePending(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(MISSION_WELCOME_PENDING_KEY);
+    if (value !== '1') return false;
+    await AsyncStorage.removeItem(MISSION_WELCOME_PENDING_KEY);
+    return true;
+  } catch (error) {
+    if (__DEV__) console.warn('[Notifications]: Failed to read mission welcome pending.', error);
+    return false;
   }
 }
 

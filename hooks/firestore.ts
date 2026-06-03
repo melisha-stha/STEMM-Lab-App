@@ -5,9 +5,196 @@ import {
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp
+  serverTimestamp,
+  where,
 } from "firebase/firestore";
 import { db } from './firebaseConfig';
+
+export type TeamMapLocation = {
+  id: string;
+  activity: string;
+  latitude: number;
+  longitude: number;
+  time: number;
+  createdAt: string;
+  source: 'cloud';
+};
+
+type TeamMapContext = {
+  teamId?: string | number | null;
+  teamName?: string | null;
+};
+
+type MapCollectionConfig = {
+  collectionName: string;
+  activity: string;
+  locationField: 'location' | 'locationData';
+  resolveTime: (data: Record<string, unknown>) => number;
+};
+
+const TEAM_MAP_COLLECTIONS: MapCollectionConfig[] = [
+  {
+    collectionName: 'parachute_results',
+    activity: 'parachute',
+    locationField: 'location',
+    resolveTime: (data) => Number(data.bestTime ?? 0),
+  },
+  {
+    collectionName: 'soundResults',
+    activity: 'sound',
+    locationField: 'locationData',
+    resolveTime: (data) => Number(data.peakDb ?? 0),
+  },
+  {
+    collectionName: 'earthquakeResults',
+    activity: 'earthquake',
+    locationField: 'locationData',
+    resolveTime: (data) => Number(data.bestScore ?? 0),
+  },
+  {
+    collectionName: 'reactionResults',
+    activity: 'reaction',
+    locationField: 'locationData',
+    resolveTime: (data) => Number(data.bestReactionTime ?? data.avgReactionTimeMs ?? 0),
+  },
+  {
+    collectionName: 'breathingResults',
+    activity: 'breathing',
+    locationField: 'locationData',
+    resolveTime: (data) => Number(data.restingBpm ?? 0),
+  },
+  {
+    collectionName: 'handfanResults',
+    activity: 'handfan',
+    locationField: 'locationData',
+    resolveTime: (data) => Number(data.bestBendAngle ?? 0),
+  },
+  {
+    collectionName: 'performanceResults',
+    activity: 'performance',
+    locationField: 'locationData',
+    resolveTime: (data) => Number(data.bestControlScore ?? 0),
+  },
+];
+
+function toCreatedAtIso(createdAt: unknown): string {
+  if (!createdAt) return '';
+  if (typeof createdAt === 'string') return createdAt;
+  if (
+    typeof createdAt === 'object' &&
+    createdAt !== null &&
+    'toDate' in createdAt &&
+    typeof (createdAt as { toDate?: () => Date }).toDate === 'function'
+  ) {
+    return (createdAt as { toDate: () => Date }).toDate().toISOString();
+  }
+  return '';
+}
+
+function hasValidCoordinates(latitude: number, longitude: number): boolean {
+  return (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    !(latitude === 0 && longitude === 0)
+  );
+}
+
+function readLocation(
+  data: Record<string, unknown>,
+  locationField: 'location' | 'locationData'
+): { latitude: number; longitude: number } | null {
+  const raw = data[locationField];
+  if (!raw || typeof raw !== 'object') return null;
+  const latitude = Number((raw as { latitude?: unknown }).latitude);
+  const longitude = Number((raw as { longitude?: unknown }).longitude);
+  if (!hasValidCoordinates(latitude, longitude)) return null;
+  return { latitude, longitude };
+}
+
+/** Client-side guard: only records for this signed-in user and team. */
+export function belongsToCurrentTeam(
+  data: Record<string, unknown>,
+  userId: string,
+  teamContext: TeamMapContext
+): boolean {
+  if (data.userId !== userId) return false;
+
+  const contextTeamId = teamContext.teamId;
+  const recordTeamId = data.teamId;
+  if (contextTeamId != null && recordTeamId != null) {
+    return String(recordTeamId) === String(contextTeamId);
+  }
+
+  const contextTeamName = (teamContext.teamName ?? '').trim().toLowerCase();
+  if (!contextTeamName) return true;
+
+  const recordTeamName = String(data.teamName ?? '')
+    .trim()
+    .toLowerCase();
+  return recordTeamName === contextTeamName;
+}
+
+function docToTeamMapLocation(
+  docId: string,
+  data: Record<string, unknown>,
+  config: MapCollectionConfig
+): TeamMapLocation | null {
+  const coords = readLocation(data, config.locationField);
+  if (!coords) return null;
+
+  return {
+    id: `${config.collectionName}-${docId}`,
+    activity: config.activity,
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+    time: config.resolveTime(data),
+    createdAt: toCreatedAtIso(data.createdAt),
+    source: 'cloud',
+  };
+}
+
+/**
+ * Live map pins for the signed-in user's team only (Firestore queries by userId).
+ * Leaderboard subscriptions are unchanged.
+ */
+export function subscribeToTeamMapLocations(
+  userId: string,
+  teamContext: TeamMapContext,
+  callback: (locations: TeamMapLocation[]) => void
+): () => void {
+  const buckets: Record<string, TeamMapLocation[]> = {};
+
+  const emit = () => {
+    callback(Object.values(buckets).flat());
+  };
+
+  const unsubscribes = TEAM_MAP_COLLECTIONS.map((config) => {
+    const q = query(collection(db, config.collectionName), where('userId', '==', userId));
+
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        buckets[config.collectionName] = snapshot.docs
+          .map((docSnap) => {
+            const data = docSnap.data() as Record<string, unknown>;
+            if (!belongsToCurrentTeam(data, userId, teamContext)) return null;
+            return docToTeamMapLocation(docSnap.id, data, config);
+          })
+          .filter((row): row is TeamMapLocation => row !== null);
+        emit();
+      },
+      (error) => {
+        console.error(`[Map] Firestore listen failed for ${config.collectionName}:`, error);
+        buckets[config.collectionName] = [];
+        emit();
+      }
+    );
+  });
+
+  return () => {
+    unsubscribes.forEach((unsubscribe) => unsubscribe());
+  };
+}
 
 export type SoundLeaderboardEntry = {
   id: string;

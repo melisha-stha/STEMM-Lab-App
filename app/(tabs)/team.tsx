@@ -6,6 +6,7 @@ import { SectionCard } from '@/components/ui/section-card';
 import { SCREEN_BOTTOM_INSET, Spacing, Typography } from '@/constants/design';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { clearMissionWelcomePending } from '@/hooks/notifications';
 import { useDeviceBattery } from '@/hooks/useDeviceBattery';
 import { clearTeamData, getTeamData, saveTeamData } from '@/hooks/storage';
 import {
@@ -15,13 +16,14 @@ import {
 } from '@/hooks/team-profile';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { type Href, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TeamScreenBackground, useTeamScreenBackground } from '@/components/ui/team-screen-background';
 import { auth } from '@/hooks/firebaseConfig';
-import { getTrials } from '@/hooks/database';
+import { filterTrialsByTeam, getTrials } from '@/hooks/database';
 
 type AvatarKey = 'ben' | 'girl' | 'frog' | 'bunny' | 'cat' | 'fox';
 
@@ -131,7 +133,7 @@ export default function TeamTabScreen() {
     void load();
   }, []);
 
-  useEffect(() => {
+  const refreshTrials = useCallback(() => {
     try {
       const rows = getTrials();
       setTrials(Array.isArray(rows) ? rows : []);
@@ -139,6 +141,12 @@ export default function TeamTabScreen() {
       setTrials([]);
     }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshTrials();
+    }, [refreshTrials])
+  );
 
   const handleResetTeam = () => {
     const performReset = async () => {
@@ -177,6 +185,7 @@ export default function TeamTabScreen() {
         // Clear local cache; allow cloud restore on next login.
         await clearTeamData();
         await clearSkipCloudTeamRestore();
+        await clearMissionWelcomePending();
         await auth.signOut();
         router.replace('/welcome-screen' as Href);
       } catch {
@@ -225,7 +234,7 @@ export default function TeamTabScreen() {
   const activeAvatar = AVATARS.find((a) => a.key === avatarKey) ?? AVATARS.find((a) => a.key === 'frog')!;
 
   const teamName = team?.name?.trim() || 'Team';
-  const teamTrials = trials.filter((t) => (t?.teamName ?? '').trim() === teamName);
+  const teamTrials = filterTrialsByTeam(trials, teamName);
   const activitiesCompleted = new Set(teamTrials.map((t) => t?.activity).filter(Boolean)).size;
   const savedAttempts = teamTrials.length;
   const latestActivityKey = teamTrials.length ? teamTrials[teamTrials.length - 1]?.activity : null;

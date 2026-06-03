@@ -8,6 +8,7 @@ import { PixelButton } from '@/components/ui/pixel-button';
 import { PixelHeading } from '@/components/ui/pixel-heading';
 import { Spacing } from '@/constants/design';
 import { resolvePostLoginRoute } from '@/hooks/app-routing';
+import { markMissionWelcomePending } from '@/hooks/notifications';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
@@ -31,6 +32,9 @@ export default function LoginScreen() {
     try {
       await login(email, password);
       const destination = await resolvePostLoginRoute();
+      if (destination === '/(tabs)') {
+        await markMissionWelcomePending();
+      }
       router.replace(destination);
     } catch (err: any) {
       Alert.alert('Login Failed', err);

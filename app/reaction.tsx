@@ -17,6 +17,7 @@ import {
   useReactionScreenBackground,
 } from '@/components/ui/reaction-screen-background';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
+import { insertTrial } from '@/hooks/database';
 import { uploadReactionResult } from '@/hooks/firestore';
 import { scheduleAppNotification } from '@/hooks/notifications';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
@@ -837,7 +838,25 @@ export default function ReactionScreen() {
           ? `You completed this in ${formatDuration(elapsedMs)}.`
           : `Timer wasn't running for this session.`;
 
-      await uploadReactionResult(user.uid, teamInfo, mappedPayload, locationData);
+      const bestReactionMs = userAttempts.reduce((min, attempt) => {
+        const ms = attempt.reactionTime ?? attempt.delayMs ?? 0;
+        if (ms <= 0) return min;
+        return min === 0 ? ms : Math.min(min, ms);
+      }, 0);
+
+      await Promise.all([
+        uploadReactionResult(user.uid, teamInfo, mappedPayload, locationData),
+        Promise.resolve(
+          insertTrial(
+            teamInfo?.name || 'unknown',
+            ACTIVITY_REACTION,
+            bestReactionMs,
+            '',
+            locationData?.latitude ?? null,
+            locationData?.longitude ?? null
+          )
+        ),
+      ]);
       stopChallengeTimer();
 
       await scheduleAppNotification({

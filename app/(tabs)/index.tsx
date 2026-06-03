@@ -3,12 +3,12 @@ import AdBanner from '@/components/ui/AdBanner';
 import { AuthScreenBackground, useAuthScreenBackground } from '@/components/ui/auth-screen-background';
 import { ThemeModeToggle } from '@/components/ui/theme-mode-toggle';
 import { FontWeight, Radius, Spacing, TAB_BAR_HEIGHT } from '@/constants/design';
-import { resolveAppRoute } from '@/hooks/app-routing';
-import { getTrials } from '@/hooks/database';
+import { hasTeamSaved, resolveAppRoute } from '@/hooks/app-routing';
+import { filterTrialsByTeam, getTrials } from '@/hooks/database';
 import { getTeamData } from '@/hooks/storage';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { triggerMissionWelcome } from '@/hooks/notifications';
+import { consumeMissionWelcomePending, triggerMissionWelcome } from '@/hooks/notifications';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { type Href, useRouter } from 'expo-router';
@@ -326,30 +326,29 @@ export default function HomeScreen() {
     return unsubscribe;
   }, [router]);
 
-  useEffect(() => {
+  const refreshHomeProgress = React.useCallback(() => {
     try {
       const rows = getTrials() as TrialRow[];
       setTrials(Array.isArray(rows) ? rows : []);
     } catch {
       setTrials([]);
     }
+    void getTeamData().then((data) => {
+      if (data) setTeam(data);
+    });
   }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      triggerMissionWelcome("Parachute Drop");
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, []);
-  
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshHomeProgress();
+    }, [refreshHomeProgress])
+  );
 
   const teamName = team?.name?.trim() || 'Team';
-  const teamTrials = useMemo(() => {
-    const name = team?.name?.trim();
-    if (!name) return [];
-    return trials.filter((t) => t.teamName === name);
-  }, [team?.name, trials]);
+  const teamTrials = useMemo(
+    () => filterTrialsByTeam(trials, team?.name),
+    [team?.name, trials]
+  );
 
   const activitiesExplored = useMemo(
     () => new Set(teamTrials.map((t) => t.activity)).size,
@@ -386,8 +385,43 @@ export default function HomeScreen() {
   const missionHook = MISSION_HOOK[featuredActivity] ?? MISSION_HOOK.parachute;
   const missionRoute = MISSION_ROUTE[featuredActivity] ?? MISSION_ROUTE.parachute;
   const missionComingSoon = COMING_SOON_KEYS.has(featuredActivity);
+  const featuredMissionTitle =
+    ACTIVITIES.find((activity) => activity.activityKey === featuredActivity)?.title ?? 'Parachute Drop';
   const greeting = getGreeting(teamName);
   const yearLabel = team?.yearLevel ?? team?.grade ?? '—';
+
+  const missionWelcomeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      let cancelled = false;
+
+      const maybeShowMissionWelcome = async () => {
+        if (!auth?.currentUser) return;
+        const hasTeam = await hasTeamSaved();
+        if (!hasTeam) return;
+
+        const shouldShow = await consumeMissionWelcomePending();
+        if (!shouldShow || cancelled) return;
+
+        missionWelcomeTimerRef.current = setTimeout(() => {
+          if (!cancelled) {
+            void triggerMissionWelcome(featuredMissionTitle);
+          }
+        }, 1500);
+      };
+
+      void maybeShowMissionWelcome();
+
+      return () => {
+        cancelled = true;
+        if (missionWelcomeTimerRef.current) {
+          clearTimeout(missionWelcomeTimerRef.current);
+          missionWelcomeTimerRef.current = null;
+        }
+      };
+    }, [featuredMissionTitle])
+  );
 
   const completedActivities = useMemo(() => {
     const done = new Set<string>();
