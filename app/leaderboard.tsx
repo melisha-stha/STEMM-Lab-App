@@ -90,8 +90,6 @@ const AVATAR_SOURCE: Record<string, any> = {
   fox: require('@/assets/images/fox-avatar.png'),
 };
 
-const RANK_MEDALS = ['🥇', '🥈', '🥉'] as const;
-
 const getAvatarSource = (key?: string | null) => {
   if (!key) return null;
   return AVATAR_SOURCE[key] ?? null;
@@ -222,9 +220,7 @@ function LeaderboardRow({
         },
       ]}>
       <View style={[styles.rankWrap, { borderColor: isPodium ? gold : borderColor }]}>
-        <Text style={[styles.rank, { color: isPodium ? gold : textColor }]}>
-          {RANK_MEDALS[rank - 1] ?? rank}
-        </Text>
+        <Text style={[styles.rank, { color: isPodium ? gold : textColor }]}>{rank}</Text>
       </View>
       <View style={[styles.avatarWrap, { borderColor: isPodium ? gold : borderColor }]}>
         {avatarSource ? (
@@ -265,37 +261,22 @@ function AllTimeChampionCard({
   const gold = useThemeColor({}, 'gold');
   const avatarKey = resolveAvatarKey(champion, localTeam);
   const avatarSource = getAvatarSource(avatarKey);
-  const yearLabel = getStandingYearLabel(champion);
-
   return (
     <View style={[styles.championCard, { borderColor: gold, backgroundColor: cardIconBg }]}>
-      <View style={[styles.championBadge, { borderColor: gold }]}>
-        <MaterialIcons name="emoji-events" size={28} color={gold} />
-      </View>
-      <View style={styles.championBody}>
-        <Text style={[styles.championTitle, { color: textColor }]}>All-Time Lab Champion</Text>
-        <View style={styles.championRow}>
-          <View style={[styles.avatarWrap, styles.championAvatar, { borderColor: gold }]}>
-            {avatarSource ? (
-              <Image source={avatarSource} style={styles.avatar} contentFit="cover" />
-            ) : null}
-          </View>
-          <View style={styles.championMeta}>
-            <Text style={[styles.championTeam, { color: textColor }]} numberOfLines={1}>
-              {champion.teamName}
-            </Text>
-            <Text style={[styles.meta, { color: textColor, opacity: 0.8 }]} numberOfLines={1}>
-              Team ID {getStandingDiscriminator(champion)}
-              {yearLabel ? ` · ${yearLabel}` : ''}
-            </Text>
-            <Text style={[styles.championPoints, { color: gold }]}>
-              {champion.totalPoints} points · {champion.activitiesCompleted} activities
-            </Text>
-          </View>
+      <View style={styles.championRow}>
+        <View style={[styles.avatarWrap, styles.championAvatar, { borderColor: gold }]}>
+          {avatarSource ? (
+            <Image source={avatarSource} style={styles.avatar} contentFit="cover" />
+          ) : null}
         </View>
-        <PanelMuted style={styles.championHint}>
-          Based on team points across completed activities
-        </PanelMuted>
+        <View style={styles.championMeta}>
+          <Text style={[styles.championTeam, { color: textColor }]} numberOfLines={2}>
+            {champion.teamName}
+          </Text>
+          <Text style={[styles.championPoints, { color: gold }]}>
+            {champion.totalPoints} points · {champion.activitiesCompleted} activities
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -440,7 +421,7 @@ export default function LeaderboardScreen() {
                 {overallRankings.map((standing, idx) => (
                   <LeaderboardRow
                     key={standing.teamKey}
-                    rank={idx + 1}
+                    rank={champion ? idx + 2 : idx + 1}
                     avatarKey={resolveAvatarKey(standing, localTeam)}
                     teamName={standing.teamName}
                     discriminator={getStandingDiscriminator(standing)}
@@ -611,20 +592,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.sm,
   },
-  championBadge: {
-    alignSelf: 'flex-start',
-    borderWidth: 2,
-    borderRadius: Radius.full,
-    padding: Spacing.xs,
-  },
-  championBody: {
-    gap: Spacing.sm,
-  },
-  championTitle: {
-    fontSize: FontSize.md,
-    fontWeight: FontWeight.extrabold,
-    letterSpacing: 0.4,
-  },
   championRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -637,7 +604,7 @@ const styles = StyleSheet.create({
   },
   championMeta: {
     flex: 1,
-    gap: 2,
+    gap: 4,
     minWidth: 0,
   },
   championTeam: {
@@ -647,10 +614,6 @@ const styles = StyleSheet.create({
   championPoints: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.bold,
-  },
-  championHint: {
-    fontSize: FontSize.xs,
-    lineHeight: 18,
   },
   row: {
     borderWidth: 2,
