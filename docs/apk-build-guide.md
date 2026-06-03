@@ -49,6 +49,7 @@ The preview profile reads `EXPO_PUBLIC_*` values from the `env` block in `eas.js
 - [ ] GPS tagging captures coordinates on parachute/sound/earthquake save
 - [ ] Leaderboard loads and updates in real time
 - [ ] Earthquake gyroscope reads live x/y/z values
+- [ ] Pending sync: failed upload queues locally; reopening app (signed in) retries Firestore sync (`docs/task-manager.md`)
 
 ## Screenshots required for deployment report
 

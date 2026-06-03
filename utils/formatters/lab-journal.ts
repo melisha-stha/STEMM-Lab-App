@@ -1,3 +1,5 @@
+import { formatLocaleDateTime } from '@/utils/formatters/date';
+
 import {
   getBreathingResults,
   getEarthquakeResults,
@@ -78,7 +80,10 @@ export function belongsToCurrentTeam(
   }
 
   if (hasStoredId && hasCurrentId) {
-    return String(storedId) === String(teamId);
+    if (String(storedId) === String(teamId)) return true;
+    // Same account/team name after sign-out: local team id may be regenerated on cloud restore.
+    if (storedName && currentName && storedName === currentName) return true;
+    return false;
   }
 
   if (hasStoredId && !hasCurrentId) {
@@ -97,7 +102,7 @@ export function belongsToCurrentTeam(
   return false;
 }
 
-function getReflectionText(payload: Record<string, unknown>): string {
+export function getReflectionText(payload: Record<string, unknown>): string {
   const raw =
     payload.comment ?? payload.reflection ?? payload.reflectionText ?? payload.note ?? '';
   return String(raw).trim();
@@ -140,7 +145,7 @@ function getReactionAverageMs(payload: Record<string, unknown>): number | null {
   return Math.round(total / phaseValues.length);
 }
 
-function buildResultSummary(activityKey: string, payload: Record<string, unknown>): string {
+export function buildResultSummary(activityKey: string, payload: Record<string, unknown>): string {
   switch (activityKey) {
     case 'parachute': {
       const bestTime = Number(payload.bestTime);
@@ -280,8 +285,30 @@ export async function loadLabJournalEntries(
 }
 
 export function formatLabJournalSavedAt(createdAt: number): string | null {
-  if (!createdAt || !Number.isFinite(createdAt)) return null;
-  const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleString();
+  return formatLocaleDateTime(createdAt);
+}
+
+export function getActivityDisplayName(activityKey: string): string {
+  const match = ACTIVITY_SOURCES.find((source) => source.activityKey === activityKey);
+  return match?.activityName ?? activityKey;
+}
+
+/** Reload full saved reflection payload for team journal detail view. */
+export async function loadSavedReflectionPayload(
+  activityKey: string,
+  createdAt: number,
+  teamName: string | null | undefined,
+  teamId: number | string | null | undefined
+): Promise<Record<string, unknown> | null> {
+  const source = ACTIVITY_SOURCES.find((item) => item.activityKey === activityKey);
+  if (!source || !Number.isFinite(createdAt)) return null;
+
+  const history = await loadActivityHistory(source.load);
+  const match = history.find((item) => {
+    const payload = asRecord(item);
+    if (!payload || !belongsToCurrentTeam(payload, teamName, teamId)) return false;
+    return Number(payload.createdAt) === createdAt;
+  });
+
+  return asRecord(match);
 }

@@ -19,7 +19,10 @@ export const saveTeamData = async (teamName, members, grade, extra = {}) => {
       yearLevel: extra.yearLevel ?? existing?.yearLevel ?? grade,
       learningLevel: extra.learningLevel ?? existing?.learningLevel ?? null,
       avatarKey: extra.avatarKey ?? existing?.avatarKey ?? 'frog',
-      id: existing?.id ?? Math.floor(1000 + Math.random() * 9000),
+      id:
+        extra.id != null && extra.id !== ''
+          ? extra.id
+          : existing?.id ?? Math.floor(1000 + Math.random() * 9000),
     };
     const jsonValue = JSON.stringify(teamObj);
     if (uid) {

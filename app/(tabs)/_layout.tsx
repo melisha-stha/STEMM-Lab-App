@@ -8,6 +8,7 @@ import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useNotificationEngine } from '@/hooks/useNotificationEngine';
+import { usePendingSyncEngine } from '@/hooks/usePendingSyncEngine';
 
 type TabIconName = keyof typeof MaterialIcons.glyphMap;
 
@@ -34,6 +35,7 @@ function TabBarIcon({
 
 export default function TabLayout() {
   useNotificationEngine();
+  usePendingSyncEngine();
 
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];

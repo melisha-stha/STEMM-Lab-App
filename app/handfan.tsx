@@ -1,7 +1,10 @@
+import { ActivityStepPanel } from '@/components/activity/ActivityStepPanel';
+import { EquipmentChecklist } from '@/components/activity/EquipmentChecklist';
 import { type ActivityCardColour, useActivityCardColours } from '@/components/ui/activity-card';
 import {
   ColorPanel,
   PanelMuted,
+  PanelText,
   PanelTitle,
   usePanelTheme,
 } from '@/components/ui/activity-color-panel';
@@ -15,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { ScreenBackButton } from '@/components/ui/screen-back-button';
 import { FontSize, FontWeight, Radius, SCREEN_BOTTOM_INSET, Spacing } from '@/constants/design';
+import { formatDuration } from '@/utils/formatters/duration';
 import { insertTrial } from '@/hooks/database';
 import { androidPixelPressableBox, usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -37,29 +41,6 @@ const HAND_FAN_DIAGRAM = require('@/assets/images/handfan-diagram.jpeg');
 const HAND_FAN_DIAGRAM_ASPECT = 680 / 382;
 
 const EXPERIMENT_STEP_COLOURS: ActivityCardColour[] = ['lavender', 'sky', 'lavender'];
-
-type StepPanelProps = {
-  step: number;
-  title: string;
-  colour?: ActivityCardColour;
-  children: React.ReactNode;
-};
-
-function StepPanel({ step, title, colour = 'lavender', children }: StepPanelProps) {
-  const { textColor, cardIconBg } = useActivityCardColours(colour);
-
-  return (
-    <ColorPanel colour={colour}>
-      <View style={styles.stepHeader}>
-        <View style={[styles.stepBadge, { backgroundColor: cardIconBg }]}>
-          <Text style={[styles.stepBadgeText, { color: textColor }]}>Step {step}</Text>
-        </View>
-        <Text style={[styles.stepTitle, { color: textColor }]}>{title}</Text>
-      </View>
-      <View style={styles.stepBody}>{children}</View>
-    </ColorPanel>
-  );
-}
 
 function OverviewHeroTitle({ pixelFamily }: { pixelFamily: string | undefined }) {
   const { textColor } = usePanelTheme();
@@ -85,80 +66,7 @@ function HandFanDiagramFrame() {
 }
 
 function OverviewEquipmentChecklist() {
-  const { textColor, borderColor, cardIconBg } = usePanelTheme();
-  const success = useThemeColor({}, 'success');
-  const error = useThemeColor({}, 'error');
-
-  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(EQUIPMENT_ITEMS.map((item) => [item, false]))
-  );
-
-  const missingItems = EQUIPMENT_ITEMS.filter((item) => !checked[item]);
-  const allGathered = missingItems.length === 0;
-  const hasStartedSelecting = EQUIPMENT_ITEMS.some((item) => checked[item]);
-
-  const toggleEquipment = (item: string) => {
-    setChecked((prev) => ({ ...prev, [item]: !prev[item] }));
-  };
-
-  return (
-    <>
-      <PanelMuted style={styles.equipmentSelectHint}>Select all equipment you have gathered</PanelMuted>
-
-      <View style={styles.equipmentChecklist}>
-        {EQUIPMENT_ITEMS.map((item) => {
-          const isChecked = checked[item];
-          return (
-            <Pressable
-              key={item}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: isChecked }}
-              accessibilityLabel={item}
-              onPress={() => toggleEquipment(item)}
-              style={[
-                styles.equipmentCheckRow,
-                {
-                  borderColor: isChecked ? success : borderColor,
-                  backgroundColor: cardIconBg,
-                },
-              ]}>
-              <MaterialIcons
-                name={isChecked ? 'check-box' : 'check-box-outline-blank'}
-                size={22}
-                color={isChecked ? success : borderColor}
-              />
-              <Text
-                style={[
-                  styles.equipmentCheckLabel,
-                  { color: textColor, fontWeight: isChecked ? '700' : '500' },
-                ]}>
-                {item}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {allGathered ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: success }]}>
-          <MaterialIcons name="celebration" size={20} color={success} />
-          <Text style={[styles.equipmentStatusText, { color: success }]}>You&apos;re good to go!</Text>
-        </View>
-      ) : hasStartedSelecting ? (
-        <View style={[styles.equipmentStatusBanner, { backgroundColor: cardIconBg, borderColor: error }]}>
-          <MaterialIcons name="warning" size={20} color={error} />
-          <View style={styles.missingEquipmentBlock}>
-            <Text style={[styles.equipmentStatusText, { color: error }]}>Missing equipment:</Text>
-            {missingItems.map((item) => (
-              <Text key={item} style={[styles.missingEquipmentItem, { color: error }]}>
-                • {item}
-              </Text>
-            ))}
-          </View>
-        </View>
-      ) : null}
-    </>
-  );
+  return <EquipmentChecklist items={EQUIPMENT_ITEMS} variant="compact" />;
 }
 
 type ScreenTab = 'overview' | 'experiment' | 'writeup' | 'discussion';
@@ -377,13 +285,6 @@ export default function HandFanScreen() {
     setMemberName('');
   };
 
-const formatDuration = (ms: number): string => {
-  const totalSeconds = Math.max(0, Math.round(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
-};
-
   const handleSave = async () => {
     const user = auth.currentUser;
     if (!user) {
@@ -577,17 +478,17 @@ const formatDuration = (ms: number): string => {
             />
           </ColorPanel>
 
-          <StepPanel step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up participant">
+          <ActivityStepPanel variant="inline" step={1} colour={EXPERIMENT_STEP_COLOURS[0]} title="Set up participant">
             <Input
-              label="Participant identity name"
-              placeholder="Input user identity..."
+              label="Student name"
+              placeholder="Enter student name"
               value={memberName}
               onChangeText={setMemberName}
             />
             <PanelMuted style={styles.helper}>GPS Module Lock: {locationStatus}</PanelMuted>
-          </StepPanel>
+          </ActivityStepPanel>
 
-          <StepPanel step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Log trial parameters">
+          <ActivityStepPanel variant="inline" step={2} colour={EXPERIMENT_STEP_COLOURS[1]} title="Log trial parameters">
             <Input
               label="Fan design label"
               placeholder="e.g. 1cm Accordion Folds"
@@ -685,9 +586,9 @@ const formatDuration = (ms: number): string => {
                 <PrimaryButton label="Reset form" variant="secondary" onPress={clearActiveFormInputs} />
               </View>
             </View>
-          </StepPanel>
+          </ActivityStepPanel>
 
-          <StepPanel step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Your results">
+          <ActivityStepPanel variant="inline" step={3} colour={EXPERIMENT_STEP_COLOURS[2]} title="Your results">
             {attempts.length === 0 ? (
               <PanelMuted>No experimental vectors stored down inside this sequence yet.</PanelMuted>
             ) : (
@@ -719,7 +620,7 @@ const formatDuration = (ms: number): string => {
                 />
               </View>
             ) : null}
-          </StepPanel>
+          </ActivityStepPanel>
         </View>
       )}
 
@@ -742,7 +643,7 @@ const formatDuration = (ms: number): string => {
           ].map((q, i) => (
             <View key={i} style={[styles.questionBlock, { borderTopColor: border }]}>
               <Text style={[styles.questionNumber, { color: primary }]}>{i + 1}.</Text>
-              <Text style={[styles.questionText, { color: text }]}>{q}</Text>
+              <PanelText style={styles.questionText}>{q}</PanelText>
             </View>
           ))}
           </ColorPanel>
@@ -757,6 +658,11 @@ const formatDuration = (ms: number): string => {
             <PanelMuted style={styles.bodyMuted}>
               Moving air currents transfer dynamic vector kinetic energy into static barriers. Cardboard profiles display significantly amplified $k$ stiffness coefficient parameters over basic paper fibers, layout links needing much higher air velocities to reach matched baseline spatial deformation limits.
             </PanelMuted>
+          </ColorPanel>
+
+          <ColorPanel colour="mint">
+            <PanelTitle>Curriculum links</PanelTitle>
+            <PanelMuted style={styles.bulletPrompt}>• Science — ACSSU076: Forces and motion</PanelMuted>
           </ColorPanel>
 
           <ColorPanel colour="lavender">
@@ -774,9 +680,9 @@ const formatDuration = (ms: number): string => {
             <View style={[styles.table, { borderColor: border }]}>
               <View style={[styles.tableHeaderRow, { borderBottomColor: border }]}>
                 {['Material', 'Thick (mm)', 'k (N/rad)'].map((h) => (
-                  <Text key={h} style={[styles.tableHeaderCell, { color: text, flex: 1 }]}>
+                  <PanelText key={h} style={[styles.tableHeaderCell, { flex: 1 }]}>
                     {h}
-                  </Text>
+                  </PanelText>
                 ))}
               </View>
               {MATERIALS_LIST.map((row, i) => (
@@ -786,10 +692,10 @@ const formatDuration = (ms: number): string => {
                     styles.tableRow,
                     { backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.18)', borderBottomColor: border },
                   ]}>
-                  <Text style={[styles.tableCell, { color: text, flex: 1, fontWeight: '700' }]}>
-                    {row.label}
-                  </Text>
-                  <Text style={[styles.tableCell, { color: text, opacity: 0.75, flex: 1 }]}>{row.thickness}</Text>
+                  <PanelText style={[styles.tableCell, { flex: 1, fontWeight: '700' }]}>{row.label}</PanelText>
+                  <PanelText subdued style={[styles.tableCell, { flex: 1 }]}>
+                    {row.thickness}
+                  </PanelText>
                   <Text style={[styles.tableCell, { color: primary, flex: 1, fontWeight: '700' }]}>{row.k}</Text>
                 </View>
               ))}

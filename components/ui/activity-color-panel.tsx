@@ -5,7 +5,14 @@ import {
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import React from 'react';
-import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 
 export type PanelTheme = ReturnType<typeof useActivityCardColours>;
 
@@ -42,6 +49,66 @@ export function usePanelFieldColors() {
     border: panel.borderColor,
     onPanel: true as const,
   };
+}
+
+/** Playback scrubber controls — high contrast on pastel panels (dark app theme keeps panels light). */
+export function usePanelPlaybackColors() {
+  const panel = useOptionalPanelTheme();
+  const primary = useThemeColor({}, 'primary');
+  const onPrimary = useThemeColor({}, 'onPrimary');
+  const text = useThemeColor({}, 'text');
+  const border = useThemeColor({}, 'border');
+  const surface = useThemeColor({}, 'card');
+
+  if (panel) {
+    return {
+      onPanel: true as const,
+      stepSurface: 'rgba(255, 255, 255, 0.92)',
+      stepBorder: panel.borderColor,
+      stepText: panel.textColor,
+      playSurface: panel.borderColor,
+      playText: '#FFFFFF',
+      speedIdleSurface: 'rgba(255, 255, 255, 0.85)',
+      speedActiveSurface: panel.borderColor,
+      speedIdleText: panel.textColor,
+      speedActiveText: '#FFFFFF',
+      scrubTrack: panel.borderColor,
+      scrubFill: panel.borderColor,
+      helpIcon: panel.borderColor,
+    };
+  }
+
+  return {
+    onPanel: false as const,
+    stepSurface: surface,
+    stepBorder: border,
+    stepText: text,
+    playSurface: primary,
+    playText: onPrimary,
+    speedIdleSurface: surface,
+    speedActiveSurface: primary,
+    speedIdleText: text,
+    speedActiveText: onPrimary,
+    scrubTrack: border,
+    scrubFill: primary,
+    helpIcon: primary,
+  };
+}
+
+/** Body text for use inside ColorPanel / ActivityStepPanel (dark ink on light pastel in every theme). */
+export function PanelText({
+  children,
+  style,
+  subdued = false,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<TextStyle>;
+  subdued?: boolean;
+}) {
+  const { textColor } = usePanelTheme();
+  return (
+    <Text style={[{ color: textColor, opacity: subdued ? 0.78 : 1 }, style]}>{children}</Text>
+  );
 }
 
 export function usePanelTableTokens() {

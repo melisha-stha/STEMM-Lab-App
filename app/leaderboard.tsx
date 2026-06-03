@@ -1,3 +1,5 @@
+import { LeaderboardRow as LeaderboardRowCard } from '@/components/leaderboard/LeaderboardRow';
+import { OverallChampionCard } from '@/components/leaderboard/OverallChampionCard';
 import { type ActivityCardColour } from '@/components/ui/activity-card';
 import { ColorPanel, PanelMuted, PanelTitle, usePanelTheme } from '@/components/ui/activity-color-panel';
 import {
@@ -21,11 +23,10 @@ import {
   type LeaderboardActivity,
   type LeaderboardRow,
   type OverallTeamStanding,
-} from '@/hooks/leaderboard-scoring';
+} from '@/utils/scoring/leaderboard-scoring';
 import { usePixelFont, withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -79,20 +80,6 @@ const ACTIVITY_COLOURS: Record<Activity, ActivityCardColour> = {
   performance: 'pink',
   reaction: 'yellow',
   breathing: 'sky',
-};
-
-const AVATAR_SOURCE: Record<string, any> = {
-  ben: require('@/assets/images/boy-avatar.png'),
-  girl: require('@/assets/images/girl-avatar.png'),
-  frog: require('@/assets/images/frog-avatar.png'),
-  bunny: require('@/assets/images/bunny-avatar.png'),
-  cat: require('@/assets/images/cat-avatar.png'),
-  fox: require('@/assets/images/fox-avatar.png'),
-};
-
-const getAvatarSource = (key?: string | null) => {
-  if (!key) return null;
-  return AVATAR_SOURCE[key] ?? null;
 };
 
 function resolveAvatarKey(
@@ -177,107 +164,6 @@ function OverallEmptyState() {
       <PanelMuted style={styles.emptySubtext}>
         Complete activities to start building team points.
       </PanelMuted>
-    </View>
-  );
-}
-
-type LeaderboardRowProps = {
-  rank: number;
-  avatarKey?: string;
-  teamName: string;
-  discriminator: string;
-  yearLabel?: string | null;
-  metricPrimary?: string;
-  metricLabel?: string;
-  pointsLine?: string;
-  compact?: boolean;
-};
-
-function LeaderboardRow({
-  rank,
-  avatarKey,
-  teamName,
-  discriminator,
-  yearLabel,
-  metricPrimary,
-  metricLabel,
-  pointsLine,
-  compact,
-}: LeaderboardRowProps) {
-  const { textColor, borderColor, cardIconBg } = usePanelTheme();
-  const gold = useThemeColor({}, 'gold');
-  const isPodium = rank <= 3;
-  const avatarSource = getAvatarSource(avatarKey);
-
-  return (
-    <View
-      style={[
-        styles.row,
-        compact ? styles.rowCompact : null,
-        {
-          borderColor: isPodium ? gold : borderColor,
-          backgroundColor: cardIconBg,
-        },
-      ]}>
-      <View style={[styles.rankWrap, { borderColor: isPodium ? gold : borderColor }]}>
-        <Text style={[styles.rank, { color: isPodium ? gold : textColor }]}>{rank}</Text>
-      </View>
-      <View style={[styles.avatarWrap, { borderColor: isPodium ? gold : borderColor }]}>
-        {avatarSource ? (
-          <Image source={avatarSource} style={styles.avatar} contentFit="cover" />
-        ) : null}
-      </View>
-      <View style={styles.main}>
-        <Text style={[styles.teamId, { color: textColor }]} numberOfLines={1}>
-          {teamName}
-        </Text>
-        <Text style={[styles.meta, { color: textColor, opacity: 0.75 }]} numberOfLines={1}>
-          Team ID {discriminator}
-          {yearLabel ? ` · ${yearLabel}` : ''}
-        </Text>
-        {pointsLine ? (
-          <Text style={[styles.meta, { color: textColor, opacity: 0.9 }]} numberOfLines={1}>
-            {pointsLine}
-          </Text>
-        ) : null}
-        {metricLabel && metricPrimary ? (
-          <Text style={[styles.meta, { color: textColor, opacity: 0.9 }]} numberOfLines={1}>
-            {metricLabel}: {metricPrimary}
-          </Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-function AllTimeChampionCard({
-  champion,
-  localTeam,
-}: {
-  champion: OverallTeamStanding;
-  localTeam: { id?: number; name?: string; avatarKey?: string } | null;
-}) {
-  const { textColor, cardIconBg } = usePanelTheme();
-  const gold = useThemeColor({}, 'gold');
-  const avatarKey = resolveAvatarKey(champion, localTeam);
-  const avatarSource = getAvatarSource(avatarKey);
-  return (
-    <View style={[styles.championCard, { borderColor: gold, backgroundColor: cardIconBg }]}>
-      <View style={styles.championRow}>
-        <View style={[styles.avatarWrap, styles.championAvatar, { borderColor: gold }]}>
-          {avatarSource ? (
-            <Image source={avatarSource} style={styles.avatar} contentFit="cover" />
-          ) : null}
-        </View>
-        <View style={styles.championMeta}>
-          <Text style={[styles.championTeam, { color: textColor }]} numberOfLines={2}>
-            {champion.teamName}
-          </Text>
-          <Text style={[styles.championPoints, { color: gold }]}>
-            {champion.totalPoints} points · {champion.activitiesCompleted} activities
-          </Text>
-        </View>
-      </View>
     </View>
   );
 }
@@ -407,7 +293,10 @@ export default function LeaderboardScreen() {
                 Could not load overall rankings. Pull to refresh or try again shortly.
               </Text>
             ) : champion ? (
-              <AllTimeChampionCard champion={champion} localTeam={localTeam} />
+              <OverallChampionCard
+                champion={champion}
+                avatarKey={resolveAvatarKey(champion, localTeam)}
+              />
             ) : (
               <OverallEmptyState />
             )}
@@ -419,7 +308,7 @@ export default function LeaderboardScreen() {
               <PanelMuted style={styles.listHint}>Top teams by points across activities</PanelMuted>
               <View style={styles.list}>
                 {overallRankings.map((standing, idx) => (
-                  <LeaderboardRow
+                  <LeaderboardRowCard
                     key={standing.teamKey}
                     rank={champion ? idx + 2 : idx + 1}
                     avatarKey={resolveAvatarKey(standing, localTeam)}
@@ -480,7 +369,7 @@ export default function LeaderboardScreen() {
                   const discriminator = getLeaderboardDiscriminator(result);
                   const yearLabel = getLeaderboardYearLabel(result);
                   return (
-                    <LeaderboardRow
+                    <LeaderboardRowCard
                       key={`${result.id}-${idx}`}
                       rank={idx + 1}
                       avatarKey={resolveAvatarKey(result, localTeam)}
@@ -584,84 +473,5 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: Spacing.sm,
-  },
-  championCard: {
-    borderWidth: 2,
-    borderBottomWidth: 4,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
-  championRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  championAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-  },
-  championMeta: {
-    flex: 1,
-    gap: 4,
-    minWidth: 0,
-  },
-  championTeam: {
-    fontSize: FontSize.lg,
-    fontWeight: FontWeight.extrabold,
-  },
-  championPoints: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.bold,
-  },
-  row: {
-    borderWidth: 2,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  rowCompact: {
-    paddingVertical: Spacing.sm,
-  },
-  rankWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-  },
-  rank: {
-    fontWeight: '900',
-    fontSize: FontSize.md,
-    fontVariant: ['tabular-nums'],
-  },
-  avatarWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    flexShrink: 0,
-  },
-  avatar: {
-    width: '100%',
-    height: '100%',
-  },
-  main: {
-    flex: 1,
-    gap: 2,
-    minWidth: 0,
-  },
-  teamId: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.bold,
-  },
-  meta: {
-    fontSize: FontSize.xs,
   },
 });

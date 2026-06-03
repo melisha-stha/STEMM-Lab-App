@@ -1,6 +1,7 @@
 import { PanelMuted, usePanelTheme } from '@/components/ui/activity-color-panel';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/design';
+import { formatChallengeClock } from '@/utils/formatters/duration';
 import { withPixelFontStyle } from '@/hooks/use-pixel-font';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import React from 'react';
@@ -8,12 +9,7 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 
 export const EXPERIMENT_CHALLENGE_LIMIT_MS = 25 * 60 * 1000;
 
-export function formatChallengeClock(ms: number): string {
-  const totalSec = Math.ceil(ms / 1000);
-  const minutes = Math.floor(totalSec / 60);
-  const seconds = totalSec % 60;
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-}
+export { formatChallengeClock } from '@/utils/formatters/duration';
 
 type Props = {
   pixelFamily: string | undefined;

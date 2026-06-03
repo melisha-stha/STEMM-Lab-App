@@ -1,6 +1,5 @@
 import { Radius, Spacing } from '@/constants/design';
 import { getAdMobBannerUnitId } from '@/hooks/notifications';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import Constants from 'expo-constants';
 import React from 'react';
@@ -26,13 +25,9 @@ if (!isExpoGo && Platform.OS !== 'web') {
 const useRealAds = !isExpoGo && BannerAd != null;
 
 export default function AdBanner() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const cardSky = useThemeColor({}, 'cardSky');
   const cardSkyBorder = useThemeColor({}, 'cardSkyBorder');
   const cardSkyText = useThemeColor({}, 'cardSkyText');
-  const mutedText = useThemeColor({}, 'mutedText');
 
   if (Platform.OS === 'web') return null;
 
@@ -42,12 +37,12 @@ export default function AdBanner() {
         style={[
           styles.previewCard,
           {
-            backgroundColor: isDark ? `${cardSky}33` : cardSky,
+            backgroundColor: cardSky,
             borderColor: cardSkyBorder,
           },
         ]}>
         <Text style={[styles.previewTitle, { color: cardSkyText }]}>AdMob Preview</Text>
-        <Text style={[styles.previewSubtitle, { color: mutedText }]}>
+        <Text style={[styles.previewSubtitle, { color: cardSkyText, opacity: 0.78 }]}>
           Real ads appear in APK / dev build
         </Text>
       </View>

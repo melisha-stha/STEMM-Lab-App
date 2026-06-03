@@ -1,18 +1,58 @@
-import { SectionCard } from '@/components/ui/section-card';
 import { Radius, Spacing, Typography } from '@/constants/design';
-import { formatLabJournalSavedAt, type LabJournalEntry } from '@/hooks/lab-journal';
+import { formatLocaleDateTime } from '@/utils/formatters/date';
+import {
+  formatLabJournalSavedAt,
+  getActivityDisplayName,
+  type LabJournalEntry,
+} from '@/utils/formatters/lab-journal';
 import { withPixelFontStyle } from '@/hooks/use-pixel-font';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+
+export type TeamTrialRow = {
+  id: number;
+  teamName?: string;
+  activity?: string;
+  time?: number;
+  createdAt?: string;
+};
+
+function formatTrialSummary(activity: string, time: number | undefined): string {
+  const value = Number(time);
+  if (!Number.isFinite(value)) return 'Result recorded';
+  switch (activity) {
+    case 'parachute':
+      return `${(value / 1000).toFixed(2)} s drop`;
+    case 'sound':
+      return `${value} dB peak`;
+    case 'earthquake':
+      return `${value}/100 score`;
+    case 'reaction':
+      return `${value} ms`;
+    case 'breathing':
+      return `${value} BPM`;
+    case 'handfan':
+      return `${value} N`;
+    case 'performance':
+      return `Metric ${value}`;
+    default:
+      return String(value);
+  }
+}
+
+type JournalListItem =
+  | { kind: 'reflection'; sortAt: number; entry: LabJournalEntry }
+  | { kind: 'trial'; sortAt: number; trial: TeamTrialRow };
 
 type LabJournalSectionProps = {
   entries: LabJournalEntry[];
+  trials: TeamTrialRow[];
   loading: boolean;
   pixelFontLoaded: boolean;
   pixelFamily: string | null | undefined;
-  textColor: string;
-  mutedTextColor: string;
   borderColor: string;
   cardBackground: string;
   cardBorder: string;
@@ -22,27 +62,47 @@ type LabJournalSectionProps = {
 
 export function LabJournalSection({
   entries,
+  trials,
   loading,
   pixelFontLoaded,
   pixelFamily,
-  textColor,
-  mutedTextColor,
   borderColor,
   cardBackground,
   cardBorder,
   cardShadow,
   accentColor,
 }: LabJournalSectionProps) {
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
-  const reflectionCount = entries.length;
+  const ink = accentColor;
+  const inkMuted = accentColor;
+  const quoteSurface = 'rgba(255, 255, 255, 0.92)';
+  const totalCount = entries.length + trials.length;
+
+  const sortedItems = useMemo((): JournalListItem[] => {
+    const items: JournalListItem[] = entries.map((entry) => ({
+      kind: 'reflection',
+      sortAt: entry.createdAt,
+      entry,
+    }));
+    for (const trial of trials) {
+      const parsed = trial.createdAt ? Date.parse(trial.createdAt) : NaN;
+      items.push({
+        kind: 'trial',
+        sortAt: Number.isFinite(parsed) ? parsed : 0,
+        trial,
+      });
+    }
+    return items.sort((a, b) => b.sortAt - a.sortAt);
+  }, [entries, trials]);
 
   const toggleTitle =
     pixelFontLoaded && pixelFamily ? (
-      <Text style={withPixelFontStyle(pixelFamily, styles.toggleTitle, { color: textColor })}>
-        Lab Journal — Saved reflections
+      <Text style={withPixelFontStyle(pixelFamily, styles.toggleTitle, { color: ink })}>
+        Lab Journal
       </Text>
     ) : (
-      <Text style={[styles.toggleTitle, { color: textColor }]}>Lab Journal — Saved reflections</Text>
+      <Text style={[styles.toggleTitle, { color: ink }]}>Lab Journal</Text>
     );
 
   return (
@@ -50,9 +110,9 @@ export function LabJournalSection({
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel="Lab Journal saved reflections"
+        accessibilityLabel="Lab Journal"
         accessibilityHint={
-          expanded ? 'Collapse saved reflections' : 'Expand to view saved reflections'
+          expanded ? 'Collapse lab journal' : 'Expand to view reflections and saved attempts'
         }
         onPress={() => setExpanded((prev) => !prev)}
         style={({ pressed }) => [
@@ -65,99 +125,154 @@ export function LabJournalSection({
           },
         ]}>
         <View style={styles.toggleRow}>
-          <MaterialIcons name="menu-book" size={24} color={accentColor} />
+          <MaterialIcons name="menu-book" size={24} color={ink} />
           <View style={styles.toggleTextBlock}>
             {toggleTitle}
-            <Text style={[styles.toggleHint, { color: mutedTextColor }]}>
+            <Text style={[styles.toggleHint, { color: inkMuted, opacity: 0.85 }]}>
               {expanded
-                ? 'Tap to hide your team\'s saved reflections'
-                : 'Tap to view your team\'s saved reflections'}
+                ? 'Tap to hide — tap any row for full details'
+                : 'Reflections and saved attempts in one place'}
             </Text>
           </View>
-          {reflectionCount > 0 ? (
-            <View style={[styles.countBadge, { borderColor: cardBorder, backgroundColor: cardBackground }]}>
-              <Text style={[styles.countBadgeText, { color: accentColor }]}>{reflectionCount}</Text>
+          {totalCount > 0 ? (
+            <View style={[styles.countBadge, { borderColor: cardBorder, backgroundColor: quoteSurface }]}>
+              <Text style={[styles.countBadgeText, { color: ink }]}>{totalCount}</Text>
             </View>
           ) : null}
-          <MaterialIcons
-            name={expanded ? 'expand-less' : 'expand-more'}
-            size={28}
-            color={mutedTextColor}
-          />
+          <MaterialIcons name={expanded ? 'expand-less' : 'expand-more'} size={28} color={ink} />
         </View>
       </Pressable>
 
       {expanded ? (
-        <SectionCard>
-          <Text style={[styles.subtitle, { color: mutedTextColor }]}>
-            Your team&apos;s saved reflections from completed activities.
+        <View
+          style={[
+            styles.panel,
+            {
+              backgroundColor: cardBackground,
+              borderColor: cardBorder,
+              borderBottomColor: cardShadow,
+            },
+          ]}>
+          <Text style={[styles.subtitle, { color: ink, opacity: 0.9 }]}>
+            Your team&apos;s reflections and device-saved activity attempts. Tap a row to open full
+            results.
           </Text>
 
           {loading ? (
-            <ActivityIndicator size="small" color={accentColor} style={styles.loader} />
-          ) : entries.length === 0 ? (
+            <ActivityIndicator size="small" color={ink} style={styles.loader} />
+          ) : sortedItems.length === 0 ? (
             <View
               style={[
                 styles.emptyState,
                 {
-                  backgroundColor: cardBackground,
+                  backgroundColor: quoteSurface,
                   borderColor: cardBorder,
-                  borderBottomColor: cardShadow,
                 },
               ]}>
-              <Text style={[styles.emptyTitle, { color: textColor }]}>No reflections yet</Text>
-              <Text style={[styles.emptyBody, { color: mutedTextColor }]}>
-                Complete an activity and submit a reflection to build your team&apos;s lab journal.
+              <Text style={[styles.emptyTitle, { color: ink }]}>Nothing saved yet</Text>
+              <Text style={[styles.emptyBody, { color: ink, opacity: 0.85 }]}>
+                Complete an activity, save your results, and add a reflection to see entries here.
               </Text>
             </View>
           ) : (
             <View style={styles.list}>
-              {entries.map((entry) => {
-                const savedLabel = formatLabJournalSavedAt(entry.createdAt);
+              {sortedItems.map((item) => {
+                if (item.kind === 'reflection') {
+                  const { entry } = item;
+                  const savedLabel = formatLabJournalSavedAt(entry.createdAt);
+                  return (
+                    <Pressable
+                      key={`reflection-${entry.id}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`View ${entry.activityName} reflection`}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/lab-journal-detail' as any,
+                          params: {
+                            mode: 'reflection',
+                            activityKey: entry.activityKey,
+                            createdAt: String(entry.createdAt),
+                          },
+                        })
+                      }
+                      style={({ pressed }) => [
+                        styles.entryCard,
+                        {
+                          backgroundColor: quoteSurface,
+                          borderColor: cardBorder,
+                          opacity: pressed ? 0.9 : 1,
+                        },
+                      ]}>
+                      <View style={styles.entryHeader}>
+                        <View style={[styles.kindPill, { borderColor: cardBorder }]}>
+                          <Text style={[styles.kindPillText, { color: ink }]}>Reflection</Text>
+                        </View>
+                        <MaterialIcons name="chevron-right" size={22} color={ink} />
+                      </View>
+                      <Text style={[styles.activityLabel, { color: ink }]}>{entry.activityName}</Text>
+                      {savedLabel ? (
+                        <Text style={[styles.metaLine, { color: ink, opacity: 0.85 }]}>{savedLabel}</Text>
+                      ) : null}
+                      <Text style={[styles.summaryLine, { color: ink }]}>{entry.resultSummary}</Text>
+                      <View style={[styles.quoteBlock, { borderLeftColor: cardBorder }]}>
+                        <Text style={[styles.commentText, { color: ink }]} numberOfLines={4}>
+                          {entry.reflectionText}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                }
+
+                const { trial } = item;
+                const activity = String(trial.activity ?? '');
+                const parsedAt = trial.createdAt ? Date.parse(trial.createdAt) : NaN;
+                const savedAt = Number.isFinite(parsedAt) ? formatLocaleDateTime(parsedAt) : null;
                 return (
-                  <View
-                    key={entry.id}
-                    style={[
+                  <Pressable
+                    key={`trial-${trial.id}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View ${getActivityDisplayName(activity)} attempt`}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/lab-journal-detail' as any,
+                        params: { mode: 'trial', trialId: String(trial.id) },
+                      })
+                    }
+                    style={({ pressed }) => [
                       styles.entryCard,
                       {
-                        backgroundColor: cardBackground,
+                        backgroundColor: quoteSurface,
                         borderColor: cardBorder,
-                        borderBottomColor: cardShadow,
+                        opacity: pressed ? 0.9 : 1,
                       },
                     ]}>
                     <View style={styles.entryHeader}>
-                      <Text style={[styles.activityLabel, { color: accentColor }]}>
-                        {entry.activityName}
-                      </Text>
-                      <View style={[styles.activityBadge, { borderColor: cardBorder }]}>
-                        <Text style={[styles.activityBadgeText, { color: mutedTextColor }]}>
-                          {entry.activityKey}
-                        </Text>
+                      <View style={[styles.kindPill, { borderColor: cardBorder }]}>
+                        <Text style={[styles.kindPillText, { color: ink }]}>Saved attempt</Text>
                       </View>
+                      <MaterialIcons name="chevron-right" size={22} color={ink} />
                     </View>
-                    {savedLabel ? (
-                      <Text style={[styles.metaLine, { color: mutedTextColor }]}>{savedLabel}</Text>
+                    <Text style={[styles.activityLabel, { color: ink }]}>
+                      {getActivityDisplayName(activity)}
+                    </Text>
+                    {savedAt ? (
+                      <Text style={[styles.metaLine, { color: ink, opacity: 0.85 }]}>{savedAt}</Text>
                     ) : null}
-                    <Text style={[styles.summaryLine, { color: textColor }]}>
-                      {entry.resultSummary}
+                    <Text style={[styles.summaryLine, { color: ink }]}>
+                      {formatTrialSummary(activity, trial.time)}
                     </Text>
-                    <View style={[styles.quoteBlock, { borderLeftColor: accentColor }]}>
-                      <Text style={[styles.commentText, { color: textColor }]}>
-                        {entry.reflectionText}
-                      </Text>
-                    </View>
-                    <Text style={[styles.teamLine, { color: mutedTextColor }]}>
-                      {entry.teamName || 'Your team'}
+                    <Text style={[styles.teamLine, { color: ink, opacity: 0.85 }]}>
+                      Synced on this device · tap for GPS and video details
                     </Text>
-                  </View>
+                  </Pressable>
                 );
               })}
             </View>
           )}
-          <Text style={[styles.privacyNote, { color: mutedTextColor, borderTopColor: borderColor }]}>
-            Only reflections from this team are shown on this device.
+          <Text style={[styles.privacyNote, { color: ink, opacity: 0.85, borderTopColor: cardBorder }]}>
+            Only this team&apos;s records on this device are shown.
           </Text>
-        </SectionCard>
+        </View>
       ) : null}
     </View>
   );
@@ -208,10 +323,16 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
+  panel: {
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
   subtitle: {
     ...Typography.small,
     lineHeight: 18,
-    marginBottom: Spacing.sm,
   },
   loader: {
     alignSelf: 'center',
@@ -221,8 +342,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing.md,
-    borderWidth: 2,
-    borderBottomWidth: 4,
+    borderWidth: 1,
     borderRadius: Radius.lg,
     alignItems: 'center',
   },
@@ -242,8 +362,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   entryCard: {
-    borderWidth: 2,
-    borderBottomWidth: 4,
+    borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
     gap: 6,
@@ -254,23 +373,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.sm,
   },
-  activityLabel: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.4,
-  },
-  activityBadge: {
+  kindPill: {
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  activityBadgeText: {
-    ...Typography.small,
+  kindPillText: {
     fontSize: 10,
     fontWeight: '800',
-    textTransform: 'lowercase',
+    letterSpacing: 0.3,
+  },
+  activityLabel: {
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.4,
   },
   metaLine: {
     ...Typography.small,
@@ -284,12 +401,13 @@ const styles = StyleSheet.create({
   quoteBlock: {
     borderLeftWidth: 3,
     paddingLeft: Spacing.sm,
-    marginTop: 2,
+    marginTop: 4,
   },
   commentText: {
     ...Typography.body,
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
+    fontWeight: '500',
   },
   teamLine: {
     ...Typography.small,
@@ -301,7 +419,7 @@ const styles = StyleSheet.create({
     ...Typography.small,
     fontSize: 12,
     lineHeight: 17,
-    marginTop: Spacing.md,
+    marginTop: Spacing.sm,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
   },

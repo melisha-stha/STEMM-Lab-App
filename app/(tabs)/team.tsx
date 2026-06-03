@@ -25,7 +25,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TeamScreenBackground, useTeamScreenBackground } from '@/components/ui/team-screen-background';
 import { auth } from '@/hooks/firebaseConfig';
 import { filterTrialsByTeam, getTrials } from '@/hooks/database';
-import { loadLabJournalEntries, type LabJournalEntry } from '@/hooks/lab-journal';
+import { loadLabJournalEntries, type LabJournalEntry } from '@/utils/formatters/lab-journal';
+import { formatYearLevelLabel, stripYearLevelPrefix } from '@/utils/formatters/team';
 
 type AvatarKey = 'ben' | 'girl' | 'frog' | 'bunny' | 'cat' | 'fox';
 
@@ -91,6 +92,7 @@ export default function TeamTabScreen() {
   const cardLavenderBorder = useThemeColor({}, 'cardLavenderBorder');
   const cardLavenderShadow = useThemeColor({}, 'cardLavenderShadow');
   const cardLavenderText = useThemeColor({}, 'cardLavenderText');
+  const cardBadgeBg = useThemeColor({}, 'cardBadgeBg');
   const cardSky = useThemeColor({}, 'cardSky');
   const cardSkyBorder = useThemeColor({}, 'cardSkyBorder');
   const cardSkyShadow = useThemeColor({}, 'cardSkyShadow');
@@ -108,9 +110,9 @@ export default function TeamTabScreen() {
   const deviceBattery = useDeviceBattery();
 
   const batteryFillColor = (() => {
-    if (deviceBattery.isCharging) return primary;
+    if (deviceBattery.isCharging) return cardMintBorder;
     const level = deviceBattery.levelPercent;
-    if (level == null) return mutedText;
+    if (level == null) return cardMintText;
     if (level >= 50) return cardMintText;
     if (level >= 20) return cardYellowText;
     return danger;
@@ -128,7 +130,7 @@ export default function TeamTabScreen() {
       setPendingAvatarKey(avatarKey);
       setForm({
         teamName: data?.name ?? '',
-        yearLevel: (data?.yearLevel ?? '').toString().replace(/^Year\s*/i, ''),
+        yearLevel: stripYearLevelPrefix((data?.yearLevel ?? '').toString()),
         learningLevel: (data?.learningLevel as any) ?? '',
         members: Array.isArray(data?.members) && data.members.length ? data.members : [''],
         avatarKey,
@@ -255,7 +257,7 @@ export default function TeamTabScreen() {
   const yearDisplay = (() => {
     const raw = (team?.yearLevel ?? team?.grade ?? '').toString().trim();
     if (!raw) return '—';
-    return /^year\s+/i.test(raw) ? raw : `Year ${raw}`;
+    return formatYearLevelLabel(raw);
   })();
   const levelDisplay =
     team?.learningLevel === 'lower_secondary'
@@ -304,6 +306,7 @@ export default function TeamTabScreen() {
         yearLevel: team.yearLevel ?? team.grade,
         learningLevel: team.learningLevel ?? null,
         avatarKey: pendingAvatarKey,
+        id: team.id,
       });
       const refreshed = await getTeamData();
       if (refreshed) {
@@ -350,14 +353,13 @@ export default function TeamTabScreen() {
 
     setIsSaving(true);
     try {
-      const yearLabel = form.yearLevel.trim().toLowerCase().startsWith('year ')
-        ? form.yearLevel.trim()
-        : `Year ${form.yearLevel.trim()}`;
+      const yearLabel = formatYearLevelLabel(form.yearLevel.trim());
 
       await saveTeamData(form.teamName.trim(), cleanedMembers, team.grade || yearLabel, {
         yearLevel: yearLabel,
         learningLevel: form.learningLevel || team.learningLevel || null,
         avatarKey: form.avatarKey,
+        id: team.id,
       });
 
       const refreshed = await getTeamData();
@@ -438,9 +440,11 @@ export default function TeamTabScreen() {
                 <Text style={[styles.metaLine, { color: cardLavenderText, opacity: 0.9 }]}>{yearDisplay}</Text>
                 <Text style={[styles.metaLine, { color: cardLavenderText, opacity: 0.9 }]}>{levelDisplay}</Text>
 
-                <View style={[styles.idBadge, { backgroundColor: primarySoft, borderColor: primary }]}>
-                  <MaterialIcons name="verified" size={16} color={primary} />
-                  <Text style={[styles.idBadgeText, { color: primary }]}>Team ID: {team?.id ? String(team.id) : '—'}</Text>
+                <View style={[styles.idBadge, { backgroundColor: cardBadgeBg, borderColor: cardLavenderBorder }]}>
+                  <MaterialIcons name="verified" size={16} color={cardLavenderText} />
+                  <Text style={[styles.idBadgeText, { color: cardLavenderText }]}>
+                    Team ID: {team?.id ? String(team.id) : '—'}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -529,87 +533,6 @@ export default function TeamTabScreen() {
 
           <PrimaryButton label={editOpen ? 'Close editor' : 'Edit team details'} variant="secondary" onPress={editOpen ? closeEdit : openEdit} />
 
-          <View style={styles.sectionHeaderRow}>
-            {pixelFontLoaded ? (
-              <Text style={withPixelFontStyle(pixelFamily, styles.sectionTitle, { color: text })}>
-                Device battery
-              </Text>
-            ) : (
-              <Text style={[styles.sectionTitle, { color: text }]}>Device battery</Text>
-            )}
-            <Text style={[styles.batterySectionHint, { color: mutedText }]}>
-              Live status from this phone — updates while you stay on this screen.
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.batteryCard,
-              {
-                backgroundColor: cardMint,
-                borderColor: cardMintBorder,
-                borderBottomColor: cardMintShadow,
-              },
-            ]}>
-            <View style={styles.batteryRow}>
-              <PixelBatteryIcon
-                percent={deviceBattery.levelPercent}
-                charging={deviceBattery.isCharging}
-                fillColor={batteryFillColor}
-                trackColor="rgba(0,0,0,0.08)"
-                borderColor={cardMintText}
-                chargingAccentColor={onPrimary}
-              />
-              <View style={styles.batteryMeta}>
-                {pixelFontLoaded ? (
-                  <Text
-                    style={withPixelFontStyle(pixelFamily, styles.batteryPercent, {
-                      color: cardMintText,
-                    })}>
-                    {batteryPercentLabel}
-                  </Text>
-                ) : (
-                  <Text style={[styles.batteryPercent, { color: cardMintText }]}>
-                    {batteryPercentLabel}
-                  </Text>
-                )}
-                <View style={styles.batteryStatusRow}>
-                  <MaterialIcons
-                    name={deviceBattery.isCharging ? 'bolt' : 'battery-std'}
-                    size={18}
-                    color={cardMintText}
-                  />
-                  <Text style={[styles.batteryStatusText, { color: cardMintText }]}>
-                    {deviceBattery.stateLabel}
-                  </Text>
-                </View>
-                <Text style={[styles.batteryHealthText, { color: cardMintText, opacity: 0.9 }]}>
-                  {deviceBattery.healthLabel}
-                </Text>
-              </View>
-            </View>
-
-            <View style={[styles.batteryInfoBlock, { borderTopColor: cardMintBorder }]}>
-              <InfoRow
-                label="Power source"
-                value={deviceBattery.isCharging ? 'External power' : 'Battery'}
-              />
-              <InfoRow label="Charge state" value={deviceBattery.stateLabel} />
-              <InfoRow
-                label="Low power mode"
-                value={deviceBattery.lowPowerMode ? 'On' : 'Off'}
-              />
-              <InfoRow
-                label="Sensor API"
-                value={
-                  deviceBattery.available
-                    ? 'Available on this device'
-                    : 'Limited (simulator or unsupported browser)'
-                }
-              />
-            </View>
-          </View>
-
           {editOpen ? (
             <SectionCard>
               <Text style={[styles.editIntro, { color: mutedText }]}>
@@ -691,6 +614,102 @@ export default function TeamTabScreen() {
             </SectionCard>
           ) : null}
 
+          <View style={styles.sectionHeaderRow}>
+            {pixelFontLoaded ? (
+              <Text style={withPixelFontStyle(pixelFamily, styles.sectionTitle, { color: text })}>
+                Device battery
+              </Text>
+            ) : (
+              <Text style={[styles.sectionTitle, { color: text }]}>Device battery</Text>
+            )}
+            <Text style={[styles.batterySectionHint, { color: mutedText }]}>
+              Live status from this phone — updates while you stay on this screen.
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.batteryCard,
+              {
+                backgroundColor: cardMint,
+                borderColor: cardMintBorder,
+                borderBottomColor: cardMintShadow,
+              },
+            ]}>
+            <View style={styles.batteryRow}>
+              <PixelBatteryIcon
+                percent={deviceBattery.levelPercent}
+                charging={deviceBattery.isCharging}
+                fillColor={batteryFillColor}
+                trackColor="rgba(0,0,0,0.08)"
+                borderColor={cardMintText}
+                chargingAccentColor={onPrimary}
+              />
+              <View style={styles.batteryMeta}>
+                {pixelFontLoaded ? (
+                  <Text
+                    style={withPixelFontStyle(pixelFamily, styles.batteryPercent, {
+                      color: cardMintText,
+                    })}>
+                    {batteryPercentLabel}
+                  </Text>
+                ) : (
+                  <Text style={[styles.batteryPercent, { color: cardMintText }]}>
+                    {batteryPercentLabel}
+                  </Text>
+                )}
+                <View style={styles.batteryStatusRow}>
+                  <MaterialIcons
+                    name={deviceBattery.isCharging ? 'bolt' : 'battery-std'}
+                    size={18}
+                    color={cardMintText}
+                  />
+                  <Text style={[styles.batteryStatusText, { color: cardMintText }]}>
+                    {deviceBattery.stateLabel}
+                  </Text>
+                </View>
+                <Text style={[styles.batteryHealthText, { color: cardMintText, opacity: 0.9 }]}>
+                  {deviceBattery.healthLabel}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.batteryInfoBlock, { borderTopColor: cardMintBorder }]}>
+              <InfoRow
+                label="Power source"
+                value={deviceBattery.isCharging ? 'External power' : 'Battery'}
+                labelColor={cardMintText}
+                valueColor={cardMintText}
+                borderColor={cardMintBorder}
+              />
+              <InfoRow
+                label="Charge state"
+                value={deviceBattery.stateLabel}
+                labelColor={cardMintText}
+                valueColor={cardMintText}
+                borderColor={cardMintBorder}
+              />
+              <InfoRow
+                label="Low power mode"
+                value={deviceBattery.lowPowerMode ? 'On' : 'Off'}
+                labelColor={cardMintText}
+                valueColor={cardMintText}
+                borderColor={cardMintBorder}
+              />
+              <InfoRow
+                label="Sensor API"
+                value={
+                  deviceBattery.available
+                    ? 'Available on this device'
+                    : 'Limited (simulator or unsupported browser)'
+                }
+                labelColor={cardMintText}
+                valueColor={cardMintText}
+                borderColor={cardMintBorder}
+              />
+            </View>
+          </View>
+
           <View
             style={[
               styles.profileCard,
@@ -746,11 +765,10 @@ export default function TeamTabScreen() {
           {team ? (
             <LabJournalSection
               entries={journalEntries}
+              trials={teamTrials}
               loading={journalLoading}
               pixelFontLoaded={pixelFontLoaded}
               pixelFamily={pixelFamily}
-              textColor={text}
-              mutedTextColor={mutedText}
               borderColor={border}
               cardBackground={cardLavender}
               cardBorder={cardLavenderBorder}
