@@ -28,11 +28,11 @@ jest.mock('expo-router', () => ({
 }));
 
 // 3. Mock Expo Notifications listeners
-const mockAddNotificationReceivedListener = jest.fn((_cb: any) => ({  // <-- updated
+const mockAddNotificationReceivedListener = jest.fn((_cb: any) => ({  
   remove: jest.fn(),
 }));
 
-const mockAddNotificationResponseReceivedListener = jest.fn((_cb: any) => ({  // <-- updated
+const mockAddNotificationResponseReceivedListener = jest.fn((_cb: any) => ({  
   remove: jest.fn(),
 }));
 

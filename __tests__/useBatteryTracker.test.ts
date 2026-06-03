@@ -82,7 +82,6 @@ describe('Battery Tracker Hook Test Suite (Melsa)', () => {
       longitude: 144.9631,
     });
 
-    // CRITICAL ASSIGNMENT CHECK: Verify it actually used the "Balanced" setting for battery optimization
     expect(Location.getCurrentPositionAsync).toHaveBeenCalledWith({
       accuracy: Location.Accuracy.Balanced,
     });
