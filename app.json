@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.stemmlab.stemmlabapp",
       "config": {
-        "googleMapsApiKey": "REPLACE_ME_WITH_GOOGLE_MAPS_API_KEY"
+        "googleMapsApiKey": "AIzaSyAU9gVtBwotB3ivD76K9reMk8_F4IpSXSQ"
       }
     },
     "android": {
@@ -20,7 +20,7 @@
       "versionCode": 1,
       "config": {
         "googleMaps": {
-          "apiKey": "REPLACE_ME_WITH_GOOGLE_MAPS_API_KEY"
+          "apiKey": "AIzaSyAU9gVtBwotB3ivD76K9reMk8_F4IpSXSQ"
         }
       },
       "adaptiveIcon": {
